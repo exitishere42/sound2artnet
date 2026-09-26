@@ -87,11 +87,12 @@
             <version>${jackson.version}</version>
         </dependency>
 
-        <!-- DDF Minim Audio Library for Beat Detection -->
+        <!-- DDF Minim Audio Library (Test MP3 Decoding) -->
         <dependency>
             <groupId>net.compartmental.code</groupId>
             <artifactId>minim</artifactId>
             <version>2.2.2</version>
+            <scope>test</scope>
         </dependency>
 
         <!-- JUnit 5 for Unit & Integration Tests -->

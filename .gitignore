@@ -11,3 +11,5 @@ tools/**/obj/
 
 native/
 tools/wasapi-loopback.exe
+dist/
+

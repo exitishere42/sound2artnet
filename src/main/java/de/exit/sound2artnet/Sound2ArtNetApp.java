@@ -6,10 +6,12 @@ import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.application.Application;
 import javafx.scene.Scene;
+import javafx.scene.image.Image;
 import javafx.stage.Stage;
 import javafx.util.Duration;
 
 import java.io.File;
+import java.io.InputStream;
 import java.util.logging.FileHandler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -54,6 +56,14 @@ public class Sound2ArtNetApp extends Application {
             scene.getStylesheets().add(css);
         } catch (Exception e) {
             LOGGER.warning("Konnte material-dark.css nicht laden: " + e.getMessage());
+        }
+
+        // App Icon
+        try (InputStream iconStream = getClass().getResourceAsStream("/icons/sound2artnet.png")) {
+            if (iconStream != null) {
+                stage.getIcons().add(new Image(iconStream));
+            }
+        } catch (Exception ignored) {
         }
 
         stage.setTitle("sound2artnet");

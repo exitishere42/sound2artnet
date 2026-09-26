@@ -46,6 +46,12 @@ Optisch und im Aufbau besitzt **sound2artnet** exakt das gleiche dunkle Material
 - **Apache Maven 3.8+**
 
 ### Anwendung starten (GUI)
+Unter Linux (AppImage):
+```bash
+chmod +x sound2artnet-x86_64.AppImage
+./sound2artnet-x86_64.AppImage
+```
+
 Per Startskript unter Windows:
 ```cmd
 run.bat
@@ -53,6 +59,12 @@ run.bat
 Oder direkt über Maven:
 ```bash
 mvn exec:java
+```
+
+### AppImage neu bauen (Linux / WSL)
+```bash
+mvn clean package -DskipTests
+./build-appimage.sh
 ```
 
 ### Kompilieren & Tests ausführen
