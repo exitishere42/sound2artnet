@@ -3,10 +3,10 @@ set -e
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BUILD_DIR="/tmp/sound2artnet-appimage"
-JAR_SRC="$PROJECT_DIR/target/sound2artnet-1.0.0-all.jar"
+JAR_SRC=$(ls "$PROJECT_DIR"/target/sound2artnet-*-all.jar 2>/dev/null | head -n 1)
 
-if [ ! -f "$JAR_SRC" ]; then
-    echo "[!] Fat JAR nicht gefunden unter $JAR_SRC. Bitte zuerst 'mvn package' ausführen."
+if [ -z "$JAR_SRC" ] || [ ! -f "$JAR_SRC" ]; then
+    echo "[!] Fat JAR nicht gefunden unter $PROJECT_DIR/target/. Bitte zuerst 'mvn package' ausführen."
     exit 1
 fi
 
@@ -15,7 +15,7 @@ mkdir -p "$BUILD_DIR/AppDir/usr/lib/sound2artnet"
 mkdir -p "$BUILD_DIR/AppDir/usr/share/icons/hicolor/256x256/apps"
 mkdir -p "$BUILD_DIR/AppDir/usr/share/applications"
 
-cp "$JAR_SRC" "$BUILD_DIR/AppDir/usr/lib/sound2artnet/sound2artnet-1.0.0-all.jar"
+cp "$JAR_SRC" "$BUILD_DIR/AppDir/usr/lib/sound2artnet/sound2artnet.jar"
 cp "$PROJECT_DIR/sound2artnet.png" "$BUILD_DIR/AppDir/sound2artnet.png"
 cp "$PROJECT_DIR/sound2artnet.png" "$BUILD_DIR/AppDir/.DirIcon"
 cp "$PROJECT_DIR/sound2artnet.png" "$BUILD_DIR/AppDir/usr/share/icons/hicolor/256x256/apps/sound2artnet.png"
@@ -25,7 +25,7 @@ cat > "$BUILD_DIR/AppDir/sound2artnet.desktop" << 'EOF'
 [Desktop Entry]
 Type=Application
 Name=sound2artnet
-Comment=Sound-to-Light & Moving Head Art-Net Controlle
+Comment=Sound-to-Light & Moving Head Art-Net Controller
 Exec=AppRun
 Icon=sound2artnet
 Categories=AudioVideo;Audio;
@@ -37,7 +37,7 @@ cp "$BUILD_DIR/AppDir/sound2artnet.desktop" "$BUILD_DIR/AppDir/usr/share/applica
 cat > "$BUILD_DIR/AppDir/AppRun" << 'EOF'
 #!/usr/bin/env bash
 HERE="$(dirname "$(readlink -f "${0}")")"
-JAR_FILE="$HERE/usr/lib/sound2artnet/sound2artnet-1.0.0-all.jar"
+JAR_FILE="$HERE/usr/lib/sound2artnet/sound2artnet.jar"
 if ! command -v java &> /dev/null; then
     echo "[!] Fehler: Java 21+ (java) wurde nicht gefunden. Bitte openjdk-21-jre installieren." >&2
     exit 1

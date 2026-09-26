@@ -10,7 +10,7 @@ set -e
 REPO="exitishere42/sound2artnet"
 INSTALL_DIR="${INSTALL_DIR:-$HOME/sound2artnet}"
 APP_NAME="sound2artnet"
-JAR_NAME="sound2artnet-1.0.0-all.jar"
+JAR_NAME="sound2artnet-1.1.0-all.jar"
 APPIMAGE_NAME="sound2artnet-x86_64.AppImage"
 RELEASE_BASE_URL="https://github.com/$REPO/releases/latest/download"
 RAW_BASE_URL="https://raw.githubusercontent.com/$REPO/main"
@@ -96,11 +96,11 @@ if [ -f "$INSTALL_DIR/$APPIMAGE_NAME" ]; then
 fi
 
 # Startskript run.sh im Zielordner erzeugen
-cat > "$INSTALL_DIR/run.sh" << 'EOF'
+cat > "$INSTALL_DIR/run.sh" << EOF
 #!/usr/bin/env bash
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
-exec java -jar "$SCRIPT_DIR/sound2artnet-1.0.0-all.jar" "$@"
+SCRIPT_DIR="\$(cd "\$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
+cd "\$SCRIPT_DIR"
+exec java -jar "\$SCRIPT_DIR/$JAR_NAME" "\$@"
 EOF
 chmod +x "$INSTALL_DIR/run.sh"
 

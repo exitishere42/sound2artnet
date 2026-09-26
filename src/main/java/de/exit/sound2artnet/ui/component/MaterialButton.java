@@ -44,6 +44,14 @@ public class MaterialButton extends Button {
         }
     }
 
+    public void setAction(Runnable action) {
+        setOnAction(e -> {
+            if (action != null) {
+                action.run();
+            }
+        });
+    }
+
     public void updateColors(Color bg, Color fg, String iconName, String text) {
         this.baseBg = bg;
         this.baseFg = fg;

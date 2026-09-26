@@ -40,12 +40,18 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import javafx.scene.Cursor;
+import javafx.scene.Node;
+
 /**
  * Hauptansicht der sound2artnet Anwendung im Material Design 2 Dark Theme.
  * Ästhetik und Haptik identisch zu artnet2dmx.
  */
-public class MainWindow extends VBox {
+public class MainWindow extends StackPane {
     private static final Logger LOGGER = Logger.getLogger(MainWindow.class.getName());
+
+    private final VBox contentBox = new VBox();
+    private final StackPane overlayPane = new StackPane();
 
     private final AppConfig config;
     private final AudioCaptureService audioService = new AudioCaptureService();
@@ -122,9 +128,9 @@ public class MainWindow extends VBox {
         audioService.getAnalyzer().getBeatDetector().setDetectionMode(config.getDetectionMode());
         audioService.getAnalyzer().getBeatDetector().setSensitivity(config.getBeatSensitivity());
 
-        setStyle("-fx-background-color: " + MaterialTheme.HEX_BG + ";");
-        setSpacing(0);
-        setPadding(new Insets(0, 0, 4, 0));
+        contentBox.setStyle("-fx-background-color: " + MaterialTheme.HEX_BG + ";");
+        contentBox.setSpacing(0);
+        contentBox.setPadding(new Insets(0, 0, 4, 0));
 
         buildTopAppBar();
 
@@ -150,10 +156,52 @@ public class MainWindow extends VBox {
 
         Platform.runLater(() -> splitPane.setDividerPositions(0.18, 0.32, 0.68));
 
-        getChildren().add(splitPane);
+        contentBox.getChildren().add(splitPane);
         buildStatusBar();
 
+        // In-App Modal Overlay Layer
+        overlayPane.setVisible(false);
+        overlayPane.setManaged(false);
+        overlayPane.setStyle("-fx-background-color: rgba(0, 0, 0, 0.65);");
+        overlayPane.setAlignment(Pos.CENTER);
+        overlayPane.setOnMouseClicked(e -> {
+            if (e.getTarget() == overlayPane) {
+                hideOverlay();
+            }
+        });
+
+        getChildren().addAll(contentBox, overlayPane);
+
         scanAudioDevices();
+    }
+
+    public void showOverlay(Node modalContent) {
+        overlayPane.getChildren().setAll(modalContent);
+        overlayPane.setVisible(true);
+        overlayPane.setManaged(true);
+        modalContent.setOpacity(0);
+        javafx.animation.FadeTransition ft = new javafx.animation.FadeTransition(javafx.util.Duration.millis(160), modalContent);
+        ft.setFromValue(0);
+        ft.setToValue(1);
+        ft.play();
+    }
+
+    public void hideOverlay() {
+        if (!overlayPane.getChildren().isEmpty()) {
+            Node modalContent = overlayPane.getChildren().get(0);
+            javafx.animation.FadeTransition ft = new javafx.animation.FadeTransition(javafx.util.Duration.millis(120), modalContent);
+            ft.setFromValue(1);
+            ft.setToValue(0);
+            ft.setOnFinished(e -> {
+                overlayPane.getChildren().clear();
+                overlayPane.setVisible(false);
+                overlayPane.setManaged(false);
+            });
+            ft.play();
+        } else {
+            overlayPane.setVisible(false);
+            overlayPane.setManaged(false);
+        }
     }
 
     public void autoSaveConfig() {
@@ -183,11 +231,29 @@ public class MainWindow extends VBox {
                      "; -fx-border-color: " + MaterialTheme.HEX_DIVIDER + 
                      "; -fx-border-width: 0 0 1px 0;");
 
+        // Klickbarer Logo- & Versionsbereich für Info & Updates
+        HBox logoBox = new HBox(8);
+        logoBox.setAlignment(Pos.CENTER_LEFT);
+        logoBox.setCursor(Cursor.HAND);
+        logoBox.setPadding(new Insets(3, 8, 3, 6));
+        logoBox.setStyle("-fx-background-radius: 6px; -fx-background-color: transparent;");
+        logoBox.setOnMouseEntered(e -> logoBox.setStyle("-fx-background-radius: 6px; -fx-background-color: " + MaterialTheme.HEX_SURFACE_4DP + ";"));
+        logoBox.setOnMouseExited(e -> logoBox.setStyle("-fx-background-radius: 6px; -fx-background-color: transparent;"));
+
         LucideIcon iconLogo = new LucideIcon("music", 20, MaterialTheme.COLOR_PRIMARY);
 
         Label title = new Label("sound2artnet");
         title.setTextFill(MaterialTheme.COLOR_TEXT_HIGH);
         title.setFont(Font.font(MaterialTheme.FONT_FAMILY, FontWeight.BOLD, 15));
+
+        Label versionBadge = new Label("v" + de.exit.sound2artnet.service.UpdateService.CURRENT_VERSION);
+        versionBadge.setStyle("-fx-background-color: " + MaterialTheme.HEX_SURFACE_4DP + 
+                             "; -fx-text-fill: " + MaterialTheme.HEX_TEXT_MED + 
+                             "; -fx-font-size: 10px; -fx-font-weight: bold; -fx-padding: 2px 6px; -fx-background-radius: 8px;");
+
+        logoBox.getChildren().addAll(iconLogo, title, versionBadge);
+        logoBox.setOnMouseClicked(e -> de.exit.sound2artnet.ui.AboutUpdateDialog.show(MainWindow.this));
+        MaterialTooltip.install(logoBox, "sound2artnet", "Klicken für Versionsinformationen & automatische Updates");
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
@@ -204,8 +270,8 @@ public class MainWindow extends VBox {
         chipLabel.setFont(Font.font(MaterialTheme.FONT_FAMILY, FontWeight.BOLD, 11));
         chip.getChildren().addAll(chipIcon, chipLabel);
 
-        bar.getChildren().addAll(iconLogo, title, spacer, chip);
-        getChildren().add(bar);
+        bar.getChildren().addAll(logoBox, spacer, chip);
+        contentBox.getChildren().add(bar);
     }
 
     private Region buildMetricsCard() {
@@ -727,7 +793,7 @@ public class MainWindow extends VBox {
         statusLabel.setFont(Font.font("Segoe UI", 11));
 
         bar.getChildren().add(statusLabel);
-        getChildren().add(bar);
+        contentBox.getChildren().add(bar);
     }
 
     private VBox createControlBox(String title, String tooltipTitle, String tooltipText) {

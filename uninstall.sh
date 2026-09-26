@@ -16,9 +16,9 @@ echo "  sound2artnet - Linux Uninstaller"
 echo "=================================================================="
 
 # 1. Laufende Instanzen beenden (falls aktiv)
-if pgrep -f "sound2artnet-1.0.0-all.jar|sound2artnet-x86_64.AppImage" &> /dev/null; then
+if pgrep -f "sound2artnet.*\.jar|sound2artnet.*\.AppImage" &> /dev/null; then
     echo "[*] Beende laufende sound2artnet-Instanz..."
-    pkill -f "sound2artnet-1.0.0-all.jar|sound2artnet-x86_64.AppImage" || true
+    pkill -f "sound2artnet.*\.jar|sound2artnet.*\.AppImage" || true
     sleep 1
 fi
 

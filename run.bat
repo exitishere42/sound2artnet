@@ -6,8 +6,13 @@ echo ==================================================================
 echo   Starte sound2artnet (JavaFX 21 LTS)
 echo ==================================================================
 
-if exist "target\sound2artnet-1.0.0-all.jar" (
-    java -jar target\sound2artnet-1.0.0-all.jar %*
+set "FOUND_JAR="
+for %%f in (target\sound2artnet-*-all.jar) do (
+    set "FOUND_JAR=%%f"
+)
+
+if defined FOUND_JAR (
+    java -jar "%FOUND_JAR%" %*
 ) else (
     echo Fat JAR nicht gefunden. Starte via Maven exec:java...
     call mvn exec:java -Dexec.args="%*"

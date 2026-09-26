@@ -6,8 +6,9 @@ echo "=================================================================="
 echo "  Starte sound2artnet (JavaFX 21 LTS)"
 echo "=================================================================="
 
-if [ -f "target/sound2artnet-1.0.0-all.jar" ]; then
-    java -jar target/sound2artnet-1.0.0-all.jar "$@"
+JAR=$(ls target/sound2artnet-*-all.jar 2>/dev/null | head -n 1)
+if [ -n "$JAR" ] && [ -f "$JAR" ]; then
+    java -jar "$JAR" "$@"
 else
     echo "Fat JAR nicht gefunden. Starte via Maven exec:java..."
     mvn exec:java -Dexec.args="$*"
