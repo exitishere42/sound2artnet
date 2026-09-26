@@ -1,0 +1,13 @@
+target/
+.idea/
+*.iml
+app.log*
+dependency-reduced-pom.xml
+config.json
+scratch/
+tools/**/bin/
+tools/**/obj/
+*.pdb
+
+native/
+tools/wasapi-loopback.exe

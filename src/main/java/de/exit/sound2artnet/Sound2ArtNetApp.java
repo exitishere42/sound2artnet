@@ -1,0 +1,104 @@
+package de.exit.sound2artnet;
+
+import de.exit.sound2artnet.ui.MainWindow;
+import de.exit.sound2artnet.ui.MaterialTheme;
+import javafx.animation.KeyFrame;
+import javafx.animation.Timeline;
+import javafx.application.Application;
+import javafx.scene.Scene;
+import javafx.stage.Stage;
+import javafx.util.Duration;
+
+import java.io.File;
+import java.util.logging.FileHandler;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.logging.SimpleFormatter;
+
+/**
+ * JavaFX Hauptanwendung für sound2artnet.
+ */
+public class Sound2ArtNetApp extends Application {
+    private static final Logger LOGGER = Logger.getLogger(Sound2ArtNetApp.class.getName());
+
+    static {
+        System.setProperty("java.util.logging.SimpleFormatter.format", "[%1$tT] [%4$-7s] %5$s%n");
+        try {
+            Logger rootLogger = Logger.getLogger("");
+            FileHandler fileHandler = new FileHandler("app.log", 5 * 1024 * 1024, 2, true);
+            fileHandler.setFormatter(new SimpleFormatter());
+            fileHandler.setLevel(Level.INFO);
+            rootLogger.addHandler(fileHandler);
+        } catch (Exception e) {
+            System.err.println("Konnte FileHandler für app.log nicht initialisieren: " + e.getMessage());
+        }
+    }
+
+    private MainWindow mainWindow;
+    private Timeline tickTimeline;
+
+    @Override
+    public void start(Stage stage) {
+        LOGGER.info("==================================================================");
+        LOGGER.info("Starte sound2artnet (JavaFX 21 LTS)");
+        LOGGER.info("Log-Datei: " + new File("app.log").getAbsolutePath());
+        LOGGER.info("==================================================================");
+
+        mainWindow = new MainWindow();
+
+        Scene scene = new Scene(mainWindow, 920, 760);
+        scene.setFill(MaterialTheme.COLOR_BG);
+
+        try {
+            String css = getClass().getResource("/styles/material-dark.css").toExternalForm();
+            scene.getStylesheets().add(css);
+        } catch (Exception e) {
+            LOGGER.warning("Konnte material-dark.css nicht laden: " + e.getMessage());
+        }
+
+        stage.setTitle("sound2artnet - Sound-to-Light & Moving Head Controller");
+        stage.setScene(scene);
+        stage.setMinWidth(780);
+        stage.setMinHeight(640);
+
+        // 40 Hz Engine- und UI-Aktualisierung (alle 25 ms)
+        tickTimeline = new Timeline(new KeyFrame(Duration.millis(25), e -> mainWindow.tick()));
+        tickTimeline.setCycleCount(Timeline.INDEFINITE);
+        tickTimeline.play();
+
+        // F11 Shortcut für Vollbild / Maximieren
+        scene.setOnKeyPressed(e -> {
+            if (e.getCode() == javafx.scene.input.KeyCode.F11) {
+                stage.setMaximized(!stage.isMaximized());
+            }
+        });
+
+        stage.setOnCloseRequest(e -> {
+            LOGGER.info("Beende sound2artnet...");
+            if (tickTimeline != null) {
+                tickTimeline.stop();
+            }
+            if (mainWindow != null) {
+                mainWindow.stopService();
+            }
+        });
+
+        Parameters params = getParameters();
+        if (params != null && (params.getRaw().contains("--maximized") || params.getRaw().contains("--fullscreen"))) {
+            stage.setMaximized(true);
+        }
+
+        stage.show();
+        LOGGER.info(String.format("Hauptfenster geöffnet: %.1fx%.1f", stage.getWidth(), stage.getHeight()));
+
+        if (params != null && (params.getRaw().contains("--start") || params.getRaw().contains("--autostart"))
+            || mainWindow.getConfig().isAutostart()) {
+            LOGGER.info("Autostart aktiv -> Starte Sound2ArtNet Dienst...");
+            mainWindow.toggleService();
+        }
+    }
+
+    public static void main(String[] args) {
+        launch(args);
+    }
+}
