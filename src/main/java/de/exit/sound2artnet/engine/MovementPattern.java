@@ -1,5 +1,7 @@
 package de.exit.sound2artnet.engine;
 
+import de.exit.sound2artnet.util.I18n;
+
 /**
  * Mathematische Bewegungsmuster für Moving Heads.
  */
@@ -13,16 +15,16 @@ public enum MovementPattern {
     TILT_SWING("Tilt-Swing", "Vertikales Auf- und Abschwingen"),
     BEAT_BOUNCE("Beat-Bounce", "Rhythmischer Positionssprung bei jedem Kick");
 
-    private final String displayName;
+    private final String defaultDisplayName;
     private final String description;
 
-    MovementPattern(String displayName, String description) {
-        this.displayName = displayName;
+    MovementPattern(String defaultDisplayName, String description) {
+        this.defaultDisplayName = defaultDisplayName;
         this.description = description;
     }
 
     public String getDisplayName() {
-        return displayName;
+        return I18n.get("pattern." + name().toLowerCase());
     }
 
     public String getDescription() {
@@ -31,6 +33,6 @@ public enum MovementPattern {
 
     @Override
     public String toString() {
-        return displayName;
+        return getDisplayName();
     }
 }

@@ -1,5 +1,6 @@
 package de.exit.sound2artnet.audio;
 
+import de.exit.sound2artnet.util.I18n;
 import java.util.Arrays;
 
 /**
@@ -16,19 +17,19 @@ public class BeatDetector {
         LEVEL_DETECT("Level-Detect"),
         BEAT_DETECT("Beat-Detect");
 
-        private final String displayName;
+        private final String defaultDisplayName;
 
-        DetectionMode(String displayName) {
-            this.displayName = displayName;
+        DetectionMode(String defaultDisplayName) {
+            this.defaultDisplayName = defaultDisplayName;
         }
 
         public String getDisplayName() {
-            return displayName;
+            return I18n.get("detect." + name().toLowerCase());
         }
 
         @Override
         public String toString() {
-            return displayName;
+            return getDisplayName();
         }
     }
 

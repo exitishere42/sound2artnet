@@ -114,7 +114,7 @@ public class AboutUpdateDialog {
         Label lblLatTitle = new Label(I18n.get("dialog.latest"));
         lblLatTitle.setTextFill(MaterialTheme.COLOR_TEXT_MED);
         lblLatTitle.setFont(Font.font(MaterialTheme.FONT_FAMILY, FontWeight.BOLD, 9));
-        Label lblLatVal = new Label("Prüfe...");
+        Label lblLatVal = new Label(I18n.get("dialog.checking_short"));
         lblLatVal.setTextFill(MaterialTheme.COLOR_PRIMARY);
         lblLatVal.setFont(Font.font(MaterialTheme.FONT_FAMILY, FontWeight.BOLD, 13));
         latVerBox.getChildren().addAll(lblLatTitle, lblLatVal);
@@ -215,7 +215,7 @@ public class AboutUpdateDialog {
             statusRow.getChildren().clear();
             statusRow.getChildren().addAll(spinner, lblStatus);
             lblStatus.setText(I18n.get("dialog.checking"));
-            lblLatVal.setText("Prüfe...");
+            lblLatVal.setText(I18n.get("dialog.checking_short"));
             buttonBox.getChildren().clear();
             txtNotes.setVisible(false);
             txtNotes.setManaged(false);
@@ -288,7 +288,7 @@ public class AboutUpdateDialog {
                     lblStatus.setText(I18n.get("dialog.offline"));
                     lblStatus.setTextFill(Color.web("#CF6679"));
                     statusRow.getChildren().addAll(iconErr, lblStatus);
-                    lblLatVal.setText("Unbekannt");
+                    lblLatVal.setText(I18n.get("dialog.unknown"));
 
                     MaterialButton btnRetry = new MaterialButton(I18n.get("dialog.check_again"), "refresh-cw",
                             MaterialTheme.COLOR_SURFACE_4DP, MaterialTheme.COLOR_TEXT_HIGH, 12, 10, 4, 11, false, () -> checkUpdateTask[0].run());

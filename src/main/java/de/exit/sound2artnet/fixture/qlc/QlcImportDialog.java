@@ -6,6 +6,7 @@ import de.exit.sound2artnet.fixture.FixturePatch;
 import de.exit.sound2artnet.fixture.FixtureProfile;
 import de.exit.sound2artnet.ui.MaterialTheme;
 import de.exit.sound2artnet.ui.component.MaterialButton;
+import de.exit.sound2artnet.util.I18n;
 import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
@@ -66,7 +67,7 @@ public class QlcImportDialog extends Stage {
 
         initOwner(owner);
         initModality(Modality.WINDOW_MODAL);
-        setTitle("QLC+ Fixture Import: " + definition.getManufacturer() + " " + definition.getModel());
+        setTitle(I18n.get("qlc.title", definition.getManufacturer(), definition.getModel()));
 
         VBox root = new VBox(12);
         root.setPadding(new Insets(16));
@@ -95,7 +96,7 @@ public class QlcImportDialog extends Stage {
         boxMeta.setPadding(new Insets(8, 12, 8, 12));
         boxMeta.setStyle("-fx-background-color: " + MaterialTheme.HEX_SURFACE_1DP + "; -fx-border-color: " + MaterialTheme.HEX_DIVIDER + "; -fx-border-width: 1px; -fx-background-radius: 4px;");
 
-        Label lblTitle = new Label("QLC+ DEFINITION ERKANNT");
+        Label lblTitle = new Label(I18n.get("qlc.detected"));
         lblTitle.setTextFill(MaterialTheme.COLOR_PRIMARY);
         lblTitle.setFont(Font.font("Segoe UI", FontWeight.BOLD, 10));
 
@@ -114,7 +115,7 @@ public class QlcImportDialog extends Stage {
 
         VBox boxName = new VBox(4);
         HBox.setHgrow(boxName, Priority.ALWAYS);
-        Label lblName = new Label("NAME DES SCHEINWERFERS");
+        Label lblName = new Label(I18n.get("qlc.name"));
         lblName.setTextFill(MaterialTheme.COLOR_TEXT_MED);
         lblName.setFont(Font.font("Segoe UI", FontWeight.BOLD, 10));
         txtName = new TextField(definition.getManufacturer() + " " + definition.getModel());
@@ -123,7 +124,7 @@ public class QlcImportDialog extends Stage {
         VBox boxQty = new VBox(4);
         boxQty.setMinWidth(90);
         boxQty.setMaxWidth(100);
-        Label lblQty = new Label("ANZAHL");
+        Label lblQty = new Label(I18n.get("qlc.quantity"));
         lblQty.setTextFill(MaterialTheme.COLOR_TEXT_MED);
         lblQty.setFont(Font.font("Segoe UI", FontWeight.BOLD, 10));
         spQuantity = new Spinner<>(1, 32, 1);
@@ -133,7 +134,7 @@ public class QlcImportDialog extends Stage {
 
         VBox boxDmx = new VBox(4);
         boxDmx.setMinWidth(110);
-        Label lblDmx = new Label("START-ADRESSE");
+        Label lblDmx = new Label(I18n.get("qlc.start_addr"));
         lblDmx.setTextFill(MaterialTheme.COLOR_TEXT_MED);
         lblDmx.setFont(Font.font("Segoe UI", FontWeight.BOLD, 10));
         spStartAddr = new Spinner<>(1, 512, Math.max(1, Math.min(512, suggestedStartAddr)));
@@ -148,7 +149,7 @@ public class QlcImportDialog extends Stage {
         HBox row = new HBox(8);
         row.setAlignment(Pos.CENTER_LEFT);
 
-        Label lbl = new Label("DMX MODUS:");
+        Label lbl = new Label(I18n.get("qlc.mode"));
         lbl.setTextFill(MaterialTheme.COLOR_TEXT_MED);
         lbl.setFont(Font.font("Segoe UI", FontWeight.BOLD, 10));
 
@@ -171,7 +172,7 @@ public class QlcImportDialog extends Stage {
         VBox box = new VBox(4);
         VBox.setVgrow(box, Priority.ALWAYS);
 
-        Label lbl = new Label("KANAL-MAPPING VORSCHAU");
+        Label lbl = new Label(I18n.get("qlc.mapping_preview"));
         lbl.setTextFill(MaterialTheme.COLOR_TEXT_MED);
         lbl.setFont(Font.font("Segoe UI", FontWeight.BOLD, 10));
 
@@ -179,16 +180,16 @@ public class QlcImportDialog extends Stage {
         tableChannels.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         VBox.setVgrow(tableChannels, Priority.ALWAYS);
 
-        TableColumn<ChannelPreviewRow, Number> colNum = new TableColumn<>("Kanal");
+        TableColumn<ChannelPreviewRow, Number> colNum = new TableColumn<>(I18n.get("qlc.col_channel"));
         colNum.setCellValueFactory(d -> new SimpleIntegerProperty(d.getValue().getIndex() + 1));
         colNum.setMaxWidth(60);
         colNum.setStyle("-fx-alignment: CENTER; -fx-font-weight: bold;");
 
-        TableColumn<ChannelPreviewRow, String> colOrig = new TableColumn<>("QLC+ Kanalname");
+        TableColumn<ChannelPreviewRow, String> colOrig = new TableColumn<>(I18n.get("qlc.col_qlc_name"));
         colOrig.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getOriginalName()));
         colOrig.setMinWidth(150);
 
-        TableColumn<ChannelPreviewRow, ChannelFunction> colFunc = new TableColumn<>("Erkannte Funktion");
+        TableColumn<ChannelPreviewRow, ChannelFunction> colFunc = new TableColumn<>(I18n.get("qlc.col_function"));
         colFunc.setCellValueFactory(d -> new SimpleObjectProperty<>(d.getValue().getFunction()));
         colFunc.setCellFactory(col -> new TableCell<>() {
             private final ComboBox<ChannelFunction> cb = new ComboBox<>(FXCollections.observableArrayList(ChannelFunction.values()));
@@ -218,7 +219,7 @@ public class QlcImportDialog extends Stage {
         });
         colFunc.setMinWidth(180);
 
-        TableColumn<ChannelPreviewRow, Number> colDef = new TableColumn<>("Default");
+        TableColumn<ChannelPreviewRow, Number> colDef = new TableColumn<>(I18n.get("qlc.col_default"));
         colDef.setCellValueFactory(d -> new SimpleIntegerProperty(d.getValue().getDefaultValue()));
         colDef.setMaxWidth(70);
         colDef.setStyle("-fx-alignment: CENTER;");
@@ -232,8 +233,8 @@ public class QlcImportDialog extends Stage {
         HBox bar = new HBox(10);
         bar.setAlignment(Pos.CENTER_RIGHT);
 
-        MaterialButton btnCancel = new MaterialButton("Abbrechen", null, MaterialTheme.COLOR_SURFACE_2DP, MaterialTheme.COLOR_TEXT_MED, 12, 12, 6, 12, false, this::close);
-        MaterialButton btnImport = new MaterialButton("Importieren & Patchen", "plus", MaterialTheme.COLOR_PRIMARY, MaterialTheme.COLOR_ON_PRIMARY, 12, 16, 6, 12, true, this::handleImport);
+        MaterialButton btnCancel = new MaterialButton(I18n.get("btn.cancel"), null, MaterialTheme.COLOR_SURFACE_2DP, MaterialTheme.COLOR_TEXT_MED, 12, 12, 6, 12, false, this::close);
+        MaterialButton btnImport = new MaterialButton(I18n.get("btn.import_patch"), "plus", MaterialTheme.COLOR_PRIMARY, MaterialTheme.COLOR_ON_PRIMARY, 12, 16, 6, 12, true, this::handleImport);
 
         bar.getChildren().addAll(btnCancel, btnImport);
         root.getChildren().add(bar);
@@ -251,53 +252,41 @@ public class QlcImportDialog extends Stage {
     }
 
     private void handleImport() {
-        QlcFixtureDefinition.QlcMode mode = cbMode.getValue();
-        String modeName = (mode != null) ? mode.getName() : "Standard";
+        String baseName = txtName.getText().trim().isEmpty() ? definition.getModel() : txtName.getText().trim();
+        int baseStartAddr = spStartAddr.getValue();
+        int quantity = spQuantity.getValue();
 
         List<ChannelMapping> mappings = new ArrayList<>();
         for (ChannelPreviewRow row : previewRows) {
             mappings.add(new ChannelMapping(row.getIndex(), row.getFunction(), row.getDefaultValue()));
         }
 
-        String profileName = definition.getManufacturer() + " " + definition.getModel() + " (" + modeName + ")";
-        String profileId = "qlc-" + (definition.getManufacturer() + "-" + definition.getModel() + "-" + modeName)
-                .toLowerCase().replaceAll("[^a-z0-9_-]", "-");
+        FixtureProfile prof = new FixtureProfile(
+            definition.getManufacturer().toLowerCase() + "-" + definition.getModel().toLowerCase().replace(" ", "-"),
+            baseName + I18n.get("editor.profile_suffix"),
+            mappings.size(),
+            mappings
+        );
 
-        FixtureProfile profile = new FixtureProfile(profileId, profileName, mappings.size(), mappings);
-
-        String baseName = txtName.getText().trim().isEmpty() ? definition.getModel() : txtName.getText().trim();
-        int startAddr = readSpinnerValue(spStartAddr, 1);
-        int quantity = readSpinnerValue(spQuantity, 1);
         int chCount = Math.max(1, mappings.size());
-
         for (int i = 0; i < quantity; i++) {
-            int addr = startAddr + (i * chCount);
-            if (addr > 512) {
-                break;
+            int addr = baseStartAddr + (i * chCount);
+            if (addr > 512) break;
+            String instanceName = (quantity > 1) ? (baseName + " " + (i + 1)) : baseName;
+            FixturePatch patch = new FixturePatch(instanceName, addr, prof.copy());
+
+            if (definition.getPanMax() > 0) {
+                patch.setPanMax(255);
             }
-            String patchName = (quantity > 1) ? (baseName + " " + (i + 1)) : baseName;
-            FixturePatch patch = new FixturePatch(patchName, addr, profile.copy());
+            if (definition.getTiltMax() > 0) {
+                patch.setTiltMax(255);
+            }
+
             if (onImport != null) {
                 onImport.accept(patch);
             }
         }
-        close();
-    }
 
-    private static int readSpinnerValue(Spinner<Integer> spinner, int fallback) {
-        if (spinner == null) return fallback;
-        try {
-            String text = spinner.getEditor().getText().trim();
-            if (!text.isEmpty()) {
-                int val = Integer.parseInt(text);
-                SpinnerValueFactory<Integer> vf = spinner.getValueFactory();
-                if (vf instanceof SpinnerValueFactory.IntegerSpinnerValueFactory ivf) {
-                    val = Math.max(ivf.getMin(), Math.min(ivf.getMax(), val));
-                }
-                vf.setValue(val);
-                return val;
-            }
-        } catch (NumberFormatException ignored) {}
-        return spinner.getValue() != null ? spinner.getValue() : fallback;
+        close();
     }
 }

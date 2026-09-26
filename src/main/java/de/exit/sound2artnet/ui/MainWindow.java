@@ -14,6 +14,7 @@ import de.exit.sound2artnet.fixture.FixturePatch;
 import de.exit.sound2artnet.fixture.FixtureProfile;
 import de.exit.sound2artnet.ui.component.*;
 import de.exit.sound2artnet.ui.icon.LucideIcon;
+import de.exit.sound2artnet.util.I18n;
 import javafx.animation.PauseTransition;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleBooleanProperty;
@@ -23,6 +24,7 @@ import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
+import javafx.scene.Cursor;
 import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.CheckBoxTableCell;
@@ -39,9 +41,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
-import javafx.scene.Cursor;
-import javafx.scene.Node;
 
 /**
  * Hauptansicht der sound2artnet Anwendung im Material Design 2 Dark Theme.
@@ -64,38 +63,79 @@ public class MainWindow extends StackPane {
     private Label chipLabel;
 
     // Metriken
+    private Label lblInTitle;
     private Label lblAudioLevel;
+    private Label lblPeakHdr;
     private Label lblAudioPeak;
+    private Label lblBpmHdr;
     private Label lblBpm;
+    private Label lblTierHdr;
     private Label lblSpeedTier;
+    private Label lblOutTitle;
     private Label lblPps;
+    private Label lblPaketeHdr;
     private Label lblTotalPackets;
     private MetricHistoryChart chartPps;
     private AudioSpectrumView spectrumView;
 
     // Schnell-Steuerung
+    private Label lblBoxAudio;
+    private HelpBadge helpAudio;
     private ComboBox<AudioDeviceInfo> cbAudioDevice;
+    private MaterialButton btnScanAudio;
+    private Label lblBoxIp;
+    private HelpBadge helpIp;
     private TextField txtTargetIp;
+    private Label lblBoxUni;
+    private HelpBadge helpUni;
     private Spinner<Integer> spUniverse;
+    private Label lblBoxFps;
+    private HelpBadge helpFps;
     private Spinner<Integer> spFps;
+    private Label lblBoxGain;
+    private HelpBadge helpGain;
     private Slider slGain;
     private CheckBox chkAgc;
+    private Label lblBoxAction;
+    private HelpBadge helpAction;
     private MaterialButton btnAction;
+
+    // Tabs
+    private Tab tabPatches;
+    private Tab tabEngine;
 
     // Fixture & Patching Table
     private final ObservableList<FixturePatch> patchList = FXCollections.observableArrayList();
     private TableView<FixturePatch> tablePatches;
+    private TableColumn<FixturePatch, Boolean> colActive;
+    private TableColumn<FixturePatch, String> colName;
+    private TableColumn<FixturePatch, String> colProfile;
+    private TableColumn<FixturePatch, String> colDmx;
+    private TableColumn<FixturePatch, String> colLimits;
+    private TableColumn<FixturePatch, String> colPhase;
+    private MaterialButton btnAdd;
+    private MaterialButton btnEdit;
+    private MaterialButton btnDelete;
+    private MaterialButton btnImportQlc;
 
     // Engine Controls
+    private Label lblActive;
     private CheckBox chkMovementEnabled;
     private CheckBox chkLightEnabled;
     private CheckBox chkStrobeEnabled;
+    private Label lblDetectMode;
     private ComboBox<BeatDetector.DetectionMode> cbDetectionMode;
+    private Label lblBeatSens;
     private Slider slBeatSensitivity;
+    private Label lblPattern;
     private ComboBox<MovementPattern> cbPattern;
+    private Label lblSpeed;
     private Slider slSpeed;
+    private Label lblAmp;
     private Slider slAmplitude;
+    private Label lblDimmer;
     private ComboBox<Sound2LightEngine.DimmerMode> cbDimmerMode;
+    private Label lblPal;
     private ComboBox<ColorEngine.Palette> cbPalette;
 
     // Visualizer & Status
@@ -104,6 +144,8 @@ public class MainWindow extends StackPane {
 
     private boolean isRunning = false;
     private long lastChartUpdate = 0;
+
+    private record ControlBox(VBox box, Label titleLabel, HelpBadge helpBadge) {}
 
     public MainWindow() {
         this.config = ConfigManager.loadConfig();
@@ -128,18 +170,8 @@ public class MainWindow extends StackPane {
         audioService.getAnalyzer().getBeatDetector().setDetectionMode(config.getDetectionMode());
         audioService.getAnalyzer().getBeatDetector().setSensitivity(config.getBeatSensitivity());
 
-        de.exit.sound2artnet.util.I18n.setLanguage(config.getLanguage());
-        de.exit.sound2artnet.util.I18n.addListener(lang -> {
-            Platform.runLater(() -> {
-                if (!isRunning) {
-                    chipLabel.setText(de.exit.sound2artnet.util.I18n.get("status.ready"));
-                    btnAction.setText(de.exit.sound2artnet.util.I18n.get("btn.start"));
-                } else {
-                    chipLabel.setText(de.exit.sound2artnet.util.I18n.get("status.active"));
-                    btnAction.setText(de.exit.sound2artnet.util.I18n.get("btn.stop"));
-                }
-            });
-        });
+        I18n.setLanguage(config.getLanguage());
+        I18n.addListener(lang -> Platform.runLater(this::updateAllLocalizedTexts));
 
         contentBox.setStyle("-fx-background-color: " + MaterialTheme.HEX_BG + ";");
         contentBox.setSpacing(0);
@@ -186,6 +218,7 @@ public class MainWindow extends StackPane {
         getChildren().addAll(contentBox, overlayPane);
 
         scanAudioDevices();
+        updateAllLocalizedTexts();
     }
 
     public void showOverlay(Node modalContent) {
@@ -266,7 +299,7 @@ public class MainWindow extends StackPane {
 
         logoBox.getChildren().addAll(iconLogo, title, versionBadge);
         logoBox.setOnMouseClicked(e -> de.exit.sound2artnet.ui.AboutUpdateDialog.show(MainWindow.this));
-        MaterialTooltip.install(logoBox, "sound2artnet", de.exit.sound2artnet.util.I18n.get("tooltip.logo"));
+        MaterialTooltip.install(logoBox, () -> "sound2artnet", () -> I18n.get("tooltip.logo"));
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
@@ -278,7 +311,7 @@ public class MainWindow extends StackPane {
         chip.setStyle("-fx-background-color: " + MaterialTheme.HEX_SURFACE_4DP + "; -fx-background-radius: 12px;");
 
         chipIcon = new LucideIcon("circle", 10, MaterialTheme.COLOR_TEXT_MED);
-        chipLabel = new Label("BEREIT");
+        chipLabel = new Label(I18n.get("status.ready"));
         chipLabel.setTextFill(MaterialTheme.COLOR_TEXT_MED);
         chipLabel.setFont(Font.font(MaterialTheme.FONT_FAMILY, FontWeight.BOLD, 11));
         chip.getChildren().addAll(chipIcon, chipLabel);
@@ -311,7 +344,7 @@ public class MainWindow extends StackPane {
         HBox hdrIn = new HBox(4);
         hdrIn.setAlignment(Pos.CENTER_LEFT);
         LucideIcon iconMic = new LucideIcon("mic", 12, MaterialTheme.COLOR_PRIMARY);
-        Label lblInTitle = new Label("AUDIO RMS");
+        lblInTitle = new Label(I18n.get("metric.audio_rms"));
         lblInTitle.setTextFill(MaterialTheme.COLOR_TEXT_MED);
         lblInTitle.setFont(Font.font(MaterialTheme.FONT_FAMILY, FontWeight.BOLD, 10));
         hdrIn.getChildren().addAll(iconMic, lblInTitle);
@@ -321,7 +354,7 @@ public class MainWindow extends StackPane {
         colRms.getChildren().addAll(hdrIn, lblAudioLevel);
 
         VBox colPeak = new VBox(1);
-        Label lblPeakHdr = new Label("PEAK");
+        lblPeakHdr = new Label(I18n.get("metric.peak"));
         lblPeakHdr.setTextFill(MaterialTheme.COLOR_TEXT_MED);
         lblPeakHdr.setFont(Font.font(MaterialTheme.FONT_FAMILY, FontWeight.BOLD, 10));
 
@@ -336,7 +369,7 @@ public class MainWindow extends StackPane {
         tempoLabels.setMinWidth(85);
 
         VBox colBpm = new VBox(1);
-        Label lblBpmHdr = new Label("TEMPO");
+        lblBpmHdr = new Label(I18n.get("metric.tempo"));
         lblBpmHdr.setTextFill(MaterialTheme.COLOR_TEXT_MED);
         lblBpmHdr.setFont(Font.font(MaterialTheme.FONT_FAMILY, FontWeight.BOLD, 10));
 
@@ -345,11 +378,11 @@ public class MainWindow extends StackPane {
         colBpm.getChildren().addAll(lblBpmHdr, lblBpm);
 
         VBox colTier = new VBox(1);
-        Label lblTierHdr = new Label("STUFE");
+        lblTierHdr = new Label(I18n.get("metric.tier"));
         lblTierHdr.setTextFill(MaterialTheme.COLOR_TEXT_MED);
         lblTierHdr.setFont(Font.font(MaterialTheme.FONT_FAMILY, FontWeight.BOLD, 10));
 
-        lblSpeedTier = new Label("Ruhe");
+        lblSpeedTier = new Label(showEngine.getCurrentSpeedTier().getDisplayName());
         lblSpeedTier.setStyle("-fx-text-fill: " + MaterialTheme.HEX_TEXT_HIGH + "; -fx-font-weight: bold; -fx-font-size: 13px;");
         colTier.getChildren().addAll(lblTierHdr, lblSpeedTier);
 
@@ -381,7 +414,7 @@ public class MainWindow extends StackPane {
         HBox hdrOut = new HBox(4);
         hdrOut.setAlignment(Pos.CENTER_LEFT);
         LucideIcon iconOut = new LucideIcon("trending-up", 12, MaterialTheme.COLOR_ACCENT_GREEN);
-        Label lblOutTitle = new Label("ART-NET OUT");
+        lblOutTitle = new Label(I18n.get("metric.artnet_out"));
         lblOutTitle.setTextFill(MaterialTheme.COLOR_TEXT_MED);
         lblOutTitle.setFont(Font.font(MaterialTheme.FONT_FAMILY, FontWeight.BOLD, 10));
         hdrOut.getChildren().addAll(iconOut, lblOutTitle);
@@ -391,7 +424,7 @@ public class MainWindow extends StackPane {
         colOutRate.getChildren().addAll(hdrOut, lblPps);
 
         VBox colPakete = new VBox(1);
-        Label lblPaketeHdr = new Label("GESENDET");
+        lblPaketeHdr = new Label(I18n.get("metric.sent"));
         lblPaketeHdr.setTextFill(MaterialTheme.COLOR_TEXT_MED);
         lblPaketeHdr.setFont(Font.font(MaterialTheme.FONT_FAMILY, FontWeight.BOLD, 10));
 
@@ -401,7 +434,7 @@ public class MainWindow extends StackPane {
 
         outputLabels.getChildren().addAll(colOutRate, colPakete);
 
-        chartPps = new MetricHistoryChart("ART-NET (PKT/S)", MaterialTheme.COLOR_ACCENT_GREEN, 45.0);
+        chartPps = new MetricHistoryChart(I18n.get("metric.chart_title"), MaterialTheme.COLOR_ACCENT_GREEN, 45.0);
         HBox.setHgrow(chartPps, Priority.ALWAYS);
 
         outputSection.getChildren().addAll(outputLabels, chartPps);
@@ -423,8 +456,10 @@ public class MainWindow extends StackPane {
         card.setFillHeight(true);
 
         // 1. Audio-Eingang
-        VBox boxAudio = createControlBox("AUDIO QUELLE", "Eingangs-Audioquelle",
-            "Wählt das Aufnahmegerät:\n\n• Mikrofon / Line-In\n• Virtuelles Audiokabel (CABLE Output)\n• Stereo-Mixer für Desktop-Sound");
+        ControlBox boxAudioInfo = createControlBox("ctrl.audio_source", "ctrl.audio_source.tt_title", "ctrl.audio_source.tt_desc");
+        lblBoxAudio = boxAudioInfo.titleLabel();
+        helpAudio = boxAudioInfo.helpBadge();
+        VBox boxAudio = boxAudioInfo.box();
         HBox.setHgrow(boxAudio, Priority.ALWAYS);
 
         HBox rowAudio = new HBox(6);
@@ -439,14 +474,16 @@ public class MainWindow extends StackPane {
         });
         HBox.setHgrow(cbAudioDevice, Priority.ALWAYS);
 
-        MaterialButton btnScanAudio = new MaterialButton("Scan", "refresh-cw", 
+        btnScanAudio = new MaterialButton(I18n.get("btn.scan"), "refresh-cw", 
             MaterialTheme.COLOR_SURFACE_4DP, MaterialTheme.COLOR_TEXT_HIGH, 11, 8, 4, 11, true, this::scanAudioDevices);
         rowAudio.getChildren().addAll(cbAudioDevice, btnScanAudio);
         boxAudio.getChildren().add(rowAudio);
 
         // 2. Art-Net Ziel-IP
-        VBox boxIp = createControlBox("ZIEL-IP", "Art-Net Empfänger IP-Adresse",
-            "Zieladresse der Art-Net Pakete:\n\n• 127.0.0.1: Lokaler Empfang (QLC+, Resolume, GrandMA onPC)\n• 255.255.255.255: Netzwerk-Broadcast\n• Spezifische IP: z. B. 192.168.1.50");
+        ControlBox boxIpInfo = createControlBox("ctrl.target_ip", "ctrl.target_ip.tt_title", "ctrl.target_ip.tt_desc");
+        lblBoxIp = boxIpInfo.titleLabel();
+        helpIp = boxIpInfo.helpBadge();
+        VBox boxIp = boxIpInfo.box();
         boxIp.setMinWidth(125);
         txtTargetIp = new TextField(config.getTargetIp() != null ? config.getTargetIp() : "127.0.0.1");
         txtTargetIp.setMaxWidth(Double.MAX_VALUE);
@@ -454,8 +491,10 @@ public class MainWindow extends StackPane {
         boxIp.getChildren().add(txtTargetIp);
 
         // 3. Universum
-        VBox boxUni = createControlBox("UNIVERSUM", "Art-Net DMX Universum",
-            "Das Art-Net SubUni/Universum (0 - 15):\n\n• 0: Erstes Standard-Universum\n• Muss mit der Zielsoftware / dem DMX-Node übereinstimmen");
+        ControlBox boxUniInfo = createControlBox("ctrl.universe", "ctrl.universe.tt_title", "ctrl.universe.tt_desc");
+        lblBoxUni = boxUniInfo.titleLabel();
+        helpUni = boxUniInfo.helpBadge();
+        VBox boxUni = boxUniInfo.box();
         boxUni.setMinWidth(95);
         spUniverse = new Spinner<>(0, 15, config.getUniverse());
         spUniverse.setEditable(true);
@@ -464,8 +503,10 @@ public class MainWindow extends StackPane {
         boxUni.getChildren().add(spUniverse);
 
         // 4. Ziel-FPS
-        VBox boxFps = createControlBox("FPS", "Art-Net Bildrate (Hz)",
-            "Sendefrequenz der Art-Net Pakete:\n\n• 40 Hz: Empfohlener Standard für flüssige Moving-Head-Fahrten\n• 20 - 44 Hz: Konform zu DMX512-Timing");
+        ControlBox boxFpsInfo = createControlBox("ctrl.fps", "ctrl.fps.tt_title", "ctrl.fps.tt_desc");
+        lblBoxFps = boxFpsInfo.titleLabel();
+        helpFps = boxFpsInfo.helpBadge();
+        VBox boxFps = boxFpsInfo.box();
         boxFps.setMinWidth(85);
         spFps = new Spinner<>(10, 44, config.getFps());
         spFps.setEditable(true);
@@ -474,8 +515,10 @@ public class MainWindow extends StackPane {
         boxFps.getChildren().add(spFps);
 
         // 5. Gain / AGC
-        VBox boxGain = createControlBox("GAIN / AGC", "Audio-Verstärkung & Normalisierung",
-            "Empfindlichkeitsregelung:\n\n• Gain-Regler: Manuelle Vorverstärkung (0.5x bis 5x)\n• AGC: Auto-Gain-Control passt Pegel automatisch an leise/laute Musik an");
+        ControlBox boxGainInfo = createControlBox("ctrl.gain_agc", "ctrl.gain_agc.tt_title", "ctrl.gain_agc.tt_desc");
+        lblBoxGain = boxGainInfo.titleLabel();
+        helpGain = boxGainInfo.helpBadge();
+        VBox boxGain = boxGainInfo.box();
         boxGain.setMinWidth(130);
         HBox rowGain = new HBox(6);
         rowGain.setAlignment(Pos.CENTER_LEFT);
@@ -499,10 +542,12 @@ public class MainWindow extends StackPane {
         boxGain.getChildren().add(rowGain);
 
         // 6. Start / Stop Action Box
-        VBox boxAction = createControlBox("AKTION", "Sound2ArtNet Aktivierung",
-            "Startet oder stoppt die Audio-Erfassung und das Art-Net Senden.");
+        ControlBox boxActionInfo = createControlBox("ctrl.action", "ctrl.action.tt_title", "ctrl.action.tt_desc");
+        lblBoxAction = boxActionInfo.titleLabel();
+        helpAction = boxActionInfo.helpBadge();
+        VBox boxAction = boxActionInfo.box();
         boxAction.setMinWidth(110);
-        btnAction = new MaterialButton("Start", "play", 
+        btnAction = new MaterialButton(I18n.get("btn.start"), "play", 
             MaterialTheme.COLOR_PRIMARY, MaterialTheme.COLOR_ON_PRIMARY, 15, 16, 4, 12, true, this::toggleService);
         btnAction.setMaxWidth(Double.MAX_VALUE);
         VBox.setVgrow(btnAction, Priority.ALWAYS);
@@ -519,12 +564,12 @@ public class MainWindow extends StackPane {
                          "; -fx-border-width: 1px; -fx-background-radius: 4px; -fx-border-radius: 4px;");
 
         // Tab 1: Fixtures & Patches
-        Tab tabPatches = new Tab("Moving Heads & Fixture Patch");
+        tabPatches = new Tab(I18n.get("tab.fixtures"));
         tabPatches.setClosable(false);
         tabPatches.setContent(buildPatchView());
 
         // Tab 2: Sound-to-Light & Movement Engine
-        Tab tabEngine = new Tab("Sound-to-Light & Bewegungssteuerung");
+        tabEngine = new Tab(I18n.get("tab.engine"));
         tabEngine.setClosable(false);
         tabEngine.setContent(buildEngineControlView());
 
@@ -541,7 +586,7 @@ public class MainWindow extends StackPane {
         tablePatches.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         VBox.setVgrow(tablePatches, Priority.ALWAYS);
 
-        TableColumn<FixturePatch, Boolean> colActive = new TableColumn<>("Aktiv");
+        colActive = new TableColumn<>(I18n.get("patch.col.active"));
         colActive.setCellValueFactory(data -> new SimpleBooleanProperty(data.getValue().isEnabled()));
         colActive.setCellFactory(col -> new CheckBoxTableCell<>(idx -> {
             var item = tablePatches.getItems().get(idx);
@@ -555,29 +600,29 @@ public class MainWindow extends StackPane {
         colActive.setMaxWidth(60);
         colActive.setStyle("-fx-alignment: CENTER;");
 
-        TableColumn<FixturePatch, String> colName = new TableColumn<>("Name des Scheinwerfers");
+        colName = new TableColumn<>(I18n.get("patch.col.name"));
         colName.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getName()));
         colName.setMinWidth(140);
 
-        TableColumn<FixturePatch, String> colProfile = new TableColumn<>("Profil / Modell");
+        colProfile = new TableColumn<>(I18n.get("patch.col.profile"));
         colProfile.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getProfile() != null ? data.getValue().getProfile().getName() : ""));
         colProfile.setMinWidth(150);
 
-        TableColumn<FixturePatch, String> colDmx = new TableColumn<>("DMX Adressen");
+        colDmx = new TableColumn<>(I18n.get("patch.col.dmx"));
         colDmx.setCellValueFactory(data -> new SimpleStringProperty("DMX " + data.getValue().getStartAddress() + " - " + data.getValue().getEndAddress()));
         colDmx.setMaxWidth(120);
         colDmx.setStyle("-fx-alignment: CENTER; -fx-font-weight: bold;");
 
-        TableColumn<FixturePatch, String> colLimits = new TableColumn<>("Pan/Tilt Invert & Limits");
+        colLimits = new TableColumn<>(I18n.get("patch.col.limits"));
         colLimits.setCellValueFactory(data -> {
             FixturePatch p = data.getValue();
             String inv = (p.isInvertPan() ? "Pan-Inv " : "") + (p.isInvertTilt() ? "Tilt-Inv" : "");
-            return new SimpleStringProperty(inv.isBlank() ? "Standard" : inv.trim());
+            return new SimpleStringProperty(inv.isBlank() ? I18n.get("patch.limits.default") : inv.trim());
         });
         colLimits.setMaxWidth(140);
         colLimits.setStyle("-fx-alignment: CENTER;");
 
-        TableColumn<FixturePatch, String> colPhase = new TableColumn<>("Phasenversatz");
+        colPhase = new TableColumn<>(I18n.get("patch.col.phase"));
         colPhase.setCellValueFactory(data -> new SimpleStringProperty(String.format("%.0f°", data.getValue().getPhaseOffset() * 180.0 / Math.PI)));
         colPhase.setMaxWidth(100);
         colPhase.setStyle("-fx-alignment: CENTER;");
@@ -588,16 +633,16 @@ public class MainWindow extends StackPane {
         HBox btnRow = new HBox(8);
         btnRow.setAlignment(Pos.CENTER_LEFT);
 
-        MaterialButton btnAdd = new MaterialButton("+ Neues Fixture", "plus", 
+        btnAdd = new MaterialButton(I18n.get("btn.new_fixture"), "plus", 
             MaterialTheme.COLOR_PRIMARY, MaterialTheme.COLOR_ON_PRIMARY, 12, 10, 4, 11, true, this::openNewFixtureDialog);
 
-        MaterialButton btnEdit = new MaterialButton("Bearbeiten", "edit-3", 
+        btnEdit = new MaterialButton(I18n.get("btn.edit"), "edit-3", 
             MaterialTheme.COLOR_SURFACE_4DP, MaterialTheme.COLOR_TEXT_HIGH, 12, 10, 4, 11, false, this::openEditFixtureDialog);
 
-        MaterialButton btnDelete = new MaterialButton("Löschen", "trash-2", 
+        btnDelete = new MaterialButton(I18n.get("btn.delete"), "trash-2", 
             MaterialTheme.COLOR_SURFACE_4DP, MaterialTheme.COLOR_ERROR, 12, 10, 4, 11, false, this::deleteSelectedFixture);
 
-        MaterialButton btnImportQlc = new MaterialButton("QLC+ Import", "folder-open", 
+        btnImportQlc = new MaterialButton(I18n.get("btn.qlc_import"), "folder-open", 
             Color.web("#00E5FF"), Color.web("#000000"), 12, 10, 4, 11, true, this::importQlcFixture);
 
         btnRow.getChildren().addAll(btnAdd, btnEdit, btnDelete, btnImportQlc);
@@ -614,27 +659,27 @@ public class MainWindow extends StackPane {
         grid.setVgap(10);
 
         // 0. Aktive Steuerung (Bewegung / Licht / Strobo einzeln ein-/ausschaltbar)
-        Label lblActive = new Label("AKTIVE STEUERUNG:");
+        lblActive = new Label(I18n.get("engine.active_control"));
         lblActive.setTextFill(MaterialTheme.COLOR_TEXT_MED);
         lblActive.setFont(Font.font("Segoe UI", FontWeight.BOLD, 10));
 
         HBox activeBox = new HBox(20);
         activeBox.setAlignment(Pos.CENTER_LEFT);
-        chkMovementEnabled = new CheckBox("Bewegung");
+        chkMovementEnabled = new CheckBox(I18n.get("engine.movement"));
         chkMovementEnabled.setSelected(showEngine.isMovementEnabled());
         chkMovementEnabled.setTextFill(MaterialTheme.COLOR_TEXT_HIGH);
 
-        chkLightEnabled = new CheckBox("Licht");
+        chkLightEnabled = new CheckBox(I18n.get("engine.light"));
         chkLightEnabled.setSelected(showEngine.isLightEnabled());
         chkLightEnabled.setTextFill(MaterialTheme.COLOR_TEXT_HIGH);
 
-        chkStrobeEnabled = new CheckBox("Strobo");
+        chkStrobeEnabled = new CheckBox(I18n.get("engine.strobe"));
         chkStrobeEnabled.setSelected(showEngine.isStrobeEnabled());
         chkStrobeEnabled.setTextFill(MaterialTheme.COLOR_TEXT_HIGH);
         activeBox.getChildren().addAll(chkMovementEnabled, chkLightEnabled, chkStrobeEnabled);
 
         // 1. Erkennungs-Modus (Level-Detect / Beat-Detect)
-        Label lblDetectMode = new Label("ERKENNUNGS-MODUS:");
+        lblDetectMode = new Label(I18n.get("engine.detection_mode"));
         lblDetectMode.setTextFill(MaterialTheme.COLOR_TEXT_MED);
         lblDetectMode.setFont(Font.font("Segoe UI", FontWeight.BOLD, 10));
         cbDetectionMode = new ComboBox<>(FXCollections.observableArrayList(BeatDetector.DetectionMode.values()));
@@ -646,7 +691,7 @@ public class MainWindow extends StackPane {
         });
 
         // 2. Beat-Empfindlichkeit (Sensitivity)
-        Label lblBeatSens = new Label("BEAT-EMPFINDLICHKEIT:");
+        lblBeatSens = new Label(I18n.get("engine.beat_sensitivity"));
         lblBeatSens.setTextFill(MaterialTheme.COLOR_TEXT_MED);
         lblBeatSens.setFont(Font.font("Segoe UI", FontWeight.BOLD, 10));
         HBox beatSensBox = new HBox(8);
@@ -664,7 +709,7 @@ public class MainWindow extends StackPane {
         beatSensBox.getChildren().addAll(slBeatSensitivity, lblBeatSensVal);
 
         // 3. Bewegungsmuster
-        Label lblPattern = new Label("BEWEGUNGSMUSTER:");
+        lblPattern = new Label(I18n.get("engine.movement_pattern"));
         lblPattern.setTextFill(MaterialTheme.COLOR_TEXT_MED);
         lblPattern.setFont(Font.font("Segoe UI", FontWeight.BOLD, 10));
         cbPattern = new ComboBox<>(FXCollections.observableArrayList(MovementPattern.values()));
@@ -676,7 +721,7 @@ public class MainWindow extends StackPane {
         });
 
         // 4. Geschwindigkeit
-        Label lblSpeed = new Label("GESCHWINDIGKEIT:");
+        lblSpeed = new Label(I18n.get("engine.speed"));
         lblSpeed.setTextFill(MaterialTheme.COLOR_TEXT_MED);
         lblSpeed.setFont(Font.font("Segoe UI", FontWeight.BOLD, 10));
         HBox speedBox = new HBox(8);
@@ -694,7 +739,7 @@ public class MainWindow extends StackPane {
         speedBox.getChildren().addAll(slSpeed, lblSpeedVal);
 
         // 5. Auslenkung / Weite
-        Label lblAmp = new Label("AUSLENKUNG / WEITE:");
+        lblAmp = new Label(I18n.get("engine.range"));
         lblAmp.setTextFill(MaterialTheme.COLOR_TEXT_MED);
         lblAmp.setFont(Font.font("Segoe UI", FontWeight.BOLD, 10));
         HBox ampBox = new HBox(8);
@@ -712,7 +757,7 @@ public class MainWindow extends StackPane {
         ampBox.getChildren().addAll(slAmplitude, lblAmpVal);
 
         // 6. Dimmer-Modus
-        Label lblDimmer = new Label("DIMMER-REAKTION:");
+        lblDimmer = new Label(I18n.get("engine.dimmer_response"));
         lblDimmer.setTextFill(MaterialTheme.COLOR_TEXT_MED);
         lblDimmer.setFont(Font.font("Segoe UI", FontWeight.BOLD, 10));
         cbDimmerMode = new ComboBox<>(FXCollections.observableArrayList(Sound2LightEngine.DimmerMode.values()));
@@ -724,7 +769,7 @@ public class MainWindow extends StackPane {
         });
 
         // 7. Farbpalette
-        Label lblPal = new Label("FARBPALETTE:");
+        lblPal = new Label(I18n.get("engine.color_palette"));
         lblPal.setTextFill(MaterialTheme.COLOR_TEXT_MED);
         lblPal.setFont(Font.font("Segoe UI", FontWeight.BOLD, 10));
         cbPalette = new ComboBox<>(FXCollections.observableArrayList(ColorEngine.Palette.values()));
@@ -801,7 +846,7 @@ public class MainWindow extends StackPane {
         bar.setAlignment(Pos.CENTER_LEFT);
         bar.setPadding(new Insets(4, 16, 6, 16));
 
-        statusLabel = new Label("Bereit. Klicken Sie auf Start um Audio-Erfassung und Art-Net zu aktivieren.");
+        statusLabel = new Label(I18n.get("statusbar.ready"));
         statusLabel.setTextFill(MaterialTheme.COLOR_TEXT_MED);
         statusLabel.setFont(Font.font("Segoe UI", 11));
 
@@ -809,7 +854,7 @@ public class MainWindow extends StackPane {
         contentBox.getChildren().add(bar);
     }
 
-    private VBox createControlBox(String title, String tooltipTitle, String tooltipText) {
+    private ControlBox createControlBox(String titleKey, String tooltipTitleKey, String tooltipTextKey) {
         VBox box = new VBox(5);
         box.setPadding(new Insets(6, 10, 8, 10));
         box.setStyle("-fx-background-color: " + MaterialTheme.HEX_SURFACE_2DP + 
@@ -819,18 +864,119 @@ public class MainWindow extends StackPane {
         HBox hdr = new HBox();
         hdr.setAlignment(Pos.CENTER_LEFT);
 
-        Label lbl = new Label(title);
+        Label lbl = new Label(I18n.get(titleKey));
         lbl.setTextFill(MaterialTheme.COLOR_TEXT_MED);
         lbl.setFont(Font.font("Segoe UI", FontWeight.BOLD, 10));
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        HelpBadge help = new HelpBadge(tooltipTitle, tooltipText);
+        HelpBadge help = new HelpBadge(() -> I18n.get(tooltipTitleKey), () -> I18n.get(tooltipTextKey));
         hdr.getChildren().addAll(lbl, spacer, help);
 
         box.getChildren().add(hdr);
-        return box;
+        return new ControlBox(box, lbl, help);
+    }
+
+    private void updateAllLocalizedTexts() {
+        // 1. Top Bar
+        if (chipLabel != null) {
+            if (!isRunning) {
+                chipLabel.setText(I18n.get("status.ready"));
+                btnAction.setText(I18n.get("btn.start"));
+            } else {
+                chipLabel.setText(I18n.get("status.active"));
+                btnAction.setText(I18n.get("btn.stop"));
+            }
+        }
+
+        // 2. Metriken
+        if (lblInTitle != null) lblInTitle.setText(I18n.get("metric.audio_rms"));
+        if (lblPeakHdr != null) lblPeakHdr.setText(I18n.get("metric.peak"));
+        if (lblBpmHdr != null) lblBpmHdr.setText(I18n.get("metric.tempo"));
+        if (lblTierHdr != null) lblTierHdr.setText(I18n.get("metric.tier"));
+        if (lblSpeedTier != null) lblSpeedTier.setText(showEngine.getCurrentSpeedTier().getDisplayName());
+        if (lblOutTitle != null) lblOutTitle.setText(I18n.get("metric.artnet_out"));
+        if (lblPaketeHdr != null) lblPaketeHdr.setText(I18n.get("metric.sent"));
+        if (chartPps != null) chartPps.setTitle(I18n.get("metric.chart_title"));
+
+        // 3. Schnell-Steuerung
+        if (lblBoxAudio != null) lblBoxAudio.setText(I18n.get("ctrl.audio_source"));
+        if (btnScanAudio != null) btnScanAudio.setText(I18n.get("btn.scan"));
+        if (lblBoxIp != null) lblBoxIp.setText(I18n.get("ctrl.target_ip"));
+        if (lblBoxUni != null) lblBoxUni.setText(I18n.get("ctrl.universe"));
+        if (lblBoxFps != null) lblBoxFps.setText(I18n.get("ctrl.fps"));
+        if (lblBoxGain != null) lblBoxGain.setText(I18n.get("ctrl.gain_agc"));
+        if (lblBoxAction != null) lblBoxAction.setText(I18n.get("ctrl.action"));
+
+        // 4. Tabs
+        if (tabPatches != null) tabPatches.setText(I18n.get("tab.fixtures"));
+        if (tabEngine != null) tabEngine.setText(I18n.get("tab.engine"));
+
+        // 5. Fixture Patch Tabelle
+        if (colActive != null) colActive.setText(I18n.get("patch.col.active"));
+        if (colName != null) colName.setText(I18n.get("patch.col.name"));
+        if (colProfile != null) colProfile.setText(I18n.get("patch.col.profile"));
+        if (colDmx != null) colDmx.setText(I18n.get("patch.col.dmx"));
+        if (colLimits != null) colLimits.setText(I18n.get("patch.col.limits"));
+        if (colPhase != null) colPhase.setText(I18n.get("patch.col.phase"));
+
+        if (btnAdd != null) btnAdd.setText(I18n.get("btn.new_fixture"));
+        if (btnEdit != null) btnEdit.setText(I18n.get("btn.edit"));
+        if (btnDelete != null) btnDelete.setText(I18n.get("btn.delete"));
+        if (btnImportQlc != null) btnImportQlc.setText(I18n.get("btn.qlc_import"));
+
+        if (tablePatches != null) tablePatches.refresh();
+
+        // 6. Engine Controls
+        if (lblActive != null) lblActive.setText(I18n.get("engine.active_control"));
+        if (chkMovementEnabled != null) chkMovementEnabled.setText(I18n.get("engine.movement"));
+        if (chkLightEnabled != null) chkLightEnabled.setText(I18n.get("engine.light"));
+        if (chkStrobeEnabled != null) chkStrobeEnabled.setText(I18n.get("engine.strobe"));
+
+        if (lblDetectMode != null) lblDetectMode.setText(I18n.get("engine.detection_mode"));
+        if (lblBeatSens != null) lblBeatSens.setText(I18n.get("engine.beat_sensitivity"));
+        if (lblPattern != null) lblPattern.setText(I18n.get("engine.movement_pattern"));
+        if (lblSpeed != null) lblSpeed.setText(I18n.get("engine.speed"));
+        if (lblAmp != null) lblAmp.setText(I18n.get("engine.range"));
+        if (lblDimmer != null) lblDimmer.setText(I18n.get("engine.dimmer_response"));
+        if (lblPal != null) lblPal.setText(I18n.get("engine.color_palette"));
+
+        // ComboBox Listen & Auswahlen auffrischen
+        if (cbDetectionMode != null) {
+            var val = cbDetectionMode.getValue();
+            cbDetectionMode.setItems(FXCollections.observableArrayList(BeatDetector.DetectionMode.values()));
+            cbDetectionMode.setValue(val);
+        }
+        if (cbPattern != null) {
+            var val = cbPattern.getValue();
+            cbPattern.setItems(FXCollections.observableArrayList(MovementPattern.values()));
+            cbPattern.setValue(val);
+        }
+        if (cbDimmerMode != null) {
+            var val = cbDimmerMode.getValue();
+            cbDimmerMode.setItems(FXCollections.observableArrayList(Sound2LightEngine.DimmerMode.values()));
+            cbDimmerMode.setValue(val);
+        }
+        if (cbPalette != null) {
+            var val = cbPalette.getValue();
+            cbPalette.setItems(FXCollections.observableArrayList(ColorEngine.Palette.values()));
+            cbPalette.setValue(val);
+        }
+
+        // 7. Visualizer
+        if (visualizer != null) visualizer.updateLocalizedTexts();
+
+        // 8. Status Bar
+        if (statusLabel != null) {
+            if (isRunning) {
+                String ip = txtTargetIp != null ? txtTargetIp.getText().trim() : "127.0.0.1";
+                int universe = spUniverse != null ? spUniverse.getValue() : 0;
+                statusLabel.setText(I18n.get("statusbar.active", ip, universe, audioService.getCurrentDeviceName()));
+            } else {
+                statusLabel.setText(I18n.get("statusbar.ready"));
+            }
+        }
     }
 
     public void tick() {
@@ -893,16 +1039,16 @@ public class MainWindow extends StackPane {
             audioService.start(dev);
 
             isRunning = true;
-            btnAction.updateColors(MaterialTheme.COLOR_ERROR, MaterialTheme.COLOR_ON_ERROR, "square", "Stop");
+            btnAction.updateColors(MaterialTheme.COLOR_ERROR, MaterialTheme.COLOR_ON_ERROR, "square", I18n.get("btn.stop"));
             chipIcon.setIcon("circle", MaterialTheme.COLOR_PRIMARY);
-            chipLabel.setText("AKTIV");
+            chipLabel.setText(I18n.get("status.active"));
             chipLabel.setTextFill(MaterialTheme.COLOR_PRIMARY);
-            statusLabel.setText("Aktiv: Sende Art-Net an " + ip + " (Univ: " + universe + ") | Audio: " + audioService.getCurrentDeviceName());
+            statusLabel.setText(I18n.get("statusbar.active", ip, universe, audioService.getCurrentDeviceName()));
 
             saveStateToConfig();
         } catch (Exception e) {
             LOGGER.log(Level.SEVERE, "Fehler beim Starten von sound2artnet: " + e.getMessage(), e);
-            statusLabel.setText("Fehler beim Starten: " + e.getMessage());
+            statusLabel.setText(I18n.get("statusbar.error_start", e.getMessage()));
             stopService();
         }
     }
@@ -912,11 +1058,11 @@ public class MainWindow extends StackPane {
         audioService.stop();
         artNetSender.stop();
 
-        btnAction.updateColors(MaterialTheme.COLOR_PRIMARY, MaterialTheme.COLOR_ON_PRIMARY, "play", "Start");
+        btnAction.updateColors(MaterialTheme.COLOR_PRIMARY, MaterialTheme.COLOR_ON_PRIMARY, "play", I18n.get("btn.start"));
         chipIcon.setIcon("circle", MaterialTheme.COLOR_TEXT_MED);
-        chipLabel.setText("BEREIT");
+        chipLabel.setText(I18n.get("status.ready"));
         chipLabel.setTextFill(MaterialTheme.COLOR_TEXT_MED);
-        statusLabel.setText("Gestoppt. Klicken Sie auf Start um die Übertragung fortzusetzen.");
+        statusLabel.setText(I18n.get("statusbar.stopped"));
 
         saveStateToConfig();
     }
@@ -974,7 +1120,7 @@ public class MainWindow extends StackPane {
 
     private void importQlcFixture() {
         FileChooser chooser = new FileChooser();
-        chooser.setTitle("QLC+ Fixture Definition (*.qxf) auswählen");
+        chooser.setTitle(I18n.get("editor.qlc_chooser_title"));
         chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("QLC+ Fixture Definition (*.qxf)", "*.qxf"));
 
         File qlcDir = new File(System.getProperty("user.home"), "Documents\\QLC+ Saves\\qxf");
@@ -998,12 +1144,12 @@ public class MainWindow extends StackPane {
                     patchList.add(newPatch);
                     showEngine.setPatchedFixtures(new ArrayList<>(patchList));
                     saveStateToConfig();
-                    statusLabel.setText("QLC+ Fixture importiert: " + newPatch.getName() + " an DMX " + newPatch.getStartAddress());
+                    statusLabel.setText(I18n.get("statusbar.qlc_imported", newPatch.getName(), newPatch.getStartAddress()));
                 });
                 dlg.show();
             } catch (Exception e) {
                 LOGGER.log(Level.SEVERE, "Fehler beim Parsen der QLC+ Datei: " + e.getMessage(), e);
-                statusLabel.setText("Fehler beim Importieren: " + e.getMessage());
+                statusLabel.setText(I18n.get("statusbar.qlc_error", e.getMessage()));
             }
         }
     }

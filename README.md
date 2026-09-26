@@ -83,7 +83,7 @@ Visually and structurally, **sound2artnet** features the exact same dark Materia
 - **Art-Net 4 Sender**: Broadcasts standard-compliant `ArtDMX` packets (UDP port `6454`) to any target IP (unicast, broadcast, or `127.0.0.1`) and universe (`0–15`) at a configurable frame rate (`10–44 FPS`).
 - **Live Metrics**: Real-time readouts for audio RMS, peak, tempo (BPM), active speed tier, packets per second (including a live history chart), and total packets sent.
 - **512-Channel DMX Visualizer**: Live bar graph of all 512 DMX channels with semantic role labels (`PAN`, `TILT`, `DIM`, `STRB`, `R`, `G`, `B`, etc.) and quick-jump range buttons.
-- **In-App Update & Global Settings Dialog**: Click on the title logo badge (`v1.2.0`) to inspect release notes, check for updates, or switch global settings (e.g., German/English language, autostart).
+- **In-App Update & Global Settings Dialog**: Click on the title logo badge (`v1.2.1`) to inspect release notes, check for updates, or switch global settings (e.g., German/English language, autostart).
 - **Automatic Persistence**: All settings and patched fixtures are automatically saved to `config.json`.
 
 ---

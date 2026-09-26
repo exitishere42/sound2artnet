@@ -1,5 +1,7 @@
 package de.exit.sound2artnet.fixture;
 
+import de.exit.sound2artnet.util.I18n;
+
 /**
  * Semantische Kanalfunktionen für Fixtures (Moving Heads, PARs, Bars etc.).
  */
@@ -24,16 +26,16 @@ public enum ChannelFunction {
     CONSTANT("Fester Wert", "Kanal mit fixiertem DMX-Wert"),
     UNUSED("Nicht belegt", "Kanal wird ignoriert");
 
-    private final String displayName;
+    private final String defaultDisplayName;
     private final String description;
 
-    ChannelFunction(String displayName, String description) {
-        this.displayName = displayName;
+    ChannelFunction(String defaultDisplayName, String description) {
+        this.defaultDisplayName = defaultDisplayName;
         this.description = description;
     }
 
     public String getDisplayName() {
-        return displayName;
+        return I18n.get("function." + name().toLowerCase());
     }
 
     public String getDescription() {
@@ -42,6 +44,6 @@ public enum ChannelFunction {
 
     @Override
     public String toString() {
-        return displayName;
+        return getDisplayName();
     }
 }

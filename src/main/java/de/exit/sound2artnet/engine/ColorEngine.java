@@ -1,5 +1,6 @@
 package de.exit.sound2artnet.engine;
 
+import de.exit.sound2artnet.util.I18n;
 import javafx.scene.paint.Color;
 
 /**
@@ -23,16 +24,16 @@ public class ColorEngine {
             Color.web("#03DAC6"), Color.web("#00E5FF"), Color.web("#00FF9A"), Color.web("#80DEEA")
         });
 
-        private final String displayName;
+        private final String defaultDisplayName;
         private final Color[] colors;
 
-        Palette(String displayName, Color[] colors) {
-            this.displayName = displayName;
+        Palette(String defaultDisplayName, Color[] colors) {
+            this.defaultDisplayName = defaultDisplayName;
             this.colors = colors;
         }
 
         public String getDisplayName() {
-            return displayName;
+            return I18n.get("palette." + name().toLowerCase());
         }
 
         public Color[] getColors() {
@@ -41,7 +42,7 @@ public class ColorEngine {
 
         @Override
         public String toString() {
-            return displayName;
+            return getDisplayName();
         }
     }
 

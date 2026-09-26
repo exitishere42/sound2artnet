@@ -28,9 +28,14 @@ public class MetricHistoryChart extends Pane {
 
     private final double[] history = new double[HISTORY_SECONDS];
     private int samplesCount = 0;
-    private final String title;
+    private String title;
     private final Color lineColor;
     private final double defaultMax;
+
+    public void setTitle(String title) {
+        this.title = title;
+        render();
+    }
 
     private final Canvas canvas;
 

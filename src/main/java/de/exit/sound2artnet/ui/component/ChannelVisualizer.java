@@ -45,6 +45,9 @@ public class ChannelVisualizer extends VBox {
     private double scrollOffsetChannels = 0.0;
     private int hoveredChannel = -1;
 
+    private final Label lblTitle;
+    private final Label lblBereich;
+
     public ChannelVisualizer() {
         setPadding(new Insets(10, 14, 10, 14));
         setStyle("-fx-background-color: " + MaterialTheme.HEX_SURFACE_1DP + 
@@ -59,9 +62,9 @@ public class ChannelVisualizer extends VBox {
         header.setPadding(new Insets(0, 0, 8, 0));
 
         LucideIcon iconSliders = new LucideIcon("sliders", 14, MaterialTheme.COLOR_TEXT_MED);
-        Label title = new Label("DMX512 KANÄLE (1 - 512)");
-        title.setTextFill(MaterialTheme.COLOR_TEXT_MED);
-        title.setFont(Font.font("Segoe UI", FontWeight.BOLD, 11));
+        lblTitle = new Label(de.exit.sound2artnet.util.I18n.get("visualizer.title"));
+        lblTitle.setTextFill(MaterialTheme.COLOR_TEXT_MED);
+        lblTitle.setFont(Font.font("Segoe UI", FontWeight.BOLD, 11));
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
@@ -69,7 +72,7 @@ public class ChannelVisualizer extends VBox {
         HBox jumpBox = new HBox(4);
         jumpBox.setAlignment(Pos.CENTER_RIGHT);
 
-        Label lblBereich = new Label("Bereich:");
+        lblBereich = new Label(de.exit.sound2artnet.util.I18n.get("visualizer.range"));
         lblBereich.setTextFill(MaterialTheme.COLOR_TEXT_DISABLED);
         lblBereich.setFont(Font.font("Segoe UI", 10));
         jumpBox.getChildren().add(lblBereich);
@@ -92,7 +95,7 @@ public class ChannelVisualizer extends VBox {
             jumpBox.getChildren().add(btnJump);
         }
 
-        header.getChildren().addAll(iconSliders, title, spacer, jumpBox);
+        header.getChildren().addAll(iconSliders, lblTitle, spacer, jumpBox);
 
         // Canvas & Entkoppelter Container
         canvas = new Canvas(800, 150);
@@ -253,6 +256,12 @@ public class ChannelVisualizer extends VBox {
                 gc.strokeRect(screenX + 1, trackTop - 2, channelWidth - 2, trackH + 4);
             }
         }
+    }
+
+    public void updateLocalizedTexts() {
+        lblTitle.setText(de.exit.sound2artnet.util.I18n.get("visualizer.title"));
+        lblBereich.setText(de.exit.sound2artnet.util.I18n.get("visualizer.range"));
+        render();
     }
 
     private String getChannelRoleTag(int dmxAddr) {

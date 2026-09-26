@@ -5,6 +5,7 @@ import de.exit.sound2artnet.audio.AudioCaptureService;
 import de.exit.sound2artnet.fixture.ChannelFunction;
 import de.exit.sound2artnet.fixture.ChannelMapping;
 import de.exit.sound2artnet.fixture.FixturePatch;
+import de.exit.sound2artnet.util.I18n;
 import javafx.scene.paint.Color;
 
 import java.util.ArrayList;
@@ -21,21 +22,21 @@ public class Sound2LightEngine {
     private static final Logger LOGGER = Logger.getLogger(Sound2LightEngine.class.getName());
 
     public enum DimmerMode {
-        AUDIO_LEVEL("Lautstärke-Verlauf", "Dimmer folgt der Lautstärke/RMS"),
+        AUDIO_LEVEL("Lautstärke", "Dimmer folgt der Lautstärke/RMS"),
         BEAT_PULSE("Beat-Flash", "Kurzer Lichtblitz bei jedem Kick"),
-        ALWAYS_ON("Dauerhaft An", "Konstante Helligkeit (100%)");
+        ALWAYS_ON("Dauerhaft an", "Konstante Helligkeit (100%)");
 
-        private final String displayName;
+        private final String defaultDisplayName;
         private final String description;
 
-        DimmerMode(String displayName, String description) {
-            this.displayName = displayName;
+        DimmerMode(String defaultDisplayName, String description) {
+            this.defaultDisplayName = defaultDisplayName;
             this.description = description;
         }
 
-        public String getDisplayName() { return displayName; }
+        public String getDisplayName() { return I18n.get("dimmer." + name().toLowerCase()); }
         public String getDescription() { return description; }
-        @Override public String toString() { return displayName; }
+        @Override public String toString() { return getDisplayName(); }
     }
 
     /**
@@ -52,18 +53,18 @@ public class Sound2LightEngine {
         FAST("Schnell", 1.45),
         RAVE("Extrem", 2.00);
 
-        private final String displayName;
+        private final String defaultDisplayName;
         private final double speedMultiplier;
 
-        SpeedTier(String displayName, double speedMultiplier) {
-            this.displayName = displayName;
+        SpeedTier(String defaultDisplayName, double speedMultiplier) {
+            this.defaultDisplayName = defaultDisplayName;
             this.speedMultiplier = speedMultiplier;
         }
 
-        public String getDisplayName() { return displayName; }
+        public String getDisplayName() { return I18n.get("tier." + name().toLowerCase()); }
         public double getSpeedMultiplier() { return speedMultiplier; }
         public boolean isFastEffectTier() { return this == FAST || this == RAVE; }
-        @Override public String toString() { return displayName; }
+        @Override public String toString() { return getDisplayName(); }
 
         public static SpeedTier fromBpm(double bpm) {
             if (bpm < 40.0) return IDLE;

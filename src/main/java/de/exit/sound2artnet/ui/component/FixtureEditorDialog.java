@@ -6,6 +6,7 @@ import de.exit.sound2artnet.fixture.FixtureLibrary;
 import de.exit.sound2artnet.fixture.FixturePatch;
 import de.exit.sound2artnet.fixture.FixtureProfile;
 import de.exit.sound2artnet.ui.MaterialTheme;
+import de.exit.sound2artnet.util.I18n;
 import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
@@ -16,9 +17,9 @@ import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
+import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
-import javafx.scene.paint.Color;
 import javafx.stage.FileChooser;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
@@ -58,12 +59,12 @@ public class FixtureEditorDialog extends Stage {
     public FixtureEditorDialog(Stage owner, FixturePatch existingPatch, int suggestedStartAddr, Consumer<FixturePatch> onSave) {
         this.isEditMode = (existingPatch != null);
         int startAddr = Math.max(1, Math.min(512, suggestedStartAddr));
-        this.patch = isEditMode ? existingPatch : new FixturePatch("Neuer Moving Head", startAddr, FixtureLibrary.createGeneric9chSpot());
+        this.patch = isEditMode ? existingPatch : new FixturePatch(I18n.get("editor.default_name"), startAddr, FixtureLibrary.createGeneric9chSpot());
         this.onSave = onSave;
 
         initOwner(owner);
         initModality(Modality.WINDOW_MODAL);
-        setTitle(isEditMode ? "Fixture bearbeiten: " + existingPatch.getName() : "Neues Fixture patchen");
+        setTitle(isEditMode ? I18n.get("editor.title_edit", existingPatch.getName()) : I18n.get("editor.title_new"));
         setResizable(true);
 
         VBox root = new VBox(12);
@@ -92,7 +93,7 @@ public class FixtureEditorDialog extends Stage {
 
         VBox boxName = new VBox(4);
         HBox.setHgrow(boxName, Priority.ALWAYS);
-        Label lblName = new Label("NAME DES GERAETS");
+        Label lblName = new Label(I18n.get("editor.name"));
         lblName.setTextFill(MaterialTheme.COLOR_TEXT_MED);
         lblName.setFont(Font.font("Segoe UI", FontWeight.BOLD, 10));
         txtName = new TextField(patch.getName());
@@ -104,7 +105,7 @@ public class FixtureEditorDialog extends Stage {
             VBox boxQty = new VBox(4);
             boxQty.setMinWidth(90);
             boxQty.setMaxWidth(100);
-            Label lblQty = new Label("ANZAHL");
+            Label lblQty = new Label(I18n.get("editor.quantity"));
             lblQty.setTextFill(MaterialTheme.COLOR_TEXT_MED);
             lblQty.setFont(Font.font("Segoe UI", FontWeight.BOLD, 10));
             spQuantity = new Spinner<>(1, 32, 1);
@@ -116,7 +117,7 @@ public class FixtureEditorDialog extends Stage {
 
         VBox boxAddr = new VBox(4);
         boxAddr.setMinWidth(110);
-        Label lblAddr = new Label("DMX START");
+        Label lblAddr = new Label(I18n.get("editor.dmx_start"));
         lblAddr.setTextFill(MaterialTheme.COLOR_TEXT_MED);
         lblAddr.setFont(Font.font("Segoe UI", FontWeight.BOLD, 10));
         spStartAddr = new Spinner<>(1, 512, patch.getStartAddress());
@@ -133,16 +134,16 @@ public class FixtureEditorDialog extends Stage {
         row.setPadding(new Insets(6, 10, 6, 10));
         row.setStyle("-fx-background-color: " + MaterialTheme.HEX_SURFACE_1DP + "; -fx-background-radius: 4px; -fx-border-color: " + MaterialTheme.HEX_DIVIDER + "; -fx-border-radius: 4px;");
 
-        Label lbl = new Label("PROFIL-VORLAGE:");
+        Label lbl = new Label(I18n.get("editor.preset_bar"));
         lbl.setTextFill(MaterialTheme.COLOR_PRIMARY);
         lbl.setFont(Font.font("Segoe UI", FontWeight.BOLD, 10));
 
         cbPresets = new ComboBox<>();
         cbPresets.getItems().addAll(FixtureLibrary.getDefaultProfiles());
-        cbPresets.setPromptText("Vorlage wählen...");
+        cbPresets.setPromptText(I18n.get("editor.preset_prompt"));
         HBox.setHgrow(cbPresets, Priority.ALWAYS);
 
-        MaterialButton btnApply = new MaterialButton("Laden", "refresh-cw", MaterialTheme.COLOR_SURFACE_4DP, MaterialTheme.COLOR_TEXT_HIGH, 11, 8, 4, 11, false, () -> {
+        MaterialButton btnApply = new MaterialButton(I18n.get("btn.load"), "refresh-cw", MaterialTheme.COLOR_SURFACE_4DP, MaterialTheme.COLOR_TEXT_HIGH, 11, 8, 4, 11, false, () -> {
             FixtureProfile sel = cbPresets.getValue();
             if (sel != null) {
                 channelData.clear();
@@ -152,15 +153,15 @@ public class FixtureEditorDialog extends Stage {
             }
         });
 
-        MaterialButton btnImportQlc = new MaterialButton("QLC+ Import", "folder-open", 
+        MaterialButton btnImportQlc = new MaterialButton(I18n.get("btn.qlc_import"), "folder-open", 
             Color.web("#00E5FF"), Color.web("#000000"), 11, 8, 4, 11, false, this::importQlcFile);
 
-        MaterialButton btnAddCh = new MaterialButton("+ Kanal", "plus", MaterialTheme.COLOR_SURFACE_4DP, MaterialTheme.COLOR_TEXT_HIGH, 11, 8, 4, 11, false, () -> {
+        MaterialButton btnAddCh = new MaterialButton(I18n.get("editor.btn_add_ch"), "plus", MaterialTheme.COLOR_SURFACE_4DP, MaterialTheme.COLOR_TEXT_HIGH, 11, 8, 4, 11, false, () -> {
             int newOff = channelData.size();
             channelData.add(new ChannelMapping(newOff, ChannelFunction.UNUSED, 0));
         });
 
-        MaterialButton btnDelCh = new MaterialButton("- Kanal", "trash-2", MaterialTheme.COLOR_SURFACE_4DP, MaterialTheme.COLOR_ERROR, 11, 8, 4, 11, false, () -> {
+        MaterialButton btnDelCh = new MaterialButton(I18n.get("editor.btn_del_ch"), "trash-2", MaterialTheme.COLOR_SURFACE_4DP, MaterialTheme.COLOR_ERROR, 11, 8, 4, 11, false, () -> {
             if (!channelData.isEmpty()) {
                 channelData.remove(channelData.size() - 1);
             }
@@ -172,7 +173,7 @@ public class FixtureEditorDialog extends Stage {
 
     private void importQlcFile() {
         FileChooser chooser = new FileChooser();
-        chooser.setTitle("QLC+ Fixture Definition (*.qxf) auswählen");
+        chooser.setTitle(I18n.get("editor.qlc_chooser_title"));
         chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("QLC+ Fixture Definition (*.qxf)", "*.qxf"));
 
         File qlcDir = new File(System.getProperty("user.home"), "Documents\\QLC+ Saves\\qxf");
@@ -194,7 +195,7 @@ public class FixtureEditorDialog extends Stage {
                     channelData.add(new ChannelMapping(cm.getOffset(), cm.getFunction(), cm.getDefaultValue()));
                 }
             } catch (Exception e) {
-                Alert alert = new Alert(Alert.AlertType.ERROR, "Fehler beim Laden der QLC+ Datei: " + e.getMessage(), ButtonType.OK);
+                Alert alert = new Alert(Alert.AlertType.ERROR, I18n.get("editor.qlc_error_title", e.getMessage()), ButtonType.OK);
                 alert.initOwner(this);
                 alert.showAndWait();
             }
@@ -206,7 +207,7 @@ public class FixtureEditorDialog extends Stage {
         VBox box = new VBox(6);
         VBox.setVgrow(box, Priority.ALWAYS);
 
-        Label lbl = new Label("KANALBELEGUNG");
+        Label lbl = new Label(I18n.get("editor.channel_mapping"));
         lbl.setTextFill(MaterialTheme.COLOR_TEXT_MED);
         lbl.setFont(Font.font("Segoe UI", FontWeight.BOLD, 10));
 
@@ -214,13 +215,13 @@ public class FixtureEditorDialog extends Stage {
         tableChannels.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         VBox.setVgrow(tableChannels, Priority.ALWAYS);
 
-        TableColumn<ChannelMapping, Number> colOff = new TableColumn<>("Offset");
+        TableColumn<ChannelMapping, Number> colOff = new TableColumn<>(I18n.get("editor.col_offset"));
         colOff.setCellValueFactory(data -> new SimpleIntegerProperty(data.getValue().getOffset()));
         colOff.setMinWidth(60);
         colOff.setMaxWidth(80);
         colOff.setStyle("-fx-alignment: CENTER;");
 
-        TableColumn<ChannelMapping, String> colDmx = new TableColumn<>("DMX Adr");
+        TableColumn<ChannelMapping, String> colDmx = new TableColumn<>(I18n.get("editor.col_dmx"));
         colDmx.setCellValueFactory(data -> {
             int start = spStartAddr.getValue();
             return new SimpleStringProperty("Ch " + (start + data.getValue().getOffset()));
@@ -229,7 +230,7 @@ public class FixtureEditorDialog extends Stage {
         colDmx.setMaxWidth(90);
         colDmx.setStyle("-fx-alignment: CENTER; -fx-font-weight: bold;");
 
-        TableColumn<ChannelMapping, ChannelFunction> colFunc = new TableColumn<>("Funktion");
+        TableColumn<ChannelMapping, ChannelFunction> colFunc = new TableColumn<>(I18n.get("editor.col_function"));
         colFunc.setCellValueFactory(data -> new SimpleObjectProperty<>(data.getValue().getFunction()));
         colFunc.setCellFactory(col -> new TableCell<>() {
             private final ComboBox<ChannelFunction> cb = new ComboBox<>(FXCollections.observableArrayList(ChannelFunction.values()));
@@ -259,7 +260,7 @@ public class FixtureEditorDialog extends Stage {
         });
         colFunc.setMinWidth(200);
 
-        TableColumn<ChannelMapping, Number> colDef = new TableColumn<>("Standard-Wert");
+        TableColumn<ChannelMapping, Number> colDef = new TableColumn<>(I18n.get("editor.col_default"));
         colDef.setCellValueFactory(data -> new SimpleIntegerProperty(data.getValue().getDefaultValue()));
         colDef.setCellFactory(col -> new TableCell<>() {
             private final Spinner<Integer> sp = new Spinner<>(0, 255, 0);
@@ -298,20 +299,20 @@ public class FixtureEditorDialog extends Stage {
         box.setPadding(new Insets(10));
         box.setStyle("-fx-background-color: " + MaterialTheme.HEX_SURFACE_1DP + "; -fx-background-radius: 4px; -fx-border-color: " + MaterialTheme.HEX_DIVIDER + "; -fx-border-radius: 4px;");
 
-        Label lbl = new Label("MOVING HEAD SCHUTZGRENZEN & BEWEGUNGSPARAMETER");
+        Label lbl = new Label(I18n.get("editor.limits_header"));
         lbl.setTextFill(MaterialTheme.COLOR_PRIMARY);
         lbl.setFont(Font.font("Segoe UI", FontWeight.BOLD, 10));
 
         HBox rowChecks = new HBox(20);
         rowChecks.setAlignment(Pos.CENTER_LEFT);
-        chkInvertPan = new CheckBox("Pan invertieren");
-        chkInvertTilt = new CheckBox("Tilt invertieren");
+        chkInvertPan = new CheckBox(I18n.get("editor.invert_pan"));
+        chkInvertTilt = new CheckBox(I18n.get("editor.invert_tilt"));
         rowChecks.getChildren().addAll(chkInvertPan, chkInvertTilt);
 
         // Pan Limits Slider
         HBox rowPan = new HBox(8);
         rowPan.setAlignment(Pos.CENTER_LEFT);
-        Label lblPanRange = new Label("Pan Limit:");
+        Label lblPanRange = new Label(I18n.get("editor.pan_limit"));
         lblPanRange.setMinWidth(80);
         lblPanRange.setTextFill(MaterialTheme.COLOR_TEXT_MED);
         lblPanRange.setFont(Font.font("Segoe UI", 11));
@@ -319,12 +320,12 @@ public class FixtureEditorDialog extends Stage {
         slPanMax = new Slider(0, 255, patch.getPanMax());
         HBox.setHgrow(slPanMin, Priority.ALWAYS);
         HBox.setHgrow(slPanMax, Priority.ALWAYS);
-        rowPan.getChildren().addAll(lblPanRange, new Label("Min"), slPanMin, new Label("Max"), slPanMax);
+        rowPan.getChildren().addAll(lblPanRange, new Label(I18n.get("editor.min")), slPanMin, new Label(I18n.get("editor.max")), slPanMax);
 
         // Tilt Limits Slider
         HBox rowTilt = new HBox(8);
         rowTilt.setAlignment(Pos.CENTER_LEFT);
-        Label lblTiltRange = new Label("Tilt Limit:");
+        Label lblTiltRange = new Label(I18n.get("editor.tilt_limit"));
         lblTiltRange.setMinWidth(80);
         lblTiltRange.setTextFill(MaterialTheme.COLOR_TEXT_MED);
         lblTiltRange.setFont(Font.font("Segoe UI", 11));
@@ -332,12 +333,12 @@ public class FixtureEditorDialog extends Stage {
         slTiltMax = new Slider(0, 255, patch.getTiltMax());
         HBox.setHgrow(slTiltMin, Priority.ALWAYS);
         HBox.setHgrow(slTiltMax, Priority.ALWAYS);
-        rowTilt.getChildren().addAll(lblTiltRange, new Label("Min"), slTiltMin, new Label("Max"), slTiltMax);
+        rowTilt.getChildren().addAll(lblTiltRange, new Label(I18n.get("editor.min")), slTiltMin, new Label(I18n.get("editor.max")), slTiltMax);
 
         // Phasenversatz
         HBox rowPhase = new HBox(8);
         rowPhase.setAlignment(Pos.CENTER_LEFT);
-        Label lblPhase = new Label("Phasenversatz:");
+        Label lblPhase = new Label(I18n.get("editor.phase_offset"));
         lblPhase.setMinWidth(80);
         lblPhase.setTextFill(MaterialTheme.COLOR_TEXT_MED);
         lblPhase.setFont(Font.font("Segoe UI", 11));
@@ -357,8 +358,8 @@ public class FixtureEditorDialog extends Stage {
         HBox bar = new HBox(10);
         bar.setAlignment(Pos.CENTER_RIGHT);
 
-        MaterialButton btnCancel = new MaterialButton("Abbrechen", null, MaterialTheme.COLOR_SURFACE_2DP, MaterialTheme.COLOR_TEXT_MED, 12, 12, 6, 12, false, this::close);
-        MaterialButton btnSave = new MaterialButton("Speichern", "play", MaterialTheme.COLOR_PRIMARY, MaterialTheme.COLOR_ON_PRIMARY, 12, 16, 6, 12, true, this::handleSave);
+        MaterialButton btnCancel = new MaterialButton(I18n.get("btn.cancel"), null, MaterialTheme.COLOR_SURFACE_2DP, MaterialTheme.COLOR_TEXT_MED, 12, 12, 6, 12, false, this::close);
+        MaterialButton btnSave = new MaterialButton(I18n.get("btn.save"), "play", MaterialTheme.COLOR_PRIMARY, MaterialTheme.COLOR_ON_PRIMARY, 12, 16, 6, 12, true, this::handleSave);
 
         bar.getChildren().addAll(btnCancel, btnSave);
         root.getChildren().add(bar);
@@ -384,7 +385,7 @@ public class FixtureEditorDialog extends Stage {
     }
 
     private void handleSave() {
-        String baseName = txtName.getText().trim().isEmpty() ? "Moving Head" : txtName.getText().trim();
+        String baseName = txtName.getText().trim().isEmpty() ? I18n.get("editor.default_name") : txtName.getText().trim();
         int baseStartAddr = readSpinnerValue(spStartAddr, 1);
         int quantity = isEditMode ? 1 : readSpinnerValue(spQuantity, 1);
 
@@ -395,7 +396,7 @@ public class FixtureEditorDialog extends Stage {
 
         FixtureProfile prof = new FixtureProfile(
             patch.getProfile() != null ? patch.getProfile().getId() : "custom",
-            baseName + " Profil",
+            baseName + I18n.get("editor.profile_suffix"),
             updatedChannels.size(),
             updatedChannels
         );
