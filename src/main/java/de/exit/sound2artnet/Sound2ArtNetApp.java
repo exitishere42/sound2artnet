@@ -56,7 +56,7 @@ public class Sound2ArtNetApp extends Application {
             LOGGER.warning("Konnte material-dark.css nicht laden: " + e.getMessage());
         }
 
-        stage.setTitle("sound2artnet - Sound-to-Light & Moving Head Controller");
+        stage.setTitle("sound2artnet");
         stage.setScene(scene);
         stage.setMinWidth(780);
         stage.setMinHeight(640);

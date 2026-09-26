@@ -189,10 +189,6 @@ public class MainWindow extends VBox {
         title.setTextFill(MaterialTheme.COLOR_TEXT_HIGH);
         title.setFont(Font.font(MaterialTheme.FONT_FAMILY, FontWeight.BOLD, 15));
 
-        Label subtitle = new Label("Sound-to-Light & Moving Head Art-Net Bridge");
-        subtitle.setTextFill(MaterialTheme.COLOR_TEXT_DISABLED);
-        subtitle.setFont(Font.font(MaterialTheme.FONT_FAMILY, 11));
-
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
@@ -208,7 +204,7 @@ public class MainWindow extends VBox {
         chipLabel.setFont(Font.font(MaterialTheme.FONT_FAMILY, FontWeight.BOLD, 11));
         chip.getChildren().addAll(chipIcon, chipLabel);
 
-        bar.getChildren().addAll(iconLogo, title, subtitle, spacer, chip);
+        bar.getChildren().addAll(iconLogo, title, spacer, chip);
         getChildren().add(bar);
     }
 
