@@ -32,8 +32,12 @@ public class QlcFixtureDefinition {
             this.preset = preset != null ? preset : "";
             this.group = group != null ? group : "";
             this.byteIndex = byteIndex;
-            this.defaultValue = defaultValue;
             this.resolvedFunction = determineFunction();
+            if ((this.resolvedFunction == ChannelFunction.PAN || this.resolvedFunction == ChannelFunction.TILT) && defaultValue == 0) {
+                this.defaultValue = 128;
+            } else {
+                this.defaultValue = defaultValue;
+            }
         }
 
         private ChannelFunction determineFunction() {

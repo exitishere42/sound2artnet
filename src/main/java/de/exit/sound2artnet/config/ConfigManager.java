@@ -2,6 +2,8 @@ package de.exit.sound2artnet.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import de.exit.sound2artnet.fixture.ChannelFunction;
+import de.exit.sound2artnet.fixture.ChannelMapping;
 import de.exit.sound2artnet.fixture.FixtureLibrary;
 import de.exit.sound2artnet.fixture.FixturePatch;
 import de.exit.sound2artnet.fixture.FixtureProfile;
@@ -31,6 +33,17 @@ public final class ConfigManager {
                 LOGGER.info("Konfiguration erfolgreich geladen aus " + file.getAbsolutePath());
                 if (cfg.getFixtures() == null) {
                     cfg.setFixtures(createDefaultPatches());
+                } else {
+                    for (FixturePatch patch : cfg.getFixtures()) {
+                        if (patch.getProfile() != null && patch.getProfile().getChannels() != null) {
+                            for (ChannelMapping cm : patch.getProfile().getChannels()) {
+                                if ((cm.getFunction() == ChannelFunction.PAN || cm.getFunction() == ChannelFunction.TILT)
+                                        && cm.getDefaultValue() == 0) {
+                                    cm.setDefaultValue(128);
+                                }
+                            }
+                        }
+                    }
                 }
                 return cfg;
             } catch (Exception e) {

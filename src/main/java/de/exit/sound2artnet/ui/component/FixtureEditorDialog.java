@@ -239,6 +239,10 @@ public class FixtureEditorDialog extends Stage {
                 cb.setOnAction(e -> {
                     ChannelMapping item = getTableView().getItems().get(getIndex());
                     item.setFunction(cb.getValue());
+                    if ((cb.getValue() == ChannelFunction.PAN || cb.getValue() == ChannelFunction.TILT) && item.getDefaultValue() == 0) {
+                        item.setDefaultValue(128);
+                        getTableView().refresh();
+                    }
                 });
             }
 

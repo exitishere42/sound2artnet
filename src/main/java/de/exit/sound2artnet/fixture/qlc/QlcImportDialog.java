@@ -196,7 +196,12 @@ public class QlcImportDialog extends Stage {
                 cb.setMaxWidth(Double.MAX_VALUE);
                 cb.setOnAction(e -> {
                     if (getIndex() >= 0 && getIndex() < getTableView().getItems().size()) {
-                        getTableView().getItems().get(getIndex()).setFunction(cb.getValue());
+                        ChannelPreviewRow row = getTableView().getItems().get(getIndex());
+                        row.setFunction(cb.getValue());
+                        if ((cb.getValue() == ChannelFunction.PAN || cb.getValue() == ChannelFunction.TILT) && row.getDefaultValue() == 0) {
+                            row.setDefaultValue(128);
+                            getTableView().refresh();
+                        }
                     }
                 });
             }

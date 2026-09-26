@@ -226,9 +226,9 @@ public class Sound2LightEngine {
 
                 int val = cm.getDefaultValue();
                 switch (cm.getFunction()) {
-                    case PAN -> val = movementEnabled ? panDmx : cm.getDefaultValue();
+                    case PAN -> val = movementEnabled ? panDmx : (cm.getDefaultValue() > 0 ? cm.getDefaultValue() : patch.computePanDmx(0.5));
                     case PAN_FINE -> val = 0;
-                    case TILT -> val = movementEnabled ? tiltDmx : cm.getDefaultValue();
+                    case TILT -> val = movementEnabled ? tiltDmx : (cm.getDefaultValue() > 0 ? cm.getDefaultValue() : patch.computeTiltDmx(0.5));
                     case TILT_FINE -> val = 0;
                     case PAN_TILT_SPEED -> val = cm.getDefaultValue();
                     case DIMMER -> val = lightEnabled ? fixtureDimmer : 0;

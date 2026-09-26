@@ -86,8 +86,10 @@ public class QlcFixtureParserTest {
 
         // Kanäle und Funktionen prüfen
         assertEquals(ChannelFunction.PAN, profile.getChannels().get(0).getFunction());
+        assertEquals(128, profile.getChannels().get(0).getDefaultValue(), "Pan sollte standardmäßig 128 (Mitte) sein");
         assertEquals(ChannelFunction.PAN_FINE, profile.getChannels().get(1).getFunction());
         assertEquals(ChannelFunction.TILT, profile.getChannels().get(2).getFunction());
+        assertEquals(128, profile.getChannels().get(2).getDefaultValue(), "Tilt sollte standardmäßig 128 (gerade runter) sein");
         assertEquals(ChannelFunction.TILT_FINE, profile.getChannels().get(3).getFunction());
         assertEquals(ChannelFunction.PAN_TILT_SPEED, profile.getChannels().get(4).getFunction());
         assertEquals(ChannelFunction.DIMMER, profile.getChannels().get(5).getFunction());

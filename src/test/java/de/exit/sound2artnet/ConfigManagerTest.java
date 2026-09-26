@@ -8,9 +8,12 @@ import de.exit.sound2artnet.engine.Sound2LightEngine;
 import de.exit.sound2artnet.fixture.FixtureLibrary;
 import de.exit.sound2artnet.fixture.FixturePatch;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -18,10 +21,22 @@ import static org.junit.jupiter.api.Assertions.*;
 public class ConfigManagerTest {
 
     private final File configFile = new File("config.json");
+    private byte[] backupBytes = null;
+
+    @BeforeEach
+    public void backup() throws IOException {
+        if (configFile.exists()) {
+            backupBytes = Files.readAllBytes(configFile.toPath());
+        } else {
+            backupBytes = null;
+        }
+    }
 
     @AfterEach
-    public void cleanup() {
-        if (configFile.exists()) {
+    public void cleanup() throws IOException {
+        if (backupBytes != null) {
+            Files.write(configFile.toPath(), backupBytes);
+        } else if (configFile.exists()) {
             configFile.delete();
         }
     }
