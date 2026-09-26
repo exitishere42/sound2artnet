@@ -1,5 +1,6 @@
 package de.exit.sound2artnet.ui;
 
+import de.exit.sound2artnet.Sound2ArtNetApp;
 import de.exit.sound2artnet.service.UpdateService;
 import de.exit.sound2artnet.ui.component.MaterialButton;
 import de.exit.sound2artnet.ui.icon.LucideIcon;
@@ -19,8 +20,6 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 
-import java.awt.Desktop;
-import java.net.URI;
 import java.util.logging.Logger;
 
 /**
@@ -47,24 +46,26 @@ public class AboutUpdateDialog {
 
         LucideIcon iconLogo = new LucideIcon("music", 22, MaterialTheme.COLOR_PRIMARY);
 
-        VBox titleBox = new VBox(1);
         Label lblTitle = new Label("sound2artnet");
         lblTitle.setTextFill(MaterialTheme.COLOR_TEXT_HIGH);
         lblTitle.setFont(Font.font(MaterialTheme.FONT_FAMILY, FontWeight.BOLD, 16));
 
-        Label lblSub = new Label("Sound-to-Light & Moving Head Art-Net Bridge");
-        lblSub.setTextFill(MaterialTheme.COLOR_TEXT_MED);
-        lblSub.setFont(Font.font(MaterialTheme.FONT_FAMILY, 11));
-        titleBox.getChildren().addAll(lblTitle, lblSub);
-
         Region headerSpacer = new Region();
         HBox.setHgrow(headerSpacer, Priority.ALWAYS);
 
-        LucideIcon iconClose = new LucideIcon("x", 16, MaterialTheme.COLOR_TEXT_MED);
-        iconClose.setCursor(Cursor.HAND);
-        iconClose.setOnMouseClicked(e -> mainWindow.hideOverlay());
+        HBox btnCloseTop = new HBox();
+        btnCloseTop.setAlignment(Pos.CENTER);
+        btnCloseTop.setPadding(new Insets(4, 6, 4, 6));
+        btnCloseTop.setCursor(Cursor.HAND);
+        btnCloseTop.setStyle("-fx-background-radius: 4px; -fx-background-color: transparent;");
+        btnCloseTop.setOnMouseEntered(e -> btnCloseTop.setStyle("-fx-background-radius: 4px; -fx-background-color: " + MaterialTheme.HEX_SURFACE_4DP + ";"));
+        btnCloseTop.setOnMouseExited(e -> btnCloseTop.setStyle("-fx-background-radius: 4px; -fx-background-color: transparent;"));
 
-        header.getChildren().addAll(iconLogo, titleBox, headerSpacer, iconClose);
+        LucideIcon iconClose = new LucideIcon("x", 16, MaterialTheme.COLOR_TEXT_MED);
+        btnCloseTop.getChildren().add(iconClose);
+        btnCloseTop.setOnMouseClicked(e -> mainWindow.hideOverlay());
+
+        header.getChildren().addAll(iconLogo, lblTitle, headerSpacer, btnCloseTop);
 
         // 2. Versions-Box
         HBox versionCard = new HBox(16);
@@ -145,28 +146,16 @@ public class AboutUpdateDialog {
         actionContent.getChildren().addAll(txtNotes, progressBar, lblProgressDetail, buttonBox);
         statusCard.getChildren().addAll(statusRow, actionContent);
 
-        // 4. Footer (GitHub Link & Schließen)
+        // 4. Footer (GitHub Link)
         HBox footer = new HBox(10);
         footer.setAlignment(Pos.CENTER_LEFT);
 
         MaterialButton btnGithub = new MaterialButton("GitHub", "external-link",
                 MaterialTheme.COLOR_SURFACE_4DP, MaterialTheme.COLOR_TEXT_HIGH, 12, 10, 4, 11, false, () -> {
-            try {
-                if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
-                    Desktop.getDesktop().browse(URI.create(UpdateService.REPO_URL));
-                }
-            } catch (Exception e) {
-                LOGGER.warning("Konnte Browser nicht öffnen: " + e.getMessage());
-            }
+            Sound2ArtNetApp.openWebpage(UpdateService.REPO_URL);
         });
 
-        Region footerSpacer = new Region();
-        HBox.setHgrow(footerSpacer, Priority.ALWAYS);
-
-        MaterialButton btnClose = new MaterialButton("Schließen", "x",
-                MaterialTheme.COLOR_SURFACE_4DP, MaterialTheme.COLOR_TEXT_HIGH, 12, 12, 4, 11, false, mainWindow::hideOverlay);
-
-        footer.getChildren().addAll(btnGithub, footerSpacer, btnClose);
+        footer.getChildren().add(btnGithub);
 
         card.getChildren().addAll(header, versionCard, statusCard, footer);
 

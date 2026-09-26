@@ -5,6 +5,7 @@ import de.exit.sound2artnet.ui.MaterialTheme;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.application.Application;
+import javafx.application.HostServices;
 import javafx.scene.Scene;
 import javafx.scene.image.Image;
 import javafx.stage.Stage;
@@ -22,6 +23,7 @@ import java.util.logging.SimpleFormatter;
  */
 public class Sound2ArtNetApp extends Application {
     private static final Logger LOGGER = Logger.getLogger(Sound2ArtNetApp.class.getName());
+    private static HostServices hostServices;
 
     static {
         System.setProperty("java.util.logging.SimpleFormatter.format", "[%1$tT] [%4$-7s] %5$s%n");
@@ -41,6 +43,7 @@ public class Sound2ArtNetApp extends Application {
 
     @Override
     public void start(Stage stage) {
+        hostServices = getHostServices();
         LOGGER.info("==================================================================");
         LOGGER.info("Starte sound2artnet (JavaFX 21 LTS)");
         LOGGER.info("Log-Datei: " + new File("app.log").getAbsolutePath());
@@ -106,6 +109,69 @@ public class Sound2ArtNetApp extends Application {
             LOGGER.info("Autostart aktiv -> Starte Sound2ArtNet Dienst...");
             mainWindow.toggleService();
         }
+    }
+
+    public static HostServices getAppHostServices() {
+        return hostServices;
+    }
+
+    /**
+     * Öffnet eine URL sicher im Standardbrowser des Nutzers.
+     * Verwendet primär JavaFX HostServices und fällt bei Bedarf auf native OS-Kommandos zurück.
+     * Verwendet bewusst KEIN java.awt.Desktop, um AWT/GTK-Konflikte und Abstürze auf Linux zu vermeiden.
+     */
+    public static void openWebpage(String url) {
+        if (url == null || url.isBlank()) {
+            return;
+        }
+
+        Thread openerThread = new Thread(() -> {
+            boolean success = false;
+
+            // 1. JavaFX HostServices versuchen
+            if (hostServices != null) {
+                try {
+                    hostServices.showDocument(url);
+                    success = true;
+                } catch (Throwable t) {
+                    LOGGER.warning("HostServices.showDocument fehlgeschlagen: " + t.getMessage());
+                }
+            }
+
+            // 2. Nativer OS-Aufruf als Fallback (ohne AWT)
+            if (!success) {
+                String os = System.getProperty("os.name", "").toLowerCase();
+                try {
+                    if (os.contains("win")) {
+                        new ProcessBuilder("cmd.exe", "/c", "start", "\"\"", url).start();
+                        success = true;
+                    } else if (os.contains("mac")) {
+                        new ProcessBuilder("open", url).start();
+                        success = true;
+                    } else {
+                        // Linux / BSD: xdg-open oder gio
+                        String[] commands = {"xdg-open", "gio", "sensible-browser", "x-www-browser"};
+                        for (String cmd : commands) {
+                            try {
+                                Process p = "gio".equals(cmd)
+                                        ? new ProcessBuilder("gio", "open", url).start()
+                                        : new ProcessBuilder(cmd, url).start();
+                                if (p.isAlive()) {
+                                    success = true;
+                                    break;
+                                }
+                            } catch (Throwable ignored) {
+                            }
+                        }
+                    }
+                } catch (Throwable t) {
+                    LOGGER.warning("Natives Öffnen des Browsers fehlgeschlagen: " + t.getMessage());
+                }
+            }
+        }, "BrowserOpenerThread");
+
+        openerThread.setDaemon(true);
+        openerThread.start();
     }
 
     public static void main(String[] args) {
