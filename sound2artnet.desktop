@@ -2,7 +2,7 @@
 Version=1.0
 Type=Application
 Name=sound2artnet
-Comment=sound2artnet - Sound-to-Light & Moving Head Art-Net Controller
+Comment=sound2artnet - Sound-to-Light & Moving Head Art-Net Controlle
 Exec=/home/regie/sound2artnet/run.sh
 Icon=sound2artnet
 Categories=AudioVideo;Audio;

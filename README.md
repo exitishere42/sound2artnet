@@ -87,19 +87,38 @@ Visually and structurally, **sound2artnet** features the exact same dark Materia
 
 ---
 
-## Build & Run
+## Installation & Quick Start (GitHub Release)
 
-### Requirements
-- **Java 21 LTS** or newer
-- **Apache Maven 3.8+**
+### 1. Automatic Installer (Recommended)
+Download [`install.sh`](https://github.com/exitishere42/sound2artnet/releases/latest/download/install.sh) (Linux) or [`install.bat`](https://github.com/exitishere42/sound2artnet/releases/latest/download/install.bat) (Windows) from the [**Releases**](https://github.com/exitishere42/sound2artnet/releases/latest) page:
+- Automatically installs the application into `~/sound2artnet` (e.g., `/home/regie/sound2artnet` on Linux or `%USERPROFILE%\sound2artnet` on Windows).
+- Checks if **Java 21+** is already installed — skips installation if present, or automatically installs the latest OpenJDK 21 LTS if missing.
+- Creates a **Desktop Entry / Start Menu App** with the **sound2artnet** logo so you can launch it directly from your application dash.
 
-### Run Application (GUI)
-On Linux (AppImage):
+**Linux One-Line Install:**
+```bash
+curl -fsSL https://github.com/exitishere42/sound2artnet/releases/latest/download/install.sh | bash
+```
+
+**Windows Install:**
+Download and run `install.bat` from the [latest release](https://github.com/exitishere42/sound2artnet/releases/latest).
+
+### 2. Standalone Linux AppImage
+Download [`sound2artnet-x86_64.AppImage`](https://github.com/exitishere42/sound2artnet/releases/latest/download/sound2artnet-x86_64.AppImage) from the [latest release](https://github.com/exitishere42/sound2artnet/releases/latest):
 ```bash
 chmod +x sound2artnet-x86_64.AppImage
 ./sound2artnet-x86_64.AppImage
 ```
 
+---
+
+## Build from Source
+
+### Requirements
+- **Java 21 LTS** or newer
+- **Apache Maven 3.8+**
+
+### Run Application (Development)
 On Windows (batch launcher):
 ```cmd
 run.bat
