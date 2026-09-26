@@ -9,7 +9,6 @@
  \__ \ (_) | |_| | | | | (_| |/ __/ (_| | |  | |_| | | |  __/ |_ 
  |___/\___/ \__,_|_| |_|\__,_|_____\__,_|_|   \__|_| |_|\___|\__|
                                                                  
-       [ SOUND-TO-LIGHT & MOVING HEAD ART-NET CONTROLLER ]
 ```
 
 **Real-time Sound-to-Light Controller and Moving Head Effect Generator for Art-Net (DMX512) built with Java 21 LTS & JavaFX 21**
