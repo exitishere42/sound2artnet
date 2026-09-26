@@ -12,135 +12,135 @@
        [ SOUND-TO-LIGHT & MOVING HEAD ART-NET CONTROLLER ]
 ```
 
-**Echtzeit-Sound-to-Light-Steuerung und Moving-Head-Effektgenerator für Art-Net (DMX512) in Java 21 LTS & JavaFX 21**
+**Real-time Sound-to-Light Controller and Moving Head Effect Generator for Art-Net (DMX512) built with Java 21 LTS & JavaFX 21**
 
 </div>
 
 ---
 
-## Über das Projekt
+## About the Project
 
-**sound2artnet** analysiert das laufende Musiksignal in Echtzeit, erkennt Kicks sowie das aktuelle Tempo (BPM) und übersetzt die Musik vollautomatisch in synchrone Bewegungen, Farbwechsel, Dimmer-Pulse und Stroboskop-Effekte für Moving Heads und DMX-Scheinwerfer.
+**sound2artnet** analyzes live audio in real time, detects kicks as well as the current tempo (BPM), and automatically translates the music into synchronized movements, color changes, dimmer pulses, and strobe effects for Moving Heads and DMX fixtures.
 
-Optisch und im Aufbau besitzt **sound2artnet** exakt das gleiche dunkle Material-Design-Interface wie **artnet2dmx** und fügt sich damit nahtlos als passendes Gegenstück in das bestehende Lichtsteuerungs-Setup ein.
+Visually and structurally, **sound2artnet** features the exact same dark Material Design interface as **artnet2dmx**, making it a seamless companion in your lighting control setup.
 
 ```text
 +--------------------+      +-------------------------+      +--------------------------+
-|   AUDIO-EINGANG    |      |   DSP & BEAT-ANALYSE    |      |    SHOW- & DMX-ENGINE    |
+|    AUDIO INPUT     |      |   DSP & BEAT ANALYSIS   |      |    SHOW & DMX ENGINE     |
 |                    |      |                         |      |                          |
-|  * PC-Sound        | ===> |  * 1024-Sample FFT      | ===> |  * Auto-BPM Effektstufen |
-|    (WASAPI)        |      |  * 8-Band Spektrum      |      |  * Pan/Tilt Generator    |
-|  * Mikrofon /      |      |  * Kick-/Beat-Detektor  |      |  * Farbpaletten & Dimmer |
-|    Line-In         |      |  * Live-BPM-Erkennung   |      |  * Auto-Strobo (Schnell) |
+|  * System Audio    | ===> |  * 1024-Sample FFT      | ===> |  * Auto-BPM Speed Tiers  |
+|    (WASAPI)        |      |  * 8-Band Spectrum      |      |  * Pan/Tilt Generator    |
+|  * Microphone /    |      |  * Kick / Beat Detector |      |  * Palettes & Dimmer     |
+|    Line-In         |      |  * Live BPM Detection   |      |  * Auto-Strobe (Fast)    |
 +--------------------+      +-------------------------+      +------------+-------------+
                                                                           |
                                                                           | Art-Net 4 (UDP 6454)
                                                                           v
                             +-----------------------------------------------------------+
-                            |              DMX512 AUSGABE / EMPFÄNGER                   |
+                            |                 DMX512 OUTPUT / RECEIVERS                 |
                             |                                                           |
-                            |  [ Moving Heads ]   [ PAR-Spots ]   [ artnet2dmx / QLC+ ] |
+                            |  [ Moving Heads ]   [ PAR Spots ]    [ artnet2dmx / QLC+ ]|
                             +-----------------------------------------------------------+
 ```
 
 ---
 
-## Funktionsübersicht
+## Features
 
-### 1. Echtzeit-Audioanalyse & Beat-/BPM-Erkennung
-- **Direkte Systemaudio-Erfassung**: Nimmt unter Windows über `PC-Sound` (WASAPI Loopback) direkt den ausgegebenen Systemsound auf – ohne virtuelle Audiokabel oder zusätzliche Treiber. Alternativ können beliebige Mikrofone und Audio-Interfaces gewählt werden.
-- **8-Band-Spektrumanalysator**: Echtzeit-FFT-Analyse (1024 Samples, Hanning-Fenster) aufgeteilt in 8 Frequenzbänder (`SUB`, `BASS`, `LOW`, `MID`, `H-MID`, `PRES`, `TREB`, `BRIL`) inklusive Peak-Hold-Anzeige.
-- **Präzise Kick- & Beat-Erkennung**: Mehrstufige Transienten- und Subbass-Analyse für zuverlässige Kick-Drum-Erkennung auch bei stark komprimierten Tracks.
-- **Einstellbare Beat-Empfindlichkeit**: Über einen eigenen Regler (`20 %` bis `200 %`) lässt sich die Auslöseschwelle jederzeit live an leise Passagen oder harte Club-Tracks anpassen.
-- **Automatische Pegel-Normalisierung (AGC)** & manueller **Gain-Regler**.
-- **Live-BPM-Detektor**: Ermittelt fortlaufend das Tempo des laufenden Songs in BPM und ordnet es automatisch einer Geschwindigkeitsstufe zu.
+### 1. Real-Time Audio Analysis & Beat / BPM Detection
+- **Direct System Audio Capture**: Captures desktop system audio directly on Windows via WASAPI Loopback (`PC-Sound`) without requiring virtual audio cables or extra drivers. Any microphone or audio interface can also be selected.
+- **8-Band Spectrum Analyzer**: Real-time FFT analysis (1024 samples, Hanning window) split into 8 frequency bands (`SUB`, `BASS`, `LOW`, `MID`, `H-MID`, `PRES`, `TREB`, `BRIL`) with peak-hold indicators.
+- **Accurate Kick & Beat Detection**: Multi-stage sub-bass and transient onset analysis for reliable kick drum detection, even on heavily compressed tracks.
+- **Adjustable Beat Sensitivity**: Dedicated sensitivity slider (`20%` to `200%`) to fine-tune trigger thresholds on the fly for quiet passages or heavy club tracks.
+- **Automatic Gain Control (AGC)** & manual **Gain Slider**.
+- **Live BPM Detector**: Continuously calculates the tempo of the playing track in BPM and automatically maps it to an effect speed tier.
 
-### 2. Dynamische Licht- & Bewegungs-Engine (`Auto-BPM`)
+### 2. Dynamic Light & Movement Engine (`Auto-BPM`)
 
 ```text
 +----------+---------------+------------------+--------------------+------------------+
-|  STUFE   |  BPM-BEREICH  |  BEWEGUNG        |  GESCHWINDIGKEIT   |  STROBO-EFFEKT   |
+|  TIER    |  BPM RANGE    |  MOVEMENT        |  MOVEMENT SPEED    |  STROBE EFFECT   |
 +----------+---------------+------------------+--------------------+------------------+
-|  Pause   |   < 40 BPM    |  Sanfte Welle    |  0.25x (Ruhe)      |  Aus             |
-|  Langsam |  40 -  98 BPM |  Welle / Sweep   |  0.45x - 0.70x     |  Aus             |
-|  Mittel  |  98 - 116 BPM |  Kreis / Acht    |  0.90x - 1.15x     |  Aus             |
-|  Schnell | 116 - 138 BPM |  Acht / Bounce   |  1.35x - 1.75x     |  Aktiv bei Drops |
-|  Rave    |   >= 138 BPM  |  Bounce / Chaos  |  1.85x - 2.40x     |  Aktiv (Intensiv)|
+|  Idle    |   < 40 BPM    |  Gentle Wave     |  0.25x (Calm)      |  Off             |
+|  Slow    |  40 -  98 BPM |  Wave / Sweep    |  0.45x - 0.70x     |  Off             |
+|  Medium  |  98 - 116 BPM |  Circle / Eight  |  0.90x - 1.15x     |  Off             |
+|  Fast    | 116 - 138 BPM |  Eight / Bounce  |  1.35x - 1.75x     |  Active on Drops |
+|  Rave    |   >= 138 BPM  |  Bounce / Chaos  |  1.85x - 2.40x     |  Active (Intense)|
 +----------+---------------+------------------+--------------------+------------------+
 ```
 
-- **Wählbare Bewegungsmuster**: `Auto-BPM`, `Kreis`, `Acht`, `Ballyhoo`, `Welle`, `Pan-Sweep`, `Tilt-Swing` und `Beat-Bounce`.
-- **Ruheposition bei deaktivierter Bewegung**: Wird die Bewegung ausgeschaltet, fahren alle Moving Heads automatisch in ihre neutrale Standardposition (`DMX 128`, gerade nach unten).
-- **Zuschaltbarer Strobo-Effekt**: Über den Toggle-Schalter `Strobo` in den Einstellungen werden in schnellen Tempo-Stufen (`Schnell` und `Rave`) bei markanten Beats automatisch kurze Stroboskop-Bursts ausgelöst – wahlweise über den Hardware-Strobe-Kanal des Geräts oder als Software-Shutter über Dimmer/RGB.
-- **Farbpaletten & Dimmer-Modi**: Verschiedene Farbpaletten (`Club Neon`, `Cyberpunk`, `Fire & Ice`, `Regenbogen`, `Material Teal`) sowie wählbare Dimmer-Reaktionen (`Beat-Puls`, `Audio-Pegel`, `Dauer-An`).
+- **Movement Patterns**: `Auto-BPM`, `Circle`, `Eight`, `Ballyhoo`, `Wave`, `Pan-Sweep`, `Tilt-Swing`, and `Beat-Bounce`.
+- **Default Center Position When Movement Is Disabled**: Turning off movement automatically returns all Moving Heads to their neutral center position (`DMX 128`, pointing straight down).
+- **Toggleable Strobe Effect**: Dedicated `Strobo` toggle in the settings triggers short strobe bursts on strong beats during fast tempo tiers (`Fast` and `Rave`) — using either the fixture's hardware strobe channel or a software shutter across dimmer/RGB channels.
+- **Color Palettes & Dimmer Modes**: Multiple color palettes (`Club Neon`, `Cyberpunk`, `Fire & Ice`, `Rainbow`, `Material Teal`) and selectable dimmer responses (`Beat Pulse`, `Audio Level`, `Always On`).
 
-### 3. Fixture-Management & QLC+ Import
-- **QLC+ Import (`*.qxf`)**: Direkter Import von QLC+ Gerätedefinitionen mit automatischer Erkennung der DMX-Modi und Kanalfunktionen sowie Mehrfach-Patching für mehrere baugleiche Geräte.
-- **Integrierte Profil-Bibliothek**: Mitgelieferte Vorlagen für 9-/11-Kanal Spot-Moving-Heads, 9-/14-Kanal Wash-Moving-Heads sowie 4-/7-Kanal RGBW-PAR-Scheinwerfer.
-- **Fixture-Editor**: Freie Konfiguration aller Kanäle (`PAN`, `PAN_FINE`, `TILT`, `TILT_FINE`, `PAN_TILT_SPEED`, `DIMMER`, `STROBE`, `RED`, `GREEN`, `BLUE`, `WHITE`, `AMBER`, `UV`, `COLOR_WHEEL`, `GOBO_WHEEL`, `PRISM`, `FOCUS`, `CONSTANT`, `UNUSED`).
-- **Schutzgrenzen & Phasenversatz**: Einstellbare Pan/Tilt-Limits (`Min`/`Max`), Pan/Tilt-Invertierung sowie Phasenversatz (`0°–360°`) für symmetrische oder versetzte Gruppenbewegungen.
+### 3. Fixture Management & QLC+ Import
+- **QLC+ Import (`*.qxf`)**: Direct import of QLC+ fixture definitions with automatic detection of DMX modes and channel functions, plus multi-fixture patching.
+- **Built-in Profile Library**: Ready-to-use templates for 9-/11-channel Spot Moving Heads, 9-/14-channel Wash Moving Heads, and 4-/7-channel RGBW PAR cans.
+- **Fixture Editor**: Full customization of all channels (`PAN`, `PAN_FINE`, `TILT`, `TILT_FINE`, `PAN_TILT_SPEED`, `DIMMER`, `STROBE`, `RED`, `GREEN`, `BLUE`, `WHITE`, `AMBER`, `UV`, `COLOR_WHEEL`, `GOBO_WHEEL`, `PRISM`, `FOCUS`, `CONSTANT`, `UNUSED`).
+- **Safety Limits & Phase Offset**: Configurable Pan/Tilt limits (`Min`/`Max`), Pan/Tilt inversion, and phase offset (`0°–360°`) for symmetrical or wave-like group movements.
 
-### 4. Art-Net 4 Ausgang & DMX512 Live-Visualizer
-- **Art-Net 4 Sender**: Sendet standardkonforme `ArtDMX`-Pakete (UDP Port `6454`) an eine frei wählbare Ziel-IP (Unicast, Broadcast oder `127.0.0.1`) und ein einstellbares Universum (`0–15`) mit konfigurierbarer Bildrate (`10–44 FPS`).
-- **Live-Metriken**: Anzeige von Audio-Pegel, Peak, Tempo (BPM), aktiver Geschwindigkeitsstufe, Paketen pro Sekunde (inkl. Echtzeit-Verlaufsdiagramm) und Gesamtzahl gesendeter Pakete.
-- **512-Kanal DMX-Visualizer**: Live-Balkenanzeige aller 512 DMX-Kanäle mit direkter Beschriftung der zugewiesenen Funktion (`PAN`, `TILT`, `DIM`, `STRB`, `R`, `G`, `B` usw.) und Schnellwahl-Buttons für Kanalbereiche.
-- **Automatische Speicherung**: Alle Einstellungen und gepatchten Geräte werden automatisch in der Datei `config.json` gespeichert.
+### 4. Art-Net 4 Output & 512-Channel DMX Live Visualizer
+- **Art-Net 4 Sender**: Broadcasts standard-compliant `ArtDMX` packets (UDP port `6454`) to any target IP (unicast, broadcast, or `127.0.0.1`) and universe (`0–15`) at a configurable frame rate (`10–44 FPS`).
+- **Live Metrics**: Real-time readouts for audio RMS, peak, tempo (BPM), active speed tier, packets per second (including a live history chart), and total packets sent.
+- **512-Channel DMX Visualizer**: Live bar graph of all 512 DMX channels with semantic role labels (`PAN`, `TILT`, `DIM`, `STRB`, `R`, `G`, `B`, etc.) and quick-jump range buttons.
+- **Automatic Persistence**: All settings and patched fixtures are automatically saved to `config.json`.
 
 ---
 
-## Bauen & Starten
+## Build & Run
 
-### Voraussetzungen
-- **Java 21 LTS** oder neuer
+### Requirements
+- **Java 21 LTS** or newer
 - **Apache Maven 3.8+**
 
-### Anwendung starten (GUI)
-Unter Linux (AppImage):
+### Run Application (GUI)
+On Linux (AppImage):
 ```bash
 chmod +x sound2artnet-x86_64.AppImage
 ./sound2artnet-x86_64.AppImage
 ```
 
-Per Startskript unter Windows:
+On Windows (batch launcher):
 ```cmd
 run.bat
 ```
 
-Oder direkt über Maven:
+Or directly via Maven:
 ```bash
 mvn exec:java
 ```
 
-### AppImage neu bauen (Linux / WSL)
+### Rebuild AppImage (Linux / WSL)
 ```bash
 mvn clean package -DskipTests
 ./build-appimage.sh
 ```
 
-### Kompilieren & Tests ausführen
+### Compile & Run Tests
 ```bash
 mvn clean test
 ```
 
-### Ausführbare Fat-JAR erstellen
+### Build Executable Fat JAR
 ```bash
 mvn clean package
 ```
-Die fertige All-in-One-JAR befindet sich anschließend unter `target/sound2artnet-1.0.0-all.jar`.
+The standalone fat JAR will be created at `target/sound2artnet-1.0.0-all.jar`.
 
-### Headless-CLI-Modus (ohne GUI)
+### Headless CLI Mode (No GUI)
 ```bash
 java -jar target/sound2artnet-1.0.0-all.jar --cli --ip 192.168.200.232 --universe 0 --fps 40
 ```
 
 ---
 
-## Autor
+## Author
 
 ```text
 +-------------------------------------------------------------------+
-|  Programmiert von:  exitishere42                                  |
+|  Programmed by:     exitishere42                                  |
 |  GitHub:            https://github.com/exitishere42               |
-|  Projekt:           https://github.com/exitishere42/sound2artnet  |
+|  Repository:        https://github.com/exitishere42/sound2artnet  |
 +-------------------------------------------------------------------+
 ```
