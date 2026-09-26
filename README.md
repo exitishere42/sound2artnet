@@ -1,10 +1,47 @@
-# sound2artnet
+<div align="center">
 
-**sound2artnet** ist eine Echtzeit-Sound-to-Light-Steuerung und ein Moving-Head-Effektgenerator für Art-Net (DMX512) auf Basis von **Java 21 LTS** und **JavaFX 21**.
+<img src="sound2artnet.png" alt="sound2artnet Logo" width="128" height="128" />
 
-Die Anwendung analysiert das laufende Musiksignal in Echtzeit, erkennt Kicks sowie das aktuelle Tempo (BPM) und übersetzt die Musik vollautomatisch in synchrone Bewegungen, Farbwechsel, Dimmer-Pulse und Stroboskop-Effekte für Moving Heads und DMX-Scheinwerfer.
+```text
+                           _ ____             _              _   
+  ___  ___  _   _ _ __   __| |___ \ __ _ _ __| |_ _ __   ___| |_ 
+ / __|/ _ \| | | | '_ \ / _` | __) / _` | '__| __| '_ \ / _ \ __|
+ \__ \ (_) | |_| | | | | (_| |/ __/ (_| | |  | |_| | | |  __/ |_ 
+ |___/\___/ \__,_|_| |_|\__,_|_____\__,_|_|   \__|_| |_|\___|\__|
+                                                                 
+       [ SOUND-TO-LIGHT & MOVING HEAD ART-NET CONTROLLER ]
+```
+
+**Echtzeit-Sound-to-Light-Steuerung und Moving-Head-Effektgenerator für Art-Net (DMX512) in Java 21 LTS & JavaFX 21**
+
+</div>
+
+---
+
+## Über das Projekt
+
+**sound2artnet** analysiert das laufende Musiksignal in Echtzeit, erkennt Kicks sowie das aktuelle Tempo (BPM) und übersetzt die Musik vollautomatisch in synchrone Bewegungen, Farbwechsel, Dimmer-Pulse und Stroboskop-Effekte für Moving Heads und DMX-Scheinwerfer.
 
 Optisch und im Aufbau besitzt **sound2artnet** exakt das gleiche dunkle Material-Design-Interface wie **artnet2dmx** und fügt sich damit nahtlos als passendes Gegenstück in das bestehende Lichtsteuerungs-Setup ein.
+
+```text
++--------------------+      +-------------------------+      +--------------------------+
+|   AUDIO-EINGANG    |      |   DSP & BEAT-ANALYSE    |      |    SHOW- & DMX-ENGINE    |
+|                    |      |                         |      |                          |
+|  * PC-Sound        | ===> |  * 1024-Sample FFT      | ===> |  * Auto-BPM Effektstufen |
+|    (WASAPI)        |      |  * 8-Band Spektrum      |      |  * Pan/Tilt Generator    |
+|  * Mikrofon /      |      |  * Kick-/Beat-Detektor  |      |  * Farbpaletten & Dimmer |
+|    Line-In         |      |  * Live-BPM-Erkennung   |      |  * Auto-Strobo (Schnell) |
++--------------------+      +-------------------------+      +------------+-------------+
+                                                                          |
+                                                                          | Art-Net 4 (UDP 6454)
+                                                                          v
+                            +-----------------------------------------------------------+
+                            |              DMX512 AUSGABE / EMPFÄNGER                   |
+                            |                                                           |
+                            |  [ Moving Heads ]   [ PAR-Spots ]   [ artnet2dmx / QLC+ ] |
+                            +-----------------------------------------------------------+
+```
 
 ---
 
@@ -16,10 +53,22 @@ Optisch und im Aufbau besitzt **sound2artnet** exakt das gleiche dunkle Material
 - **Präzise Kick- & Beat-Erkennung**: Mehrstufige Transienten- und Subbass-Analyse für zuverlässige Kick-Drum-Erkennung auch bei stark komprimierten Tracks.
 - **Einstellbare Beat-Empfindlichkeit**: Über einen eigenen Regler (`20 %` bis `200 %`) lässt sich die Auslöseschwelle jederzeit live an leise Passagen oder harte Club-Tracks anpassen.
 - **Automatische Pegel-Normalisierung (AGC)** & manueller **Gain-Regler**.
-- **Live-BPM-Detektor**: Ermittelt fortlaufend das Tempo des laufenden Songs in BPM und ordnet es automatisch einer Geschwindigkeitsstufe (`Pause`, `Langsam`, `Mittel`, `Schnell`, `Rave`) zu.
+- **Live-BPM-Detektor**: Ermittelt fortlaufend das Tempo des laufenden Songs in BPM und ordnet es automatisch einer Geschwindigkeitsstufe zu.
 
-### 2. Dynamische Licht- & Bewegungs-Engine
-- **Auto-BPM-Modus**: Passt Bewegungsmuster, Geschwindigkeit, Auslenkung und Farbwechsel automatisch an die erkannte BPM-Stufe an – von ruhigen, fließenden Fahrten bei langsamen Liedern (~90 BPM) bis hin zu schnellen, energiegeladenen Mustern ab 120+ BPM.
+### 2. Dynamische Licht- & Bewegungs-Engine (`Auto-BPM`)
+
+```text
++----------+---------------+------------------+--------------------+------------------+
+|  STUFE   |  BPM-BEREICH  |  BEWEGUNG        |  GESCHWINDIGKEIT   |  STROBO-EFFEKT   |
++----------+---------------+------------------+--------------------+------------------+
+|  Pause   |   < 40 BPM    |  Sanfte Welle    |  0.25x (Ruhe)      |  Aus             |
+|  Langsam |  40 -  98 BPM |  Welle / Sweep   |  0.45x - 0.70x     |  Aus             |
+|  Mittel  |  98 - 116 BPM |  Kreis / Acht    |  0.90x - 1.15x     |  Aus             |
+|  Schnell | 116 - 138 BPM |  Acht / Bounce   |  1.35x - 1.75x     |  Aktiv bei Drops |
+|  Rave    |   >= 138 BPM  |  Bounce / Chaos  |  1.85x - 2.40x     |  Aktiv (Intensiv)|
++----------+---------------+------------------+--------------------+------------------+
+```
+
 - **Wählbare Bewegungsmuster**: `Auto-BPM`, `Kreis`, `Acht`, `Ballyhoo`, `Welle`, `Pan-Sweep`, `Tilt-Swing` und `Beat-Bounce`.
 - **Ruheposition bei deaktivierter Bewegung**: Wird die Bewegung ausgeschaltet, fahren alle Moving Heads automatisch in ihre neutrale Standardposition (`DMX 128`, gerade nach unten).
 - **Zuschaltbarer Strobo-Effekt**: Über den Toggle-Schalter `Strobo` in den Einstellungen werden in schnellen Tempo-Stufen (`Schnell` und `Rave`) bei markanten Beats automatisch kurze Stroboskop-Bursts ausgelöst – wahlweise über den Hardware-Strobe-Kanal des Geräts oder als Software-Shutter über Dimmer/RGB.
@@ -56,6 +105,7 @@ Per Startskript unter Windows:
 ```cmd
 run.bat
 ```
+
 Oder direkt über Maven:
 ```bash
 mvn exec:java
@@ -87,4 +137,10 @@ java -jar target/sound2artnet-1.0.0-all.jar --cli --ip 192.168.200.232 --univers
 
 ## Autor
 
-Programmiert von **exitishere42** ([github.com/exitishere42](https://github.com/exitishere42)).
+```text
++-------------------------------------------------------------------+
+|  Programmiert von:  exitishere42                                  |
+|  GitHub:            https://github.com/exitishere42               |
+|  Projekt:           https://github.com/exitishere42/sound2artnet  |
++-------------------------------------------------------------------+
+```
