@@ -88,6 +88,8 @@ download_file "$RELEASE_BASE_URL/$JAR_NAME" "$INSTALL_DIR/$JAR_NAME"
 download_file "$RELEASE_BASE_URL/$APPIMAGE_NAME" "$INSTALL_DIR/$APPIMAGE_NAME" || true
 download_file "$RAW_BASE_URL/sound2artnet.png" "$INSTALL_DIR/sound2artnet.png"
 download_file "$RAW_BASE_URL/sound2artnet.svg" "$INSTALL_DIR/sound2artnet.svg"
+download_file "$RAW_BASE_URL/uninstall.sh" "$INSTALL_DIR/uninstall.sh" || true
+chmod +x "$INSTALL_DIR/uninstall.sh" 2>/dev/null || true
 
 if [ -f "$INSTALL_DIR/$APPIMAGE_NAME" ]; then
     chmod +x "$INSTALL_DIR/$APPIMAGE_NAME"

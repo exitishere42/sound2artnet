@@ -110,6 +110,17 @@ chmod +x sound2artnet-x86_64.AppImage
 ./sound2artnet-x86_64.AppImage
 ```
 
+### 3. Uninstallation (`uninstall.sh` / `uninstall.bat`)
+To completely remove **sound2artnet** (including `~/sound2artnet`, icons, and the Desktop/Start Menu entry):
+
+**Linux One-Line Uninstall:**
+```bash
+curl -fsSL https://github.com/exitishere42/sound2artnet/releases/latest/download/uninstall.sh | bash
+```
+
+**Windows Uninstall:**
+Download and run [`uninstall.bat`](https://github.com/exitishere42/sound2artnet/releases/latest/download/uninstall.bat) from the [latest release](https://github.com/exitishere42/sound2artnet/releases/latest) (or run `%USERPROFILE%\sound2artnet\uninstall.bat`).
+
 ---
 
 ## Build from Source

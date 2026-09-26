@@ -48,7 +48,8 @@ powershell -NoProfile -Command ^
     "$ProgressPreference = 'SilentlyContinue'; " ^
     "Invoke-WebRequest -Uri '%RELEASE_URL%/%JAR_NAME%' -OutFile '%INSTALL_DIR%\%JAR_NAME%'; " ^
     "Invoke-WebRequest -Uri '%RAW_URL%/sound2artnet.ico' -OutFile '%INSTALL_DIR%\sound2artnet.ico'; " ^
-    "Invoke-WebRequest -Uri '%RAW_URL%/sound2artnet.png' -OutFile '%INSTALL_DIR%\sound2artnet.png'"
+    "Invoke-WebRequest -Uri '%RAW_URL%/sound2artnet.png' -OutFile '%INSTALL_DIR%\sound2artnet.png'; " ^
+    "Invoke-WebRequest -Uri '%RAW_URL%/uninstall.bat' -OutFile '%INSTALL_DIR%\uninstall.bat'"
 
 if not exist "%INSTALL_DIR%\%JAR_NAME%" (
     echo [!] Fehler beim Herunterladen von %JAR_NAME%.
