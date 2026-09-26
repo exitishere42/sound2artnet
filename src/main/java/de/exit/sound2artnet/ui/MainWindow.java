@@ -128,6 +128,19 @@ public class MainWindow extends StackPane {
         audioService.getAnalyzer().getBeatDetector().setDetectionMode(config.getDetectionMode());
         audioService.getAnalyzer().getBeatDetector().setSensitivity(config.getBeatSensitivity());
 
+        de.exit.sound2artnet.util.I18n.setLanguage(config.getLanguage());
+        de.exit.sound2artnet.util.I18n.addListener(lang -> {
+            Platform.runLater(() -> {
+                if (!isRunning) {
+                    chipLabel.setText(de.exit.sound2artnet.util.I18n.get("status.ready"));
+                    btnAction.setText(de.exit.sound2artnet.util.I18n.get("btn.start"));
+                } else {
+                    chipLabel.setText(de.exit.sound2artnet.util.I18n.get("status.active"));
+                    btnAction.setText(de.exit.sound2artnet.util.I18n.get("btn.stop"));
+                }
+            });
+        });
+
         contentBox.setStyle("-fx-background-color: " + MaterialTheme.HEX_BG + ";");
         contentBox.setSpacing(0);
         contentBox.setPadding(new Insets(0, 0, 4, 0));
@@ -253,7 +266,7 @@ public class MainWindow extends StackPane {
 
         logoBox.getChildren().addAll(iconLogo, title, versionBadge);
         logoBox.setOnMouseClicked(e -> de.exit.sound2artnet.ui.AboutUpdateDialog.show(MainWindow.this));
-        MaterialTooltip.install(logoBox, "sound2artnet", "Klicken für Versionsinformationen & automatische Updates");
+        MaterialTooltip.install(logoBox, "sound2artnet", de.exit.sound2artnet.util.I18n.get("tooltip.logo"));
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);

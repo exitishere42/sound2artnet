@@ -33,6 +33,7 @@ public class AppConfig {
     private ColorEngine.Palette colorPalette = ColorEngine.Palette.CLUB_NEON;
     private List<FixturePatch> fixtures = new ArrayList<>();
     private boolean autostart = false;
+    private String language = "de";
 
     public AppConfig() {}
 
@@ -93,4 +94,7 @@ public class AppConfig {
 
     public boolean isAutostart() { return autostart; }
     public void setAutostart(boolean autostart) { this.autostart = autostart; }
+
+    public String getLanguage() { return language != null ? language : "de"; }
+    public void setLanguage(String language) { this.language = language != null ? language : "de"; }
 }
