@@ -114,4 +114,67 @@ public class QlcFixtureParserTest {
             assertEquals(13, def.toFixtureProfile(null).getChannelCount());
         }
     }
+
+    @Test
+    public void testParseRobeTetra2Mode1() throws Exception {
+        File robeFile = new File("C:\\Users\\timo\\Downloads\\ROBE-QLC5-Fixture-Files-TRP@MrDino-ariron\\ROBE-Tetra2@MrDino.qxf");
+        if (robeFile.exists()) {
+            QlcFixtureDefinition def = QlcFixtureParser.parse(robeFile);
+            assertNotNull(def);
+            assertEquals("ROBE", def.getManufacturer());
+            assertEquals("Tetra2", def.getModel());
+            assertEquals(0, def.getPanMax(), "Tetra2 hat kein Pan");
+
+            assertEquals(6, def.getModes().size());
+            assertEquals("Mode 1 - Wash (34 ch)", def.getModes().get(0).getName());
+            assertEquals(34, def.getModes().get(0).getChannelCount(), "Mode 1 muss exakt 34 Kanäle haben");
+
+            FixtureProfile prof = def.toFixtureProfile("Mode 1 - Wash (34 ch)");
+            assertEquals(34, prof.getChannelCount());
+
+            // Ch 0 (1): Tilt (128)
+            assertEquals(ChannelFunction.TILT, prof.getChannels().get(0).getFunction());
+            assertEquals(128, prof.getChannels().get(0).getDefaultValue());
+
+            // Ch 1 (2): Tilt Fine (0)
+            assertEquals(ChannelFunction.TILT_FINE, prof.getChannels().get(1).getFunction());
+
+            // Ch 7, 8, 9 (8, 9, 10): Background RGB
+            assertEquals(ChannelFunction.RED, prof.getChannels().get(7).getFunction());
+            assertEquals(ChannelFunction.GREEN, prof.getChannels().get(8).getFunction());
+            assertEquals(ChannelFunction.BLUE, prof.getChannels().get(9).getFunction());
+
+            // Ch 10 (11): Background White (Def 0!)
+            assertEquals(ChannelFunction.WHITE, prof.getChannels().get(10).getFunction());
+            assertEquals(0, prof.getChannels().get(10).getDefaultValue(), "White default muss 0 sein, um RGB nicht auszuwaschen");
+
+            // Ch 12 (13): Background Shutter (Def 32)
+            assertEquals(ChannelFunction.STROBE, prof.getChannels().get(12).getFunction());
+            assertEquals(32, prof.getChannels().get(12).getDefaultValue(), "Shutter muss 32 (Open) sein");
+
+            // Ch 13 (14): Background Dimmer (Def 255)
+            assertEquals(ChannelFunction.CONSTANT, prof.getChannels().get(13).getFunction());
+            assertEquals(255, prof.getChannels().get(13).getDefaultValue());
+
+            // Ch 14 (15): Colour Mix control (Def 45)
+            assertEquals(ChannelFunction.CONSTANT, prof.getChannels().get(14).getFunction());
+            assertEquals(45, prof.getChannels().get(14).getDefaultValue());
+
+            // Ch 15 (16): Flower 1 rotation (Def 0, NOT RED!)
+            assertNotEquals(ChannelFunction.RED, prof.getChannels().get(15).getFunction(), "Flower 1 rotation darf nicht Rot sein");
+            assertEquals(ChannelFunction.CONSTANT, prof.getChannels().get(15).getFunction());
+
+            // Ch 29 (30): Master Zoom (Def 128, NOT DIMMER!)
+            assertNotEquals(ChannelFunction.DIMMER, prof.getChannels().get(29).getFunction(), "Zoom darf nicht Dimmer sein");
+            assertEquals(ChannelFunction.FOCUS, prof.getChannels().get(29).getFunction());
+            assertEquals(128, prof.getChannels().get(29).getDefaultValue());
+
+            // Ch 32 (33): Master Shutter (Def 32)
+            assertEquals(ChannelFunction.STROBE, prof.getChannels().get(32).getFunction());
+            assertEquals(32, prof.getChannels().get(32).getDefaultValue());
+
+            // Ch 33 (34): Master Dimmer
+            assertEquals(ChannelFunction.DIMMER, prof.getChannels().get(33).getFunction());
+        }
+    }
 }

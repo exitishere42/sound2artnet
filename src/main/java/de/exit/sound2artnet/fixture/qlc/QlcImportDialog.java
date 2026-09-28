@@ -104,7 +104,10 @@ public class QlcImportDialog extends Stage {
         lblModel.setTextFill(MaterialTheme.COLOR_TEXT_HIGH);
         lblModel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 13));
 
-        Label lblPhysical = new Label("Max Pan: " + definition.getPanMax() + "° | Max Tilt: " + definition.getTiltMax() + "°");
+        String panTiltText = (definition.getPanMax() > 0)
+                ? String.format("Max Pan: %d° | Max Tilt: %d°", definition.getPanMax(), definition.getTiltMax())
+                : (definition.getTiltMax() > 0 ? String.format("Max Tilt: %d° (%s)", definition.getTiltMax(), I18n.get("qlc.no_pan")) : I18n.get("qlc.no_pan"));
+        Label lblPhysical = new Label(panTiltText);
         lblPhysical.setTextFill(MaterialTheme.COLOR_TEXT_MED);
         lblPhysical.setFont(Font.font("Segoe UI", 11));
 
@@ -277,9 +280,17 @@ public class QlcImportDialog extends Stage {
 
             if (definition.getPanMax() > 0) {
                 patch.setPanMax(255);
+            } else {
+                patch.setPanMax(0);
+                patch.setPanMin(0);
+                patch.setInvertPan(false);
             }
             if (definition.getTiltMax() > 0) {
                 patch.setTiltMax(255);
+            } else {
+                patch.setTiltMax(0);
+                patch.setTiltMin(0);
+                patch.setInvertTilt(false);
             }
 
             if (onImport != null) {

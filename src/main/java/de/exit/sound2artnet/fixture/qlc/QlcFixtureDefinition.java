@@ -13,8 +13,8 @@ public class QlcFixtureDefinition {
     private String manufacturer = "Unbekannt";
     private String model = "QLC+ Fixture";
     private String type = "Moving Head";
-    private int panMax = 540;
-    private int tiltMax = 270;
+    private int panMax = 0;
+    private int tiltMax = 0;
 
     private final Map<String, QlcChannel> channels = new LinkedHashMap<>();
     private final List<QlcMode> modes = new ArrayList<>();
@@ -35,6 +35,9 @@ public class QlcFixtureDefinition {
             this.resolvedFunction = determineFunction();
             if ((this.resolvedFunction == ChannelFunction.PAN || this.resolvedFunction == ChannelFunction.TILT) && defaultValue == 0) {
                 this.defaultValue = 128;
+            } else if (this.resolvedFunction == ChannelFunction.WHITE && defaultValue == 255) {
+                // Bei RGBW Fixtures führt White=255 dazu, dass Farben ausgewaschen werden
+                this.defaultValue = 0;
             } else {
                 this.defaultValue = defaultValue;
             }
@@ -51,7 +54,14 @@ public class QlcFixtureDefinition {
             if (p.contains("positiontiltfine")) return ChannelFunction.TILT_FINE;
             if (p.contains("positiontilt")) return ChannelFunction.TILT;
             if (p.contains("speedpantilt")) return ChannelFunction.PAN_TILT_SPEED;
-            if (p.contains("intensitymasterdimmer")) return ChannelFunction.DIMMER;
+            if (p.contains("beamzoom") || p.contains("focus") || p.contains("zoom")) return ChannelFunction.FOCUS;
+            if (p.contains("intensitymasterdimmer") || p.contains("intensitydimmer")) {
+                // Wenn es sich um einen Sub-Dimmer handelt (z. B. Background Dimmer, Flower Dimmer):
+                if (n.contains("background") || n.contains("flower") || n.contains("pattern")) {
+                    return ChannelFunction.CONSTANT; // Standardwert 255 halten, Master Dimmer regelt Gesamtintensität
+                }
+                return ChannelFunction.DIMMER;
+            }
             if (p.contains("shutter") || p.contains("strobe")) return ChannelFunction.STROBE;
             if (p.contains("intensityred")) return ChannelFunction.RED;
             if (p.contains("intensitygreen")) return ChannelFunction.GREEN;
@@ -59,10 +69,13 @@ public class QlcFixtureDefinition {
             if (p.contains("intensitywhite")) return ChannelFunction.WHITE;
             if (p.contains("intensityamber")) return ChannelFunction.AMBER;
             if (p.contains("intensityuv")) return ChannelFunction.UV;
+            if (p.contains("colorctomixer") || p.contains("cto")) return ChannelFunction.CONSTANT;
             if (p.contains("gobo")) return ChannelFunction.GOBO_WHEEL;
-            if (p.contains("color") || p.contains("colour")) return ChannelFunction.COLOR_WHEEL;
             if (p.contains("prism")) return ChannelFunction.PRISM;
-            if (p.contains("focus")) return ChannelFunction.FOCUS;
+            if (p.contains("color") || p.contains("colour")) {
+                if (n.contains("virtual") || n.contains("macro") || n.contains("mix")) return ChannelFunction.CONSTANT;
+                return ChannelFunction.COLOR_WHEEL;
+            }
 
             // 2. Auswertung der QLC+ Channel-Gruppe
             if (g.equals("pan")) {
@@ -74,39 +87,54 @@ public class QlcFixtureDefinition {
             if (g.equals("speed")) return ChannelFunction.PAN_TILT_SPEED;
             if (g.equals("shutter")) return ChannelFunction.STROBE;
             if (g.equals("gobo")) return ChannelFunction.GOBO_WHEEL;
-            if (g.equals("colour") || g.equals("color")) return ChannelFunction.COLOR_WHEEL;
             if (g.equals("prism")) return ChannelFunction.PRISM;
             if (g.equals("beam") && (n.contains("focus") || n.contains("zoom"))) return ChannelFunction.FOCUS;
+            if (g.equals("maintenance") || g.equals("nothing")) return ChannelFunction.CONSTANT;
 
             if (g.equals("intensity")) {
-                if (n.contains("red") || n.contains("rot")) return ChannelFunction.RED;
-                if (n.contains("green") || n.contains("grün")) return ChannelFunction.GREEN;
-                if (n.contains("blue") || n.contains("blau")) return ChannelFunction.BLUE;
-                if (n.contains("white") || n.contains("weiß")) return ChannelFunction.WHITE;
+                if (n.contains("red") || n.matches(".*\\b(rot|red)\\b.*")) return ChannelFunction.RED;
+                if (n.contains("green") || n.matches(".*\\b(grün|gruen|green)\\b.*")) return ChannelFunction.GREEN;
+                if (n.contains("blue") || n.matches(".*\\b(blau|blue)\\b.*")) return ChannelFunction.BLUE;
+                if (n.contains("white") || n.matches(".*\\b(weiß|weiss|white)\\b.*")) return ChannelFunction.WHITE;
                 if (n.contains("amber")) return ChannelFunction.AMBER;
                 if (n.contains("uv")) return ChannelFunction.UV;
+                if (n.contains("background") || n.contains("flower") || n.contains("pattern")) return ChannelFunction.CONSTANT;
                 return ChannelFunction.DIMMER;
             }
 
             // 3. Heuristische Analyse des Kanalnamens
+            // Motoren, Rotationen & Steuerkanäle dürfen niemals als Farbe interpretiert werden!
+            if (n.contains("rotation") || n.contains("rotate")) return ChannelFunction.CONSTANT;
+            if (n.contains("virtual") || n.contains("macro")) return ChannelFunction.CONSTANT;
+            if (n.contains("control") || n.contains("mode") || n.contains("select") || n.contains("reset") || n.contains("function")) return ChannelFunction.CONSTANT;
+            if (n.contains("zoom") || n.contains("focus")) return ChannelFunction.FOCUS;
+
             if (n.contains("pan fine") || n.contains("pan-fine") || n.contains("panfine")) return ChannelFunction.PAN_FINE;
-            if (n.contains("pan")) return ChannelFunction.PAN;
+            if (n.contains("pan") && !n.contains("pattern")) return ChannelFunction.PAN;
             if (n.contains("tilt fine") || n.contains("tilt-fine") || n.contains("tiltfine")) return ChannelFunction.TILT_FINE;
             if (n.contains("tilt")) return ChannelFunction.TILT;
             if (n.contains("speed") || n.contains("geschwindigkeit") || n.contains("p/t")) return ChannelFunction.PAN_TILT_SPEED;
-            if (n.contains("dimmer") || n.contains("dimming") || n.contains("master") || n.contains("helligkeit")) return ChannelFunction.DIMMER;
+
+            if (n.contains("dimmer") || n.contains("dimming") || n.contains("helligkeit") || (n.contains("master") && !n.contains("shutter") && !n.contains("strobe"))) {
+                if (n.contains("background") || n.contains("flower") || n.contains("pattern")) {
+                    return ChannelFunction.CONSTANT;
+                }
+                return ChannelFunction.DIMMER;
+            }
+
             if (n.contains("strobe") || n.contains("shutter") || n.contains("blitz")) return ChannelFunction.STROBE;
-            if (n.contains("red") || n.contains("rot")) return ChannelFunction.RED;
-            if (n.contains("green") || n.contains("grün")) return ChannelFunction.GREEN;
-            if (n.contains("blue") || n.contains("blau")) return ChannelFunction.BLUE;
-            if (n.contains("white") || n.contains("weiß")) return ChannelFunction.WHITE;
+
+            // Farben mit Wortgrenzen (damit z. B. 'rotation' nicht 'rot' auslöst)
+            if (n.contains("red") || n.matches(".*\\b(rot|red)\\b.*")) return ChannelFunction.RED;
+            if (n.contains("green") || n.matches(".*\\b(grün|gruen|green)\\b.*")) return ChannelFunction.GREEN;
+            if (n.contains("blue") || n.matches(".*\\b(blau|blue)\\b.*")) return ChannelFunction.BLUE;
+            if (n.contains("white") || n.matches(".*\\b(weiß|weiss|white)\\b.*")) return ChannelFunction.WHITE;
             if (n.contains("amber")) return ChannelFunction.AMBER;
             if (n.contains("uv")) return ChannelFunction.UV;
-            if (n.contains("color") || n.contains("colour") || n.contains("farb")) return ChannelFunction.COLOR_WHEEL;
+
+            if ((n.contains("color") || n.contains("colour") || n.contains("farb")) && !n.contains("virtual")) return ChannelFunction.COLOR_WHEEL;
             if (n.contains("gobo")) return ChannelFunction.GOBO_WHEEL;
             if (n.contains("prism")) return ChannelFunction.PRISM;
-            if (n.contains("focus")) return ChannelFunction.FOCUS;
-            if (n.contains("reset") || n.contains("mode") || n.contains("macro") || n.contains("function")) return ChannelFunction.CONSTANT;
 
             return ChannelFunction.UNUSED;
         }

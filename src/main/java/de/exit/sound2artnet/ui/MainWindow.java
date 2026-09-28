@@ -10,6 +10,8 @@ import de.exit.sound2artnet.config.ConfigManager;
 import de.exit.sound2artnet.engine.ColorEngine;
 import de.exit.sound2artnet.engine.MovementPattern;
 import de.exit.sound2artnet.engine.Sound2LightEngine;
+import de.exit.sound2artnet.fixture.ChannelFunction;
+import de.exit.sound2artnet.fixture.ChannelMapping;
 import de.exit.sound2artnet.fixture.FixtureLibrary;
 import de.exit.sound2artnet.fixture.FixturePatch;
 import de.exit.sound2artnet.fixture.FixtureProfile;
@@ -19,6 +21,8 @@ import de.exit.sound2artnet.util.I18n;
 import javafx.animation.PauseTransition;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleBooleanProperty;
+import javafx.beans.property.SimpleIntegerProperty;
+import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -651,7 +655,8 @@ public class MainWindow extends StackPane {
         colLimits = new TableColumn<>(I18n.get("patch.col.limits"));
         colLimits.setCellValueFactory(data -> {
             FixturePatch p = data.getValue();
-            String inv = (p.isInvertPan() ? "Pan-Inv " : "") + (p.isInvertTilt() ? "Tilt-Inv" : "");
+            boolean hasPan = p.getProfile() != null && p.getProfile().findChannelOffset(ChannelFunction.PAN) >= 0;
+            String inv = ((hasPan && p.isInvertPan()) ? "Pan-Inv " : "") + (p.isInvertTilt() ? "Tilt-Inv" : "");
             return new SimpleStringProperty(inv.isBlank() ? I18n.get("patch.limits.default") : inv.trim());
         });
         colLimits.setMaxWidth(140);
@@ -1663,18 +1668,274 @@ public class MainWindow extends StackPane {
                 for (FixturePatch p : patchList) {
                     nextAddr = Math.max(nextAddr, p.getEndAddress() + 1);
                 }
-                var dlg = new de.exit.sound2artnet.fixture.qlc.QlcImportDialog(stage, def, nextAddr, newPatch -> {
-                    patchList.add(newPatch);
-                    showEngine.setPatchedFixtures(new ArrayList<>(patchList));
-                    saveStateToConfig();
-                    statusLabel.setText(I18n.get("statusbar.qlc_imported", newPatch.getName(), newPatch.getStartAddress()));
-                });
-                dlg.show();
+                openQlcImportModal(def, nextAddr);
             } catch (Exception e) {
                 LOGGER.log(Level.SEVERE, "Fehler beim Parsen der QLC+ Datei: " + e.getMessage(), e);
                 statusLabel.setText(I18n.get("statusbar.qlc_error", e.getMessage()));
             }
         }
+    }
+
+    private void openQlcImportModal(de.exit.sound2artnet.fixture.qlc.QlcFixtureDefinition def, int suggestedStartAddr) {
+        VBox card = new VBox(12);
+        card.setPadding(new Insets(16, 20, 16, 20));
+        card.setStyle("-fx-background-color: " + MaterialTheme.HEX_SURFACE_1DP +
+                     "; -fx-border-color: " + MaterialTheme.HEX_DIVIDER +
+                     "; -fx-border-width: 1px; -fx-background-radius: 8px; -fx-border-radius: 8px;" +
+                     "-fx-effect: dropshadow(three-pass-box, rgba(0, 0, 0, 0.8), 28, 0, 0, 8);");
+        card.setPrefWidth(720);
+        card.setMaxWidth(720);
+        card.setMaxHeight(640);
+
+        // Header
+        HBox header = new HBox(10);
+        header.setAlignment(Pos.CENTER_LEFT);
+        LucideIcon iconHdr = new LucideIcon("folder-open", 18, Color.web("#00E5FF"));
+        VBox titleBox = new VBox(2);
+        Label lblTitle = new Label(I18n.get("qlc.modal_title"));
+        lblTitle.setFont(Font.font(MaterialTheme.FONT_FAMILY, FontWeight.BOLD, 14));
+        lblTitle.setTextFill(MaterialTheme.COLOR_TEXT_HIGH);
+
+        Label lblSub = new Label(def.getManufacturer() + " " + def.getModel() + " [" + def.getType() + "]");
+        lblSub.setFont(Font.font(MaterialTheme.FONT_FAMILY, 11));
+        lblSub.setTextFill(MaterialTheme.COLOR_TEXT_MED);
+        titleBox.getChildren().addAll(lblTitle, lblSub);
+
+        Region sp = new Region();
+        HBox.setHgrow(sp, Priority.ALWAYS);
+        HBox btnClose = createModalCloseButton(this::hideOverlay);
+        header.getChildren().addAll(iconHdr, titleBox, sp, btnClose);
+
+        // Specs Chip-Bar
+        HBox chipBar = new HBox(8);
+        chipBar.setAlignment(Pos.CENTER_LEFT);
+        chipBar.setPadding(new Insets(6, 10, 6, 10));
+        chipBar.setStyle("-fx-background-color: " + MaterialTheme.HEX_SURFACE_2DP + "; -fx-background-radius: 4px;");
+
+        Label chipType = new Label(def.getType());
+        chipType.setFont(Font.font(MaterialTheme.FONT_FAMILY, FontWeight.BOLD, 10));
+        chipType.setStyle("-fx-background-color: " + MaterialTheme.HEX_SURFACE_4DP + "; -fx-text-fill: #00E5FF; -fx-padding: 2 6; -fx-background-radius: 3px;");
+
+        String panTiltText = (def.getPanMax() > 0)
+                ? String.format("Pan: 0°-%d° | Tilt: 0°-%d°", def.getPanMax(), def.getTiltMax())
+                : (def.getTiltMax() > 0 ? String.format("Tilt: 0°-%d° (%s)", def.getTiltMax(), I18n.get("qlc.no_pan")) : I18n.get("qlc.no_pan"));
+        Label chipPanTilt = new Label(panTiltText);
+        chipPanTilt.setFont(Font.font(MaterialTheme.FONT_FAMILY, 10));
+        chipPanTilt.setTextFill(MaterialTheme.COLOR_TEXT_MED);
+
+        chipBar.getChildren().addAll(chipType, chipPanTilt);
+
+        // Eingabe-Zeile
+        HBox rowInputs = new HBox(12);
+        rowInputs.setAlignment(Pos.CENTER_LEFT);
+
+        VBox boxName = new VBox(4);
+        HBox.setHgrow(boxName, Priority.ALWAYS);
+        Label lblName = new Label(I18n.get("qlc.name"));
+        lblName.setTextFill(MaterialTheme.COLOR_TEXT_MED);
+        lblName.setFont(Font.font(MaterialTheme.FONT_FAMILY, FontWeight.BOLD, 10));
+        TextField txtName = new TextField(def.getManufacturer() + " " + def.getModel());
+        txtName.setStyle("-fx-background-color: " + MaterialTheme.HEX_SURFACE_2DP + "; -fx-text-fill: " + MaterialTheme.HEX_TEXT_HIGH + "; -fx-border-color: " + MaterialTheme.HEX_DIVIDER + "; -fx-border-radius: 4px; -fx-padding: 5 8;");
+        boxName.getChildren().addAll(lblName, txtName);
+
+        VBox boxQty = new VBox(4);
+        boxQty.setMinWidth(85);
+        boxQty.setMaxWidth(95);
+        Label lblQty = new Label(I18n.get("qlc.quantity"));
+        lblQty.setTextFill(MaterialTheme.COLOR_TEXT_MED);
+        lblQty.setFont(Font.font(MaterialTheme.FONT_FAMILY, FontWeight.BOLD, 10));
+        Spinner<Integer> spQuantity = new Spinner<>(1, 32, 1);
+        spQuantity.setEditable(true);
+        spQuantity.setMaxWidth(Double.MAX_VALUE);
+        boxQty.getChildren().addAll(lblQty, spQuantity);
+
+        VBox boxDmx = new VBox(4);
+        boxDmx.setMinWidth(100);
+        boxDmx.setMaxWidth(110);
+        Label lblDmx = new Label(I18n.get("qlc.start_addr"));
+        lblDmx.setTextFill(MaterialTheme.COLOR_TEXT_MED);
+        lblDmx.setFont(Font.font(MaterialTheme.FONT_FAMILY, FontWeight.BOLD, 10));
+        Spinner<Integer> spStartAddr = new Spinner<>(1, 512, Math.max(1, Math.min(512, suggestedStartAddr)));
+        spStartAddr.setEditable(true);
+        spStartAddr.setMaxWidth(Double.MAX_VALUE);
+        boxDmx.getChildren().addAll(lblDmx, spStartAddr);
+
+        rowInputs.getChildren().addAll(boxName, boxQty, boxDmx);
+
+        // Modus-Auswahl
+        HBox rowMode = new HBox(8);
+        rowMode.setAlignment(Pos.CENTER_LEFT);
+        Label lblMode = new Label(I18n.get("qlc.mode"));
+        lblMode.setTextFill(MaterialTheme.COLOR_TEXT_MED);
+        lblMode.setFont(Font.font(MaterialTheme.FONT_FAMILY, FontWeight.BOLD, 10));
+        ComboBox<de.exit.sound2artnet.fixture.qlc.QlcFixtureDefinition.QlcMode> cbMode = new ComboBox<>(FXCollections.observableArrayList(def.getModes()));
+        cbMode.setMaxWidth(Double.MAX_VALUE);
+        HBox.setHgrow(cbMode, Priority.ALWAYS);
+        rowMode.getChildren().addAll(lblMode, cbMode);
+
+        // Kanal-Vorschautabelle
+        ObservableList<de.exit.sound2artnet.fixture.qlc.QlcImportDialog.ChannelPreviewRow> previewRows = FXCollections.observableArrayList();
+        TableView<de.exit.sound2artnet.fixture.qlc.QlcImportDialog.ChannelPreviewRow> tableChannels = new TableView<>(previewRows);
+        tableChannels.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        tableChannels.setPrefHeight(230);
+        VBox.setVgrow(tableChannels, Priority.ALWAYS);
+
+        TableColumn<de.exit.sound2artnet.fixture.qlc.QlcImportDialog.ChannelPreviewRow, Number> colNum = new TableColumn<>(I18n.get("qlc.col_channel"));
+        colNum.setCellValueFactory(d -> new SimpleIntegerProperty(d.getValue().getIndex() + 1));
+        colNum.setMaxWidth(50);
+        colNum.setStyle("-fx-alignment: CENTER; -fx-font-weight: bold;");
+
+        TableColumn<de.exit.sound2artnet.fixture.qlc.QlcImportDialog.ChannelPreviewRow, String> colOrig = new TableColumn<>(I18n.get("qlc.col_qlc_name"));
+        colOrig.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getOriginalName()));
+        colOrig.setMinWidth(170);
+
+        TableColumn<de.exit.sound2artnet.fixture.qlc.QlcImportDialog.ChannelPreviewRow, ChannelFunction> colFunc = new TableColumn<>(I18n.get("qlc.col_function"));
+        colFunc.setCellValueFactory(d -> new SimpleObjectProperty<>(d.getValue().getFunction()));
+        colFunc.setCellFactory(col -> new TableCell<>() {
+            private final ComboBox<ChannelFunction> cb = new ComboBox<>(FXCollections.observableArrayList(ChannelFunction.values()));
+            {
+                cb.setMaxWidth(Double.MAX_VALUE);
+                cb.setStyle("-fx-font-size: 11px;");
+                cb.setOnAction(e -> {
+                    if (getIndex() >= 0 && getIndex() < getTableView().getItems().size()) {
+                        var row = getTableView().getItems().get(getIndex());
+                        row.setFunction(cb.getValue());
+                        if ((cb.getValue() == ChannelFunction.PAN || cb.getValue() == ChannelFunction.TILT) && row.getDefaultValue() == 0) {
+                            row.setDefaultValue(128);
+                            getTableView().refresh();
+                        }
+                    }
+                });
+            }
+            @Override
+            protected void updateItem(ChannelFunction item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setGraphic(null);
+                } else {
+                    cb.setValue(item);
+                    setGraphic(cb);
+                }
+            }
+        });
+        colFunc.setMinWidth(180);
+
+        TableColumn<de.exit.sound2artnet.fixture.qlc.QlcImportDialog.ChannelPreviewRow, Number> colDef = new TableColumn<>(I18n.get("qlc.col_default"));
+        colDef.setCellValueFactory(d -> new SimpleIntegerProperty(d.getValue().getDefaultValue()));
+        colDef.setMaxWidth(65);
+        colDef.setStyle("-fx-alignment: CENTER;");
+
+        tableChannels.getColumns().addAll(colNum, colOrig, colFunc, colDef);
+
+        // Live Zusammenfassung
+        Label lblSummary = new Label();
+        lblSummary.setFont(Font.font(MaterialTheme.FONT_FAMILY, FontWeight.BOLD, 11));
+        lblSummary.setTextFill(MaterialTheme.COLOR_PRIMARY);
+
+        Runnable updateTableAndSummary = () -> {
+            var selectedMode = cbMode.getValue();
+            previewRows.clear();
+            if (selectedMode != null) {
+                for (int i = 0; i < selectedMode.getChannelNames().size(); i++) {
+                    String chName = selectedMode.getChannelNames().get(i);
+                    var ch = def.getChannels().get(chName);
+                    ChannelFunction func = (ch != null) ? ch.getResolvedFunction() : ChannelFunction.UNUSED;
+                    int defVal = (ch != null) ? ch.getDefaultValue() : 0;
+                    previewRows.add(new de.exit.sound2artnet.fixture.qlc.QlcImportDialog.ChannelPreviewRow(i, chName, func, defVal));
+                }
+                int chCount = selectedMode.getChannelCount();
+                int qty = spQuantity.getValue();
+                int start = spStartAddr.getValue();
+                int end = Math.min(512, start + (qty * chCount) - 1);
+                lblSummary.setText(String.format("%dx %s (%d Kanäle) -> DMX %d - %d", qty, txtName.getText().trim(), chCount, start, end));
+            }
+        };
+
+        cbMode.setOnAction(e -> updateTableAndSummary.run());
+        spQuantity.valueProperty().addListener((obs, o, n) -> updateTableAndSummary.run());
+        spStartAddr.valueProperty().addListener((obs, o, n) -> updateTableAndSummary.run());
+        txtName.textProperty().addListener((obs, o, n) -> updateTableAndSummary.run());
+
+        if (!def.getModes().isEmpty()) {
+            cbMode.setValue(def.getModes().get(0));
+            updateTableAndSummary.run();
+        }
+
+        // Button-Leiste
+        HBox btnRow = new HBox(10);
+        btnRow.setAlignment(Pos.CENTER_RIGHT);
+
+        MaterialButton btnCancel = new MaterialButton(I18n.get("btn.cancel"), "x",
+                MaterialTheme.COLOR_SURFACE_4DP, MaterialTheme.COLOR_TEXT_HIGH, 11, 10, 4, 11, false, this::hideOverlay);
+
+        MaterialButton btnImport = new MaterialButton(I18n.get("btn.import_patch"), "plus",
+                Color.web("#00E5FF"), Color.web("#000000"), 11, 10, 4, 11, true, () -> {
+            var selectedMode = cbMode.getValue();
+            if (selectedMode == null && !def.getModes().isEmpty()) {
+                selectedMode = def.getModes().get(0);
+            }
+            String baseName = txtName.getText().trim().isEmpty() ? def.getModel() : txtName.getText().trim();
+            int baseStartAddr = spStartAddr.getValue();
+            int quantity = spQuantity.getValue();
+
+            List<ChannelMapping> mappings = new ArrayList<>();
+            for (var row : previewRows) {
+                mappings.add(new ChannelMapping(row.getIndex(), row.getFunction(), row.getDefaultValue()));
+            }
+
+            String modeSuffix = (selectedMode != null) ? " (" + selectedMode.getName() + ")" : "";
+            String profId = (def.getManufacturer() + "-" + def.getModel() + (selectedMode != null ? "-" + selectedMode.getName() : ""))
+                    .toLowerCase().replaceAll("[^a-z0-9_-]", "-");
+
+            FixtureProfile prof = new FixtureProfile(
+                profId,
+                baseName + modeSuffix,
+                mappings.size(),
+                mappings
+            );
+
+            int chCount = Math.max(1, mappings.size());
+            FixturePatch lastAdded = null;
+            for (int i = 0; i < quantity; i++) {
+                int addr = baseStartAddr + (i * chCount);
+                if (addr > 512) break;
+                String instanceName = (quantity > 1) ? (baseName + " " + (i + 1)) : baseName;
+                FixturePatch patch = new FixturePatch(instanceName, addr, prof.copy());
+
+                if (def.getPanMax() > 0) {
+                    patch.setPanMax(255);
+                } else {
+                    patch.setPanMax(0);
+                    patch.setPanMin(0);
+                    patch.setInvertPan(false);
+                }
+                if (def.getTiltMax() > 0) {
+                    patch.setTiltMax(255);
+                } else {
+                    patch.setTiltMax(0);
+                    patch.setTiltMin(0);
+                    patch.setInvertTilt(false);
+                }
+
+                patchList.add(patch);
+                lastAdded = patch;
+            }
+
+            showEngine.setPatchedFixtures(new ArrayList<>(patchList));
+            saveStateToConfig();
+            tablePatches.refresh();
+            hideOverlay();
+            if (lastAdded != null) {
+                statusLabel.setText(I18n.get("statusbar.qlc_imported", lastAdded.getName(), lastAdded.getStartAddress()));
+            }
+        });
+
+        Region spaceBottom = new Region();
+        HBox.setHgrow(spaceBottom, Priority.ALWAYS);
+        btnRow.getChildren().addAll(lblSummary, spaceBottom, btnCancel, btnImport);
+
+        card.getChildren().addAll(header, chipBar, rowInputs, rowMode, tableChannels, btnRow);
+        showOverlay(card);
     }
 
     private void saveStateToConfig() {

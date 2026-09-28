@@ -157,11 +157,11 @@ mvn clean test
 ```bash
 mvn clean package
 ```
-The standalone fat JAR will be created at `target/sound2artnet-1.3.1-all.jar`.
+The standalone fat JAR will be created at `target/sound2artnet-1.3.2-all.jar`.
 
 ### Headless CLI Mode (No GUI)
 ```bash
-java -jar target/sound2artnet-1.3.1-all.jar --cli --ip 192.168.200.232 --universe 0 --fps 40
+java -jar target/sound2artnet-1.3.2-all.jar --cli --ip 192.168.200.232 --universe 0 --fps 40
 ```
 
 ---

@@ -97,6 +97,30 @@ public final class QlcFixtureParser {
             def.getChannels().put(chName, channel);
         }
 
+        // PanMax / TiltMax basierend auf vorhandenen Kanälen absichern
+        boolean hasPan = false;
+        boolean hasTilt = false;
+        for (QlcFixtureDefinition.QlcChannel ch : def.getChannels().values()) {
+            if (ch.getResolvedFunction() == de.exit.sound2artnet.fixture.ChannelFunction.PAN ||
+                ch.getResolvedFunction() == de.exit.sound2artnet.fixture.ChannelFunction.PAN_FINE) {
+                hasPan = true;
+            }
+            if (ch.getResolvedFunction() == de.exit.sound2artnet.fixture.ChannelFunction.TILT ||
+                ch.getResolvedFunction() == de.exit.sound2artnet.fixture.ChannelFunction.TILT_FINE) {
+                hasTilt = true;
+            }
+        }
+        if (!hasPan) {
+            def.setPanMax(0);
+        } else if (def.getPanMax() <= 0) {
+            def.setPanMax(540);
+        }
+        if (!hasTilt) {
+            def.setTiltMax(0);
+        } else if (def.getTiltMax() <= 0) {
+            def.setTiltMax(270);
+        }
+
         // 4. Modi erfassen: <Mode Name="...">
         NodeList modeNodes = doc.getElementsByTagName("Mode");
         for (int m = 0; m < modeNodes.getLength(); m++) {
@@ -111,11 +135,20 @@ public final class QlcFixtureParser {
 
             QlcFixtureDefinition.QlcMode mode = new QlcFixtureDefinition.QlcMode(modeName);
 
-            NodeList modeChannelNodes = modeEl.getElementsByTagName("Channel");
+            // Nur direkte <Channel>-Kindelemente des Modes auslesen (nicht rekursiv in <Head> o.ä. abtauchen!)
+            java.util.List<Element> directChannelElements = new java.util.ArrayList<>();
+            NodeList modeChildren = modeEl.getChildNodes();
+            for (int ci = 0; ci < modeChildren.getLength(); ci++) {
+                Node cn = modeChildren.item(ci);
+                if (cn.getNodeType() == Node.ELEMENT_NODE && "Channel".equals(cn.getNodeName())) {
+                    directChannelElements.add((Element) cn);
+                }
+            }
+
             // Kanäle nach ihrer Number sortiert hinzufügen
-            String[] sortedChannels = new String[modeChannelNodes.getLength()];
-            for (int c = 0; c < modeChannelNodes.getLength(); c++) {
-                Element mcEl = (Element) modeChannelNodes.item(c);
+            String[] sortedChannels = new String[directChannelElements.size()];
+            for (int c = 0; c < directChannelElements.size(); c++) {
+                Element mcEl = directChannelElements.get(c);
                 int num = c;
                 if (mcEl.hasAttribute("Number")) {
                     try { num = Integer.parseInt(mcEl.getAttribute("Number")); } catch (Exception ignored) {}

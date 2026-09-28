@@ -376,6 +376,14 @@ public class FixtureEditorDialog extends Stage {
         slTiltMax.setValue(patch.getTiltMax());
         slPhase.setValue(patch.getPhaseOffset() * 180.0 / Math.PI);
 
+        boolean hasPan = patch.getProfile() != null && patch.getProfile().findChannelOffset(ChannelFunction.PAN) >= 0;
+        chkInvertPan.setDisable(!hasPan);
+        slPanMin.setDisable(!hasPan);
+        slPanMax.setDisable(!hasPan);
+        if (!hasPan) {
+            chkInvertPan.setSelected(false);
+        }
+
         channelData.clear();
         if (patch.getProfile() != null && patch.getProfile().getChannels() != null) {
             for (ChannelMapping cm : patch.getProfile().getChannels()) {

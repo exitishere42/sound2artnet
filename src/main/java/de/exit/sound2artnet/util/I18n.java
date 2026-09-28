@@ -389,6 +389,10 @@ public class I18n {
         EN.put("editor.qlc_error_title", "Error loading QLC+ file: %s");
 
         // --- QLC+ Import Dialog ---
+        DE.put("qlc.modal_title", "QLC+ Fixture Import");
+        EN.put("qlc.modal_title", "QLC+ Fixture Import");
+        DE.put("qlc.no_pan", "Nur Tilt (Kein Pan)");
+        EN.put("qlc.no_pan", "Tilt only (No Pan)");
         DE.put("qlc.title", "QLC+ Fixture Import: %s %s");
         EN.put("qlc.title", "QLC+ Fixture Import: %s %s");
         DE.put("qlc.detected", "QLC+ DEFINITION ERKANNT");
