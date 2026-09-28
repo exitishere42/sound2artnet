@@ -32,6 +32,8 @@ public class AppConfig {
     private Sound2LightEngine.DimmerMode dimmerMode = Sound2LightEngine.DimmerMode.AUDIO_LEVEL;
     private ColorEngine.Palette colorPalette = ColorEngine.Palette.CLUB_NEON;
     private List<FixturePatch> fixtures = new ArrayList<>();
+    private List<ArtNetPreset> presets = new ArrayList<>();
+    private String activePresetId = null;
     private boolean autostart = false;
     private String language = "de";
 
@@ -91,6 +93,46 @@ public class AppConfig {
 
     public List<FixturePatch> getFixtures() { return fixtures; }
     public void setFixtures(List<FixturePatch> fixtures) { this.fixtures = fixtures != null ? fixtures : new ArrayList<>(); }
+
+    public List<ArtNetPreset> getPresets() {
+        if (presets == null) presets = new ArrayList<>();
+        return presets;
+    }
+    public void setPresets(List<ArtNetPreset> presets) {
+        this.presets = presets != null ? presets : new ArrayList<>();
+    }
+
+    public String getActivePresetId() { return activePresetId; }
+    public void setActivePresetId(String activePresetId) { this.activePresetId = activePresetId; }
+
+    /**
+     * Stellt sicher, dass mindestens ein Standard-Profil existiert.
+     */
+    public void ensureDefaultPreset() {
+        if (presets == null) presets = new ArrayList<>();
+        if (presets.isEmpty()) {
+            ArtNetPreset standard = new ArtNetPreset(
+                    null,
+                    "Standard",
+                    "Standard-Setup",
+                    this.targetIp != null ? this.targetIp : "127.0.0.1",
+                    this.universe,
+                    this.fps,
+                    this.fixtures != null ? new ArrayList<>(this.fixtures) : new ArrayList<>(),
+                    this.movementPattern,
+                    this.movementSpeed,
+                    this.movementSize,
+                    this.dimmerMode,
+                    this.colorPalette,
+                    this.movementEnabled,
+                    this.lightEnabled,
+                    this.strobeEnabled,
+                    null
+            );
+            presets.add(standard);
+            this.activePresetId = standard.getId();
+        }
+    }
 
     public boolean isAutostart() { return autostart; }
     public void setAutostart(boolean autostart) { this.autostart = autostart; }

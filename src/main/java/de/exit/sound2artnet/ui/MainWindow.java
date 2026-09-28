@@ -5,6 +5,7 @@ import de.exit.sound2artnet.audio.AudioCaptureService;
 import de.exit.sound2artnet.audio.AudioDeviceInfo;
 import de.exit.sound2artnet.audio.BeatDetector;
 import de.exit.sound2artnet.config.AppConfig;
+import de.exit.sound2artnet.config.ArtNetPreset;
 import de.exit.sound2artnet.config.ConfigManager;
 import de.exit.sound2artnet.engine.ColorEngine;
 import de.exit.sound2artnet.engine.MovementPattern;
@@ -103,6 +104,24 @@ public class MainWindow extends StackPane {
     // Tabs
     private Tab tabPatches;
     private Tab tabEngine;
+    private Tab tabPresets;
+
+    // Presets Table & Controls
+    private final ObservableList<ArtNetPreset> presetList = FXCollections.observableArrayList();
+    private TableView<ArtNetPreset> tablePresets;
+    private TableColumn<ArtNetPreset, String> colPresetStatus;
+    private TableColumn<ArtNetPreset, String> colPresetName;
+    private TableColumn<ArtNetPreset, String> colPresetIp;
+    private TableColumn<ArtNetPreset, String> colPresetUniverse;
+    private TableColumn<ArtNetPreset, String> colPresetFps;
+    private TableColumn<ArtNetPreset, String> colPresetFixtures;
+    private TableColumn<ArtNetPreset, String> colPresetModified;
+    private Label lblActivePresetBanner;
+    private MaterialButton btnNewPreset;
+    private MaterialButton btnLoadPreset;
+    private MaterialButton btnUpdatePreset;
+    private MaterialButton btnRenamePreset;
+    private MaterialButton btnDeletePreset;
 
     // Fixture & Patching Table
     private final ObservableList<FixturePatch> patchList = FXCollections.observableArrayList();
@@ -155,6 +174,12 @@ public class MainWindow extends StackPane {
         if (config.getFixtures() != null) {
             patchList.addAll(config.getFixtures());
             showEngine.setPatchedFixtures(new ArrayList<>(config.getFixtures()));
+        }
+
+        // Profile / Presets laden
+        config.ensureDefaultPreset();
+        if (config.getPresets() != null) {
+            presetList.addAll(config.getPresets());
         }
 
         showEngine.setMovementEnabled(config.isMovementEnabled());
@@ -573,7 +598,12 @@ public class MainWindow extends StackPane {
         tabEngine.setClosable(false);
         tabEngine.setContent(buildEngineControlView());
 
-        tabPane.getTabs().addAll(tabPatches, tabEngine);
+        // Tab 3: Art-Net Profile / Presets
+        tabPresets = new Tab(I18n.get("tab.presets"));
+        tabPresets.setClosable(false);
+        tabPresets.setContent(buildPresetsView());
+
+        tabPane.getTabs().addAll(tabPatches, tabEngine, tabPresets);
         return tabPane;
     }
 
@@ -834,6 +864,424 @@ public class MainWindow extends StackPane {
         return root;
     }
 
+    @SuppressWarnings("unchecked")
+    private Node buildPresetsView() {
+        VBox root = new VBox(8);
+        root.setPadding(new Insets(10));
+
+        // 1. Info-Banner über das aktuell aktive Profil
+        HBox banner = new HBox(10);
+        banner.setAlignment(Pos.CENTER_LEFT);
+        banner.setPadding(new Insets(8, 12, 8, 12));
+        banner.setStyle("-fx-background-color: " + MaterialTheme.HEX_SURFACE_2DP + 
+                        "; -fx-border-color: " + MaterialTheme.HEX_DIVIDER + 
+                        "; -fx-border-width: 1px; -fx-background-radius: 4px; -fx-border-radius: 4px;");
+
+        LucideIcon bannerIcon = new LucideIcon("bookmark", 18, MaterialTheme.COLOR_PRIMARY);
+
+        lblActivePresetBanner = new Label();
+        lblActivePresetBanner.setFont(Font.font(MaterialTheme.FONT_FAMILY, FontWeight.BOLD, 12));
+        lblActivePresetBanner.setTextFill(MaterialTheme.COLOR_TEXT_HIGH);
+        updateActivePresetBanner();
+
+        Region bannerSpacer = new Region();
+        HBox.setHgrow(bannerSpacer, Priority.ALWAYS);
+
+        banner.getChildren().addAll(bannerIcon, lblActivePresetBanner, bannerSpacer);
+
+        // 2. Presets Tabelle
+        tablePresets = new TableView<>(presetList);
+        tablePresets.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        VBox.setVgrow(tablePresets, Priority.ALWAYS);
+
+        colPresetStatus = new TableColumn<>(I18n.get("preset.col.status"));
+        colPresetStatus.setCellValueFactory(data -> {
+            boolean isActive = data.getValue().getId().equals(config.getActivePresetId());
+            return new SimpleStringProperty(isActive ? I18n.get("preset.active_badge") : "");
+        });
+        colPresetStatus.setMaxWidth(80);
+        colPresetStatus.setStyle("-fx-alignment: CENTER; -fx-font-weight: bold;");
+        colPresetStatus.setCellFactory(col -> new TableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null || item.isBlank()) {
+                    setText(null);
+                    setGraphic(null);
+                    setStyle("-fx-alignment: CENTER;");
+                } else {
+                    setText(item);
+                    setStyle("-fx-alignment: CENTER; -fx-font-weight: bold; -fx-text-fill: " + MaterialTheme.HEX_PRIMARY + ";");
+                }
+            }
+        });
+
+        colPresetName = new TableColumn<>(I18n.get("preset.col.name"));
+        colPresetName.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getName()));
+        colPresetName.setMinWidth(140);
+
+        colPresetIp = new TableColumn<>(I18n.get("preset.col.ip"));
+        colPresetIp.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getTargetIp()));
+        colPresetIp.setMinWidth(110);
+        colPresetIp.setStyle("-fx-alignment: CENTER;");
+
+        colPresetUniverse = new TableColumn<>(I18n.get("preset.col.universe"));
+        colPresetUniverse.setCellValueFactory(data -> new SimpleStringProperty(String.valueOf(data.getValue().getUniverse())));
+        colPresetUniverse.setMaxWidth(90);
+        colPresetUniverse.setStyle("-fx-alignment: CENTER;");
+
+        colPresetFps = new TableColumn<>(I18n.get("preset.col.fps"));
+        colPresetFps.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getFps() + " FPS"));
+        colPresetFps.setMaxWidth(80);
+        colPresetFps.setStyle("-fx-alignment: CENTER;");
+
+        colPresetFixtures = new TableColumn<>(I18n.get("preset.col.fixtures"));
+        colPresetFixtures.setCellValueFactory(data -> new SimpleStringProperty(String.valueOf(data.getValue().getFixtures() != null ? data.getValue().getFixtures().size() : 0)));
+        colPresetFixtures.setMaxWidth(90);
+        colPresetFixtures.setStyle("-fx-alignment: CENTER;");
+
+        colPresetModified = new TableColumn<>(I18n.get("preset.col.modified"));
+        colPresetModified.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getLastModified() != null ? data.getValue().getLastModified() : ""));
+        colPresetModified.setMinWidth(130);
+        colPresetModified.setStyle("-fx-alignment: CENTER;");
+
+        tablePresets.getColumns().addAll(colPresetStatus, colPresetName, colPresetIp, colPresetUniverse, colPresetFps, colPresetFixtures, colPresetModified);
+
+        // Doppelklick aktiviert Preset
+        tablePresets.setOnMouseClicked(event -> {
+            if (event.getClickCount() == 2) {
+                ArtNetPreset selected = tablePresets.getSelectionModel().getSelectedItem();
+                if (selected != null) {
+                    loadPreset(selected);
+                }
+            }
+        });
+
+        // 3. Action Buttons Row
+        HBox btnRow = new HBox(8);
+        btnRow.setAlignment(Pos.CENTER_LEFT);
+
+        btnNewPreset = new MaterialButton(I18n.get("preset.btn.new"), "plus",
+                MaterialTheme.COLOR_PRIMARY, MaterialTheme.COLOR_ON_PRIMARY, 12, 10, 4, 11, true, this::openSavePresetDialog);
+
+        btnLoadPreset = new MaterialButton(I18n.get("preset.btn.load"), "play",
+                Color.web("#00E5FF"), Color.web("#000000"), 12, 10, 4, 11, true, () -> {
+            ArtNetPreset sel = tablePresets.getSelectionModel().getSelectedItem();
+            if (sel != null) {
+                loadPreset(sel);
+            }
+        });
+
+        btnUpdatePreset = new MaterialButton(I18n.get("preset.btn.update"), "save",
+                MaterialTheme.COLOR_SURFACE_4DP, MaterialTheme.COLOR_TEXT_HIGH, 12, 10, 4, 11, false, this::updateSelectedPresetWithCurrentValues);
+
+        btnRenamePreset = new MaterialButton(I18n.get("preset.btn.rename"), "edit-3",
+                MaterialTheme.COLOR_SURFACE_4DP, MaterialTheme.COLOR_TEXT_HIGH, 12, 10, 4, 11, false, this::openRenamePresetDialog);
+
+        btnDeletePreset = new MaterialButton(I18n.get("preset.btn.delete"), "trash-2",
+                MaterialTheme.COLOR_SURFACE_4DP, MaterialTheme.COLOR_ERROR, 12, 10, 4, 11, false, this::deleteSelectedPreset);
+
+        btnRow.getChildren().addAll(btnNewPreset, btnLoadPreset, btnUpdatePreset, btnRenamePreset, btnDeletePreset);
+
+        root.getChildren().addAll(banner, tablePresets, btnRow);
+        return root;
+    }
+
+    private void updateActivePresetBanner() {
+        if (lblActivePresetBanner == null) return;
+        String activeId = config.getActivePresetId();
+        ArtNetPreset active = null;
+        for (ArtNetPreset p : presetList) {
+            if (p.getId().equals(activeId)) {
+                active = p;
+                break;
+            }
+        }
+        if (active != null) {
+            lblActivePresetBanner.setText(String.format(I18n.get("preset.active_banner"), active.getName()) +
+                    "  •  " + active.getTargetIp() + " (Uni " + active.getUniverse() + ", " + active.getFps() + " FPS, " +
+                    (active.getFixtures() != null ? active.getFixtures().size() : 0) + " Fixtures)");
+        } else {
+            lblActivePresetBanner.setText(I18n.get("preset.custom"));
+        }
+    }
+
+    private void loadPreset(ArtNetPreset preset) {
+        if (preset == null) return;
+
+        txtTargetIp.setText(preset.getTargetIp());
+        spUniverse.getValueFactory().setValue(preset.getUniverse());
+        spFps.getValueFactory().setValue(preset.getFps());
+
+        patchList.setAll(preset.copyFixtures());
+        showEngine.setPatchedFixtures(new ArrayList<>(patchList));
+
+        if (preset.getMovementPattern() != null) {
+            cbPattern.setValue(preset.getMovementPattern());
+            showEngine.setMovementPattern(preset.getMovementPattern());
+        }
+        if (preset.getMovementSpeed() > 0) {
+            slSpeed.setValue(preset.getMovementSpeed());
+            showEngine.getMovementGenerator().setCurrentSpeed(preset.getMovementSpeed());
+        }
+        if (preset.getMovementSize() > 0) {
+            slAmplitude.setValue(preset.getMovementSize());
+            showEngine.getMovementGenerator().setBaseAmplitude(preset.getMovementSize());
+        }
+        if (preset.getDimmerMode() != null) {
+            cbDimmerMode.setValue(preset.getDimmerMode());
+            showEngine.setDimmerMode(preset.getDimmerMode());
+        }
+        if (preset.getColorPalette() != null) {
+            cbPalette.setValue(preset.getColorPalette());
+            showEngine.getColorEngine().setPalette(preset.getColorPalette());
+        }
+        if (chkMovementEnabled != null) {
+            chkMovementEnabled.setSelected(preset.isMovementEnabled());
+            showEngine.setMovementEnabled(preset.isMovementEnabled());
+        }
+        if (chkLightEnabled != null) {
+            chkLightEnabled.setSelected(preset.isLightEnabled());
+            showEngine.setLightEnabled(preset.isLightEnabled());
+        }
+        if (chkStrobeEnabled != null) {
+            chkStrobeEnabled.setSelected(preset.isStrobeEnabled());
+            showEngine.setStrobeEnabled(preset.isStrobeEnabled());
+        }
+
+        if (isRunning) {
+            try {
+                artNetSender.updateTarget(preset.getTargetIp(), preset.getUniverse());
+            } catch (Exception e) {
+                LOGGER.log(Level.WARNING, "Fehler beim Live-Aktualisieren der Art-Net Zieladresse: " + e.getMessage(), e);
+            }
+        }
+
+        config.setActivePresetId(preset.getId());
+        saveStateToConfig();
+
+        tablePatches.refresh();
+        tablePresets.refresh();
+        updateActivePresetBanner();
+
+        statusLabel.setText(String.format(I18n.get("preset.status.loaded"), preset.getName()));
+    }
+
+    private void updateSelectedPresetWithCurrentValues() {
+        ArtNetPreset sel = tablePresets.getSelectionModel().getSelectedItem();
+        if (sel == null) return;
+
+        sel.setTargetIp(txtTargetIp.getText().trim());
+        sel.setUniverse(spUniverse.getValue());
+        sel.setFps(spFps.getValue());
+        sel.setFixtures(new ArrayList<>(patchList.stream().map(FixturePatch::copy).toList()));
+        sel.setMovementPattern(cbPattern.getValue());
+        sel.setMovementSpeed(slSpeed.getValue());
+        sel.setMovementSize(slAmplitude.getValue());
+        sel.setDimmerMode(cbDimmerMode.getValue());
+        sel.setColorPalette(cbPalette.getValue());
+        sel.setMovementEnabled(chkMovementEnabled != null && chkMovementEnabled.isSelected());
+        sel.setLightEnabled(chkLightEnabled != null && chkLightEnabled.isSelected());
+        sel.setStrobeEnabled(chkStrobeEnabled != null && chkStrobeEnabled.isSelected());
+        sel.touch();
+
+        config.setActivePresetId(sel.getId());
+        saveStateToConfig();
+
+        tablePresets.refresh();
+        updateActivePresetBanner();
+        statusLabel.setText(String.format(I18n.get("preset.status.updated"), sel.getName()));
+    }
+
+    private void openSavePresetDialog() {
+        VBox card = new VBox(14);
+        card.setPadding(new Insets(16));
+        card.setStyle("-fx-background-color: " + MaterialTheme.HEX_SURFACE_1DP + 
+                     "; -fx-border-color: " + MaterialTheme.HEX_DIVIDER + 
+                     "; -fx-border-width: 1px; -fx-background-radius: 8px; -fx-border-radius: 8px;" +
+                     "-fx-effect: dropshadow(three-pass-box, rgba(0, 0, 0, 0.75), 24, 0, 0, 8);");
+        card.setPrefWidth(420);
+        card.setMaxWidth(420);
+        card.setMaxHeight(Region.USE_PREF_SIZE);
+
+        HBox header = new HBox(10);
+        header.setAlignment(Pos.CENTER_LEFT);
+        LucideIcon iconHdr = new LucideIcon("bookmark", 20, MaterialTheme.COLOR_PRIMARY);
+        Label lblTitle = new Label(I18n.get("preset.dialog.save_title"));
+        lblTitle.setFont(Font.font(MaterialTheme.FONT_FAMILY, FontWeight.BOLD, 14));
+        lblTitle.setTextFill(MaterialTheme.COLOR_TEXT_HIGH);
+        Region sp = new Region();
+        HBox.setHgrow(sp, Priority.ALWAYS);
+        HBox btnClose = createModalCloseButton(this::hideOverlay);
+        header.getChildren().addAll(iconHdr, lblTitle, sp, btnClose);
+
+        Label lblName = new Label(I18n.get("preset.dialog.name_label"));
+        lblName.setTextFill(MaterialTheme.COLOR_TEXT_MED);
+        lblName.setFont(Font.font(MaterialTheme.FONT_FAMILY, 12));
+
+        TextField txtName = new TextField("Setup " + (presetList.size() + 1));
+        txtName.setStyle("-fx-background-color: " + MaterialTheme.HEX_SURFACE_2DP + "; -fx-text-fill: " + MaterialTheme.HEX_TEXT_HIGH + "; -fx-border-color: " + MaterialTheme.HEX_DIVIDER + "; -fx-border-radius: 4px; -fx-padding: 6 10;");
+
+        Label lblDesc = new Label(I18n.get("preset.dialog.desc_label"));
+        lblDesc.setTextFill(MaterialTheme.COLOR_TEXT_MED);
+        lblDesc.setFont(Font.font(MaterialTheme.FONT_FAMILY, 12));
+
+        TextField txtDesc = new TextField();
+        txtDesc.setPromptText("Optional...");
+        txtDesc.setStyle("-fx-background-color: " + MaterialTheme.HEX_SURFACE_2DP + "; -fx-text-fill: " + MaterialTheme.HEX_TEXT_HIGH + "; -fx-border-color: " + MaterialTheme.HEX_DIVIDER + "; -fx-border-radius: 4px; -fx-padding: 6 10;");
+
+        VBox previewBox = new VBox(6);
+        previewBox.setPadding(new Insets(10));
+        previewBox.setStyle("-fx-background-color: " + MaterialTheme.HEX_SURFACE_2DP + "; -fx-border-color: " + MaterialTheme.HEX_DIVIDER + "; -fx-border-radius: 4px;");
+
+        Label lblPrevTitle = new Label(I18n.get("preset.dialog.preview_title"));
+        lblPrevTitle.setFont(Font.font(MaterialTheme.FONT_FAMILY, FontWeight.BOLD, 11));
+        lblPrevTitle.setTextFill(MaterialTheme.COLOR_TEXT_MED);
+
+        Label lblPrevValues = new Label("• " + I18n.get("ctrl.target_ip") + ": " + txtTargetIp.getText().trim() + "\n" +
+                                        "• " + I18n.get("ctrl.universe") + ": " + spUniverse.getValue() + "\n" +
+                                        "• " + I18n.get("ctrl.fps") + ": " + spFps.getValue() + " FPS\n" +
+                                        "• " + I18n.get("tab.fixtures") + ": " + patchList.size() + " Fixtures");
+        lblPrevValues.setFont(Font.font(MaterialTheme.FONT_FAMILY, 11));
+        lblPrevValues.setTextFill(MaterialTheme.COLOR_TEXT_HIGH);
+        previewBox.getChildren().addAll(lblPrevTitle, lblPrevValues);
+
+        HBox btnRow = new HBox(8);
+        btnRow.setAlignment(Pos.CENTER_RIGHT);
+
+        MaterialButton btnCancel = new MaterialButton(I18n.get("btn.cancel"), "x",
+                MaterialTheme.COLOR_SURFACE_4DP, MaterialTheme.COLOR_TEXT_HIGH, 11, 10, 4, 11, false, this::hideOverlay);
+
+        MaterialButton btnSave = new MaterialButton(I18n.get("btn.save"), "save",
+                MaterialTheme.COLOR_PRIMARY, MaterialTheme.COLOR_ON_PRIMARY, 11, 10, 4, 11, true, () -> {
+            String name = txtName.getText().trim();
+            if (name.isEmpty()) name = "Preset " + (presetList.size() + 1);
+
+            ArtNetPreset newPreset = new ArtNetPreset(
+                    null,
+                    name,
+                    txtDesc.getText().trim(),
+                    txtTargetIp.getText().trim(),
+                    spUniverse.getValue(),
+                    spFps.getValue(),
+                    new ArrayList<>(patchList.stream().map(FixturePatch::copy).toList()),
+                    cbPattern.getValue(),
+                    slSpeed.getValue(),
+                    slAmplitude.getValue(),
+                    cbDimmerMode.getValue(),
+                    cbPalette.getValue(),
+                    chkMovementEnabled != null && chkMovementEnabled.isSelected(),
+                    chkLightEnabled != null && chkLightEnabled.isSelected(),
+                    chkStrobeEnabled != null && chkStrobeEnabled.isSelected(),
+                    null
+            );
+
+            presetList.add(newPreset);
+            config.setActivePresetId(newPreset.getId());
+            saveStateToConfig();
+
+            tablePresets.getSelectionModel().select(newPreset);
+            tablePresets.refresh();
+            updateActivePresetBanner();
+            hideOverlay();
+            statusLabel.setText(String.format(I18n.get("preset.status.saved"), newPreset.getName()));
+        });
+
+        btnRow.getChildren().addAll(btnCancel, btnSave);
+
+        card.getChildren().addAll(header, lblName, txtName, lblDesc, txtDesc, previewBox, btnRow);
+        showOverlay(card);
+    }
+
+    private void openRenamePresetDialog() {
+        ArtNetPreset sel = tablePresets.getSelectionModel().getSelectedItem();
+        if (sel == null) return;
+
+        VBox card = new VBox(14);
+        card.setPadding(new Insets(16));
+        card.setStyle("-fx-background-color: " + MaterialTheme.HEX_SURFACE_1DP + 
+                     "; -fx-border-color: " + MaterialTheme.HEX_DIVIDER + 
+                     "; -fx-border-width: 1px; -fx-background-radius: 8px; -fx-border-radius: 8px;" +
+                     "-fx-effect: dropshadow(three-pass-box, rgba(0, 0, 0, 0.75), 24, 0, 0, 8);");
+        card.setPrefWidth(380);
+        card.setMaxWidth(380);
+        card.setMaxHeight(Region.USE_PREF_SIZE);
+
+        HBox header = new HBox(10);
+        header.setAlignment(Pos.CENTER_LEFT);
+        LucideIcon iconHdr = new LucideIcon("edit-3", 18, MaterialTheme.COLOR_PRIMARY);
+        Label lblTitle = new Label(I18n.get("preset.dialog.rename_title"));
+        lblTitle.setFont(Font.font(MaterialTheme.FONT_FAMILY, FontWeight.BOLD, 14));
+        lblTitle.setTextFill(MaterialTheme.COLOR_TEXT_HIGH);
+        Region sp = new Region();
+        HBox.setHgrow(sp, Priority.ALWAYS);
+        HBox btnClose = createModalCloseButton(this::hideOverlay);
+        header.getChildren().addAll(iconHdr, lblTitle, sp, btnClose);
+
+        Label lblName = new Label(I18n.get("preset.dialog.name_label"));
+        lblName.setTextFill(MaterialTheme.COLOR_TEXT_MED);
+        lblName.setFont(Font.font(MaterialTheme.FONT_FAMILY, 12));
+
+        TextField txtName = new TextField(sel.getName());
+        txtName.setStyle("-fx-background-color: " + MaterialTheme.HEX_SURFACE_2DP + "; -fx-text-fill: " + MaterialTheme.HEX_TEXT_HIGH + "; -fx-border-color: " + MaterialTheme.HEX_DIVIDER + "; -fx-border-radius: 4px; -fx-padding: 6 10;");
+
+        HBox btnRow = new HBox(8);
+        btnRow.setAlignment(Pos.CENTER_RIGHT);
+
+        MaterialButton btnCancel = new MaterialButton(I18n.get("btn.cancel"), "x",
+                MaterialTheme.COLOR_SURFACE_4DP, MaterialTheme.COLOR_TEXT_HIGH, 11, 10, 4, 11, false, this::hideOverlay);
+
+        MaterialButton btnSave = new MaterialButton(I18n.get("btn.save"), "save",
+                MaterialTheme.COLOR_PRIMARY, MaterialTheme.COLOR_ON_PRIMARY, 11, 10, 4, 11, true, () -> {
+            String name = txtName.getText().trim();
+            if (!name.isEmpty()) {
+                sel.setName(name);
+                sel.touch();
+                saveStateToConfig();
+                tablePresets.refresh();
+                updateActivePresetBanner();
+                statusLabel.setText(String.format(I18n.get("preset.status.renamed"), name));
+            }
+            hideOverlay();
+        });
+
+        btnRow.getChildren().addAll(btnCancel, btnSave);
+        card.getChildren().addAll(header, lblName, txtName, btnRow);
+        showOverlay(card);
+    }
+
+    private void deleteSelectedPreset() {
+        ArtNetPreset sel = tablePresets.getSelectionModel().getSelectedItem();
+        if (sel == null) return;
+        if (presetList.size() <= 1) {
+            return;
+        }
+        presetList.remove(sel);
+        config.getPresets().remove(sel);
+        if (sel.getId().equals(config.getActivePresetId())) {
+            config.setActivePresetId(presetList.isEmpty() ? null : presetList.get(0).getId());
+        }
+        saveStateToConfig();
+        tablePresets.refresh();
+        updateActivePresetBanner();
+        statusLabel.setText(String.format(I18n.get("preset.status.deleted"), sel.getName()));
+    }
+
+    private HBox createModalCloseButton(Runnable onClose) {
+        HBox btnCloseTop = new HBox();
+        btnCloseTop.setAlignment(Pos.CENTER);
+        btnCloseTop.setPadding(new Insets(4, 6, 4, 6));
+        btnCloseTop.setCursor(Cursor.HAND);
+        btnCloseTop.setStyle("-fx-background-radius: 4px; -fx-background-color: transparent;");
+        btnCloseTop.setOnMouseEntered(e -> btnCloseTop.setStyle("-fx-background-radius: 4px; -fx-background-color: " + MaterialTheme.HEX_SURFACE_4DP + ";"));
+        btnCloseTop.setOnMouseExited(e -> btnCloseTop.setStyle("-fx-background-radius: 4px; -fx-background-color: transparent;"));
+
+        LucideIcon iconClose = new LucideIcon("x", 16, MaterialTheme.COLOR_TEXT_MED);
+        btnCloseTop.getChildren().add(iconClose);
+        btnCloseTop.setOnMouseClicked(e -> onClose.run());
+        return btnCloseTop;
+    }
+
     private Region buildChannelsCard() {
         visualizer = new ChannelVisualizer();
         visualizer.setMinHeight(120);
@@ -912,6 +1360,7 @@ public class MainWindow extends StackPane {
         // 4. Tabs
         if (tabPatches != null) tabPatches.setText(I18n.get("tab.fixtures"));
         if (tabEngine != null) tabEngine.setText(I18n.get("tab.engine"));
+        if (tabPresets != null) tabPresets.setText(I18n.get("tab.presets"));
 
         // 5. Fixture Patch Tabelle
         if (colActive != null) colActive.setText(I18n.get("patch.col.active"));
@@ -967,7 +1416,25 @@ public class MainWindow extends StackPane {
         // 7. Visualizer
         if (visualizer != null) visualizer.updateLocalizedTexts();
 
-        // 8. Status Bar
+        // 8. Presets Tabelle & Buttons
+        if (colPresetStatus != null) colPresetStatus.setText(I18n.get("preset.col.status"));
+        if (colPresetName != null) colPresetName.setText(I18n.get("preset.col.name"));
+        if (colPresetIp != null) colPresetIp.setText(I18n.get("preset.col.ip"));
+        if (colPresetUniverse != null) colPresetUniverse.setText(I18n.get("preset.col.universe"));
+        if (colPresetFps != null) colPresetFps.setText(I18n.get("preset.col.fps"));
+        if (colPresetFixtures != null) colPresetFixtures.setText(I18n.get("preset.col.fixtures"));
+        if (colPresetModified != null) colPresetModified.setText(I18n.get("preset.col.modified"));
+
+        if (btnNewPreset != null) btnNewPreset.setText(I18n.get("preset.btn.new"));
+        if (btnLoadPreset != null) btnLoadPreset.setText(I18n.get("preset.btn.load"));
+        if (btnUpdatePreset != null) btnUpdatePreset.setText(I18n.get("preset.btn.update"));
+        if (btnRenamePreset != null) btnRenamePreset.setText(I18n.get("preset.btn.rename"));
+        if (btnDeletePreset != null) btnDeletePreset.setText(I18n.get("preset.btn.delete"));
+
+        updateActivePresetBanner();
+        if (tablePresets != null) tablePresets.refresh();
+
+        // 9. Status Bar
         if (statusLabel != null) {
             if (isRunning) {
                 String ip = txtTargetIp != null ? txtTargetIp.getText().trim() : "127.0.0.1";
@@ -1184,6 +1651,7 @@ public class MainWindow extends StackPane {
         config.setDimmerMode(cbDimmerMode.getValue());
         config.setColorPalette(cbPalette.getValue());
         config.setFixtures(new ArrayList<>(patchList));
+        config.setPresets(new ArrayList<>(presetList));
         ConfigManager.saveConfig(config);
     }
 

@@ -233,6 +233,20 @@ public class LucideIcon extends Canvas {
                 gc.strokeLine(2 * scale, 12 * scale, 22 * scale, 12 * scale);
                 gc.strokeArc(6.5 * scale, 2 * scale, 11 * scale, 20 * scale, 0, 360, ArcType.OPEN);
             }
+            case "bookmark" -> {
+                // Lucide bookmark: path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"
+                double[] bx = {5 * scale, 19 * scale, 19 * scale, 12 * scale, 5 * scale};
+                double[] by = {3 * scale, 3 * scale, 21 * scale, 17 * scale, 21 * scale};
+                gc.strokePolygon(bx, by, 5);
+            }
+            case "save" -> {
+                // Lucide save: path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z", polyline points="17 21 17 13 7 13 7 21", polyline points="7 3 7 8 15 8"
+                double[] sx = {5 * scale, 16 * scale, 21 * scale, 21 * scale, 5 * scale};
+                double[] sy = {3 * scale, 3 * scale, 8 * scale, 21 * scale, 21 * scale};
+                gc.strokePolygon(sx, sy, 5);
+                gc.strokePolyline(new double[]{7 * scale, 7 * scale, 17 * scale, 17 * scale}, new double[]{21 * scale, 13 * scale, 13 * scale, 21 * scale}, 4);
+                gc.strokePolyline(new double[]{7 * scale, 7 * scale, 15 * scale, 15 * scale}, new double[]{3 * scale, 8 * scale, 8 * scale, 3 * scale}, 4);
+            }
             default -> {
                 gc.strokeOval(4 * scale, 4 * scale, 16 * scale, 16 * scale);
             }

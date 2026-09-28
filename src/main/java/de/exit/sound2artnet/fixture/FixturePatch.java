@@ -134,8 +134,26 @@ public class FixturePatch {
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
 
+    public FixturePatch copy() {
+        return new FixturePatch(
+                this.id,
+                this.name,
+                this.startAddress,
+                this.profile,
+                this.invertPan,
+                this.invertTilt,
+                this.panMin,
+                this.panMax,
+                this.tiltMin,
+                this.tiltMax,
+                this.phaseOffset,
+                this.enabled
+        );
+    }
+
     @Override
     public String toString() {
         return name + " (DMX " + startAddress + "-" + getEndAddress() + ")";
     }
 }
+

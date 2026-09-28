@@ -83,8 +83,9 @@ Visually and structurally, **sound2artnet** features the exact same dark Materia
 - **Art-Net 4 Sender**: Broadcasts standard-compliant `ArtDMX` packets (UDP port `6454`) to any target IP (unicast, broadcast, or `127.0.0.1`) and universe (`0–15`) at a configurable frame rate (`10–44 FPS`).
 - **Live Metrics**: Real-time readouts for audio RMS, peak, tempo (BPM), active speed tier, packets per second (including a live history chart), and total packets sent.
 - **512-Channel DMX Visualizer**: Live bar graph of all 512 DMX channels with semantic role labels (`PAN`, `TILT`, `DIM`, `STRB`, `R`, `G`, `B`, etc.) and quick-jump range buttons.
-- **In-App Update & Global Settings Dialog**: Click on the title logo badge (`v1.2.1`) to inspect release notes, check for updates, or switch global settings (e.g., German/English language, autostart).
-- **Automatic Persistence**: All settings and patched fixtures are automatically saved to `config.json`.
+- **Multi-Profile & Venue Presets**: Dedicated 3rd tab (`Profile`) for saving and switching multiple venue configurations (Target IP, Universe, FPS, Fixture Patches, and Engine Settings). Double-click or click `Laden` to activate instantly with live Art-Net target switching without restarting the stream.
+- **In-App Update & Global Settings Dialog**: Click on the title logo badge (`v1.3.0`) to inspect release notes, check for updates, or switch global settings (e.g., German/English language, autostart).
+- **Automatic Persistence**: All settings, profiles, and patched fixtures are automatically saved to `config.json`.
 
 ---
 
@@ -156,11 +157,11 @@ mvn clean test
 ```bash
 mvn clean package
 ```
-The standalone fat JAR will be created at `target/sound2artnet-1.2.0-all.jar`.
+The standalone fat JAR will be created at `target/sound2artnet-1.3.0-all.jar`.
 
 ### Headless CLI Mode (No GUI)
 ```bash
-java -jar target/sound2artnet-1.2.0-all.jar --cli --ip 192.168.200.232 --universe 0 --fps 40
+java -jar target/sound2artnet-1.3.0-all.jar --cli --ip 192.168.200.232 --universe 0 --fps 40
 ```
 
 ---

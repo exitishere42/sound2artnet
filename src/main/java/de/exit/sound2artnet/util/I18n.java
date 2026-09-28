@@ -29,6 +29,68 @@ public class I18n {
         EN.put("tab.fixtures", "Moving Heads & Fixture Patch");
         DE.put("tab.engine", "Sound-to-Light & Bewegungssteuerung");
         EN.put("tab.engine", "Sound-to-Light & Movement Engine");
+        DE.put("tab.presets", "Profile");
+        EN.put("tab.presets", "Profiles");
+
+        // --- Art-Net Profile / Presets ---
+        DE.put("preset.title", "Art-Net Profile & Presets");
+        EN.put("preset.title", "Art-Net Profiles & Presets");
+        DE.put("preset.active_banner", "Aktives Profil: %s");
+        EN.put("preset.active_banner", "Active Profile: %s");
+        DE.put("preset.active_badge", "AKTIV");
+        EN.put("preset.active_badge", "ACTIVE");
+        DE.put("preset.no_active", "Kein Profil ausgewählt");
+        EN.put("preset.no_active", "No profile selected");
+        DE.put("preset.custom", "Benutzerdefiniert");
+        EN.put("preset.custom", "Custom");
+
+        DE.put("preset.col.status", "Status");
+        EN.put("preset.col.status", "Status");
+        DE.put("preset.col.name", "Profil-Name");
+        EN.put("preset.col.name", "Profile Name");
+        DE.put("preset.col.ip", "Ziel-IP");
+        EN.put("preset.col.ip", "Target IP");
+        DE.put("preset.col.universe", "Universum");
+        EN.put("preset.col.universe", "Universe");
+        DE.put("preset.col.fps", "FPS");
+        EN.put("preset.col.fps", "FPS");
+        DE.put("preset.col.fixtures", "Scheinwerfer");
+        EN.put("preset.col.fixtures", "Fixtures");
+        DE.put("preset.col.modified", "Zuletzt geändert");
+        EN.put("preset.col.modified", "Last Modified");
+
+        DE.put("preset.btn.new", "Als neues Profil speichern");
+        EN.put("preset.btn.new", "Save as new profile");
+        DE.put("preset.btn.load", "Laden");
+        EN.put("preset.btn.load", "Load");
+        DE.put("preset.btn.update", "Aktualisieren");
+        EN.put("preset.btn.update", "Update");
+        DE.put("preset.btn.rename", "Umbenennen");
+        EN.put("preset.btn.rename", "Rename");
+        DE.put("preset.btn.delete", "Löschen");
+        EN.put("preset.btn.delete", "Delete");
+
+        DE.put("preset.dialog.save_title", "Aktuelle Einstellungen als Profil speichern");
+        EN.put("preset.dialog.save_title", "Save current settings as profile");
+        DE.put("preset.dialog.rename_title", "Profil umbenennen");
+        EN.put("preset.dialog.rename_title", "Rename profile");
+        DE.put("preset.dialog.name_label", "Profil-Name");
+        EN.put("preset.dialog.name_label", "Profile Name");
+        DE.put("preset.dialog.desc_label", "Beschreibung");
+        EN.put("preset.dialog.desc_label", "Description");
+        DE.put("preset.dialog.preview_title", "Profil-Vorschau:");
+        EN.put("preset.dialog.preview_title", "Profile preview:");
+
+        DE.put("preset.status.loaded", "Profil aktiviert: %s");
+        EN.put("preset.status.loaded", "Profile activated: %s");
+        DE.put("preset.status.saved", "Profil gespeichert: %s");
+        EN.put("preset.status.saved", "Profile saved: %s");
+        DE.put("preset.status.updated", "Profil mit aktuellen Werten aktualisiert: %s");
+        EN.put("preset.status.updated", "Profile updated with current values: %s");
+        DE.put("preset.status.renamed", "Profil umbenannt: %s");
+        EN.put("preset.status.renamed", "Profile renamed: %s");
+        DE.put("preset.status.deleted", "Profil gelöscht: %s");
+        EN.put("preset.status.deleted", "Profile deleted: %s");
 
         // --- Globale Einstellungen ---
         DE.put("settings.language", "Sprache");

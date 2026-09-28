@@ -118,4 +118,15 @@ public class ArtNetSender {
     public void setUniverse(int universe) {
         this.universe = Math.max(0, Math.min(15, universe));
     }
+
+    /**
+     * Aktualisiert Zieladresse und Universum zur Laufzeit (z. B. beim Umschalten von Presets).
+     */
+    public synchronized void updateTarget(String ip, int universe) throws UnknownHostException {
+        this.universe = Math.max(0, Math.min(15, universe));
+        if (ip != null && !ip.isBlank()) {
+            this.targetAddress = InetAddress.getByName(ip.trim());
+        }
+        LOGGER.info("ArtNetSender Ziel aktualisiert -> " + (targetAddress != null ? targetAddress.getHostAddress() : "null") + " | Universum: " + this.universe);
+    }
 }
