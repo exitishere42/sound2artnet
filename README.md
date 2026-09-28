@@ -47,7 +47,7 @@ Visually and structurally, **sound2artnet** features the exact same dark Materia
 ## Features
 
 ### 1. Real-Time Audio Analysis & Beat / BPM Detection
-- **Direct System Audio Capture**: Captures desktop system audio directly on Windows via WASAPI Loopback (`PC-Sound`) without requiring virtual audio cables or extra drivers. Any microphone or audio interface can also be selected.
+- **Direct System Audio Capture**: Captures desktop system audio directly on Windows (WASAPI Loopback) and Linux (PipeWire / PulseAudio) via `PC-Sound` without requiring virtual audio cables or extra drivers. Any microphone or audio interface can also be selected.
 - **8-Band Spectrum Analyzer**: Real-time FFT analysis (1024 samples, Hanning window) split into 8 frequency bands (`SUB`, `BASS`, `LOW`, `MID`, `H-MID`, `PRES`, `TREB`, `BRIL`) with peak-hold indicators.
 - **Accurate Kick & Beat Detection**: Multi-stage sub-bass and transient onset analysis for reliable kick drum detection, even on heavily compressed tracks.
 - **Adjustable Beat Sensitivity**: Dedicated sensitivity slider (`20%` to `200%`) to fine-tune trigger thresholds on the fly for quiet passages or heavy club tracks.
@@ -157,11 +157,11 @@ mvn clean test
 ```bash
 mvn clean package
 ```
-The standalone fat JAR will be created at `target/sound2artnet-1.3.2-all.jar`.
+The standalone fat JAR will be created at `target/sound2artnet-1.4.0-all.jar`.
 
 ### Headless CLI Mode (No GUI)
 ```bash
-java -jar target/sound2artnet-1.3.2-all.jar --cli --ip 192.168.200.232 --universe 0 --fps 40
+java -jar target/sound2artnet-1.4.0-all.jar --cli --ip 192.168.200.232 --universe 0 --fps 40
 ```
 
 ---

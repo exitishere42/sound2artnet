@@ -29,18 +29,30 @@ public class AudioCaptureService {
     private volatile boolean isRunning = false;
     private String currentDeviceName = "Standard-Eingabe";
 
-    private Process wasapiProcess;
+    private Process loopbackProcess;
+
+    public static boolean isWindows() {
+        return System.getProperty("os.name", "").toLowerCase().contains("win");
+    }
+
+    public static boolean isLinux() {
+        String os = System.getProperty("os.name", "").toLowerCase();
+        return os.contains("linux") || os.contains("unix");
+    }
+
+    public static boolean isLoopbackSupported() {
+        return isWindows() || isLinux();
+    }
 
     /**
      * Ermittelt alle verfügbaren Aufnahme-Audiogeräte.
-     * Unter Windows wird an erster Stelle der direkte PC-Sound (WASAPI Loopback) angeboten.
+     * Unter Windows und Linux wird an erster Stelle der direkte PC-Sound (Loopback) angeboten.
      */
     public static List<AudioDeviceInfo> listInputDevices() {
         List<AudioDeviceInfo> devices = new ArrayList<>();
 
-        // 1. Unter Windows: Direkter PC-Sound Loopback an erster Stelle
-        String os = System.getProperty("os.name", "").toLowerCase();
-        if (os.contains("win")) {
+        // 1. Loopback (PC-Sound) an erster Stelle anbieten (Windows oder Linux)
+        if (isLoopbackSupported()) {
             devices.add(AudioDeviceInfo.pcSoundLoopback());
         }
 
@@ -84,12 +96,18 @@ public class AudioCaptureService {
     }
 
     /**
-     * Startet die Audioaufnahme mit dem angegebenen AudioDeviceInfo (unterstützt auch WASAPI Loopback).
+     * Startet die Audioaufnahme mit dem angegebenen AudioDeviceInfo (unterstützt auch WASAPI / Linux Loopback).
      */
     public synchronized void start(AudioDeviceInfo deviceInfo) throws Exception {
         stop();
         if (deviceInfo != null && deviceInfo.isLoopback()) {
-            startWasapiLoopback();
+            if (isWindows()) {
+                startWasapiLoopback();
+            } else if (isLinux()) {
+                startLinuxLoopback();
+            } else {
+                throw new UnsupportedOperationException("PC-Sound Loopback wird auf diesem Betriebssystem nicht unterstützt.");
+            }
         } else {
             start(deviceInfo != null ? deviceInfo.mixerInfo() : null);
         }
@@ -137,11 +155,11 @@ public class AudioCaptureService {
 
         ProcessBuilder pb = new ProcessBuilder(exe.getAbsolutePath());
         pb.redirectError(ProcessBuilder.Redirect.PIPE);
-        wasapiProcess = pb.start();
+        loopbackProcess = pb.start();
 
         float sampleRate = 48000.0f;
         try {
-            java.io.BufferedReader errReader = new java.io.BufferedReader(new java.io.InputStreamReader(wasapiProcess.getErrorStream()));
+            java.io.BufferedReader errReader = new java.io.BufferedReader(new java.io.InputStreamReader(loopbackProcess.getErrorStream()));
             String line = errReader.readLine();
             if (line != null && line.startsWith("WASAPI_READY:")) {
                 String[] parts = line.split(":");
@@ -157,12 +175,164 @@ public class AudioCaptureService {
         currentDeviceName = "PC-Sound";
         isRunning = true;
 
-        captureThread = new Thread(() -> loopbackCaptureLoop(wasapiProcess.getInputStream()), "WasapiLoopbackThread");
+        captureThread = new Thread(() -> loopbackCaptureLoop(loopbackProcess.getInputStream()), "WasapiLoopbackThread");
         captureThread.setDaemon(true);
         captureThread.setPriority(Thread.MAX_PRIORITY);
         captureThread.start();
 
         LOGGER.info("WASAPI Loopback gestartet mit Abtastrate " + sampleRate + " Hz");
+    }
+
+    private void startLinuxLoopback() throws IOException {
+        List<List<String>> candidates = buildLinuxLoopbackCommands();
+        if (candidates.isEmpty()) {
+            throw new IOException("Kein unterstütztes Linux-Audiotool gefunden. Bitte 'pipewire-bin', 'pulseaudio-utils' oder 'ffmpeg' installieren.");
+        }
+
+        IOException lastException = null;
+        for (List<String> cmd : candidates) {
+            Process proc = null;
+            try {
+                LOGGER.info("Versuche Linux-Audio-Loopback mit: " + String.join(" ", cmd));
+                ProcessBuilder pb = new ProcessBuilder(cmd);
+                pb.redirectError(ProcessBuilder.Redirect.PIPE);
+                proc = pb.start();
+
+                final Process p = proc;
+                Thread errDrainer = new Thread(() -> {
+                    try (var r = new java.io.BufferedReader(new java.io.InputStreamReader(p.getErrorStream()))) {
+                        String line;
+                        while ((line = r.readLine()) != null) {
+                            LOGGER.fine("[LinuxLoopback stderr] " + line);
+                        }
+                    } catch (Exception ignored) {}
+                }, "LinuxLoopback-ErrDrainer");
+                errDrainer.setDaemon(true);
+                errDrainer.start();
+
+                // Kurz prüfen (120ms), ob der Prozess aktiv bleibt
+                boolean exited = proc.waitFor(120, java.util.concurrent.TimeUnit.MILLISECONDS);
+                if (!exited && proc.isAlive()) {
+                    loopbackProcess = proc;
+                    analyzer.setSampleRate(SAMPLE_RATE);
+                    currentDeviceName = "PC-Sound";
+                    isRunning = true;
+
+                    captureThread = new Thread(() -> loopbackCaptureLoop(p.getInputStream()), "LinuxLoopbackThread");
+                    captureThread.setDaemon(true);
+                    captureThread.setPriority(Thread.MAX_PRIORITY);
+                    captureThread.start();
+
+                    LOGGER.info("Linux Audio-Loopback erfolgreich gestartet mit: " + cmd.get(0));
+                    return;
+                } else {
+                    int exitCode = proc.exitValue();
+                    LOGGER.warning("Kandidat " + cmd.get(0) + " brach ab mit Exit-Code " + exitCode);
+                }
+            } catch (Exception e) {
+                LOGGER.warning("Kandidat " + cmd.get(0) + " konnte nicht gestartet werden: " + e.getMessage());
+                lastException = new IOException(e);
+                if (proc != null && proc.isAlive()) {
+                    proc.destroyForcibly();
+                }
+            }
+        }
+
+        throw new IOException("Linux PC-Sound konnte nicht gestartet werden (PipeWire/PulseAudio nicht verfügbar oder Zugriff verweigert).", lastException);
+    }
+
+    public static List<List<String>> buildLinuxLoopbackCommands() {
+        List<List<String>> list = new ArrayList<>();
+        String pulseMonitor = resolvePulseDefaultMonitor();
+
+        // 1. PipeWire: pw-record mit @DEFAULT_MONITOR@
+        if (isCommandAvailable("pw-record")) {
+            list.add(List.of("pw-record", "--target", "@DEFAULT_MONITOR@", "--format", "s16", "--rate", "44100", "--channels", "1", "--raw", "-"));
+            if (pulseMonitor != null && !pulseMonitor.equals("@DEFAULT_MONITOR@")) {
+                list.add(List.of("pw-record", "--target", pulseMonitor, "--format", "s16", "--rate", "44100", "--channels", "1", "--raw", "-"));
+            }
+        }
+
+        // 2. PulseAudio: parec
+        if (isCommandAvailable("parec")) {
+            if (pulseMonitor != null && !pulseMonitor.equals("@DEFAULT_MONITOR@")) {
+                list.add(List.of("parec", "-d", pulseMonitor, "--format=s16le", "--rate=44100", "--channels=1", "--raw"));
+            }
+            list.add(List.of("parec", "-d", "@DEFAULT_MONITOR@", "--format=s16le", "--rate=44100", "--channels=1", "--raw"));
+            list.add(List.of("parec", "--format=s16le", "--rate=44100", "--channels=1", "--raw"));
+        }
+
+        // 3. PulseAudio: pacat
+        if (isCommandAvailable("pacat")) {
+            if (pulseMonitor != null && !pulseMonitor.equals("@DEFAULT_MONITOR@")) {
+                list.add(List.of("pacat", "--record", "-d", pulseMonitor, "--format=s16le", "--rate=44100", "--channels=1", "--raw"));
+            }
+            list.add(List.of("pacat", "--record", "-d", "@DEFAULT_MONITOR@", "--format=s16le", "--rate=44100", "--channels=1", "--raw"));
+        }
+
+        // 4. FFmpeg als vielseitiger Fallback (unterstützt pulse und alsa)
+        if (isCommandAvailable("ffmpeg")) {
+            if (pulseMonitor != null && !pulseMonitor.equals("@DEFAULT_MONITOR@")) {
+                list.add(List.of("ffmpeg", "-nostats", "-loglevel", "error", "-f", "pulse", "-i", pulseMonitor, "-f", "s16le", "-ar", "44100", "-ac", "1", "-"));
+            }
+            list.add(List.of("ffmpeg", "-nostats", "-loglevel", "error", "-f", "pulse", "-i", "@DEFAULT_MONITOR@", "-f", "s16le", "-ar", "44100", "-ac", "1", "-"));
+            list.add(List.of("ffmpeg", "-nostats", "-loglevel", "error", "-f", "pulse", "-i", "default", "-f", "s16le", "-ar", "44100", "-ac", "1", "-"));
+        }
+
+        return list;
+    }
+
+    public static boolean isCommandAvailable(String cmd) {
+        String path = System.getenv("PATH");
+        if (path != null) {
+            String[] dirs = path.split(File.pathSeparator);
+            for (String dir : dirs) {
+                File file = new File(dir, cmd);
+                if (file.exists() && file.canExecute()) {
+                    return true;
+                }
+            }
+        }
+        for (String dir : List.of("/usr/bin", "/usr/local/bin", "/bin", "/snap/bin")) {
+            File file = new File(dir, cmd);
+            if (file.exists() && file.canExecute()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static String resolvePulseDefaultMonitor() {
+        try {
+            Process p = new ProcessBuilder("pactl", "get-default-sink")
+                .redirectError(ProcessBuilder.Redirect.DISCARD)
+                .start();
+            try (var reader = new java.io.BufferedReader(new java.io.InputStreamReader(p.getInputStream()))) {
+                String sink = reader.readLine();
+                if (sink != null && !sink.isBlank() && !sink.contains(" ")) {
+                    return sink.trim() + ".monitor";
+                }
+            }
+        } catch (Exception ignored) {}
+
+        try {
+            Process p = new ProcessBuilder("pactl", "info")
+                .redirectError(ProcessBuilder.Redirect.DISCARD)
+                .start();
+            try (var reader = new java.io.BufferedReader(new java.io.InputStreamReader(p.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    if (line.toLowerCase().startsWith("default sink:")) {
+                        String sink = line.substring(line.indexOf(':') + 1).trim();
+                        if (!sink.isBlank()) {
+                            return sink + ".monitor";
+                        }
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+
+        return "@DEFAULT_MONITOR@";
     }
 
     public static File resolveWasapiExecutable() {
@@ -212,7 +382,7 @@ public class AudioCaptureService {
         int leftoverByte = -1;
 
         try {
-            while (isRunning && wasapiProcess != null && wasapiProcess.isAlive()) {
+            while (isRunning && loopbackProcess != null && loopbackProcess.isAlive()) {
                 int bytesRead = in.read(byteBuffer, 0, byteBuffer.length);
                 if (bytesRead <= 0) {
                     if (bytesRead == -1) break;
@@ -255,7 +425,7 @@ public class AudioCaptureService {
             }
         } catch (Exception e) {
             if (isRunning) {
-                LOGGER.log(Level.WARNING, "Fehler beim Lesen des WASAPI-Loopback-Streams: " + e.getMessage());
+                LOGGER.log(Level.WARNING, "Fehler beim Lesen des Loopback-Streams: " + e.getMessage());
             }
         }
     }
@@ -263,16 +433,16 @@ public class AudioCaptureService {
     public synchronized void stop() {
         isRunning = false;
 
-        if (wasapiProcess != null) {
+        if (loopbackProcess != null) {
             try {
-                wasapiProcess.getOutputStream().close();
-                wasapiProcess.destroy();
-                wasapiProcess.waitFor(500, java.util.concurrent.TimeUnit.MILLISECONDS);
-                if (wasapiProcess.isAlive()) {
-                    wasapiProcess.destroyForcibly();
+                loopbackProcess.getOutputStream().close();
+                loopbackProcess.destroy();
+                loopbackProcess.waitFor(500, java.util.concurrent.TimeUnit.MILLISECONDS);
+                if (loopbackProcess.isAlive()) {
+                    loopbackProcess.destroyForcibly();
                 }
             } catch (Exception ignored) {}
-            wasapiProcess = null;
+            loopbackProcess = null;
         }
 
         if (targetLine != null) {
@@ -324,7 +494,7 @@ public class AudioCaptureService {
     }
 
     public boolean isRunning() {
-        return isRunning && ((targetLine != null && targetLine.isOpen()) || (wasapiProcess != null && wasapiProcess.isAlive()));
+        return isRunning && ((targetLine != null && targetLine.isOpen()) || (loopbackProcess != null && loopbackProcess.isAlive()));
     }
 
     public AudioSpectrumAnalyzer getAnalyzer() {

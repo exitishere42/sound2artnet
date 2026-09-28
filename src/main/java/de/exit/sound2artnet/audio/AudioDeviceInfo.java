@@ -19,7 +19,7 @@ public record AudioDeviceInfo(
     public static AudioDeviceInfo pcSoundLoopback() {
         return new AudioDeviceInfo(
             "PC-Sound",
-            "Direkter Windows PC-Sound",
+            "Direkter PC-Sound",
             null,
             false,
             true

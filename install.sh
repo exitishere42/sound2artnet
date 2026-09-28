@@ -10,7 +10,7 @@ set -e
 REPO="exitishere42/sound2artnet"
 INSTALL_DIR="${INSTALL_DIR:-$HOME/sound2artnet}"
 APP_NAME="sound2artnet"
-JAR_NAME="sound2artnet-1.3.2-all.jar"
+JAR_NAME="sound2artnet-1.4.0-all.jar"
 DETECTED_JAR=$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" 2>/dev/null | grep -o '"name": *"sound2artnet-[^"]*-all\.jar"' | head -n 1 | cut -d '"' -f 4 || true)
 if [ -n "$DETECTED_JAR" ]; then
     JAR_NAME="$DETECTED_JAR"
