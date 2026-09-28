@@ -34,6 +34,7 @@ public class AppConfig {
     private List<FixturePatch> fixtures = new ArrayList<>();
     private List<ArtNetPreset> presets = new ArrayList<>();
     private String activePresetId = null;
+    private double alwaysOnIntensity = 1.0;
     private boolean autostart = false;
     private String language = "de";
 
@@ -88,6 +89,11 @@ public class AppConfig {
     public Sound2LightEngine.DimmerMode getDimmerMode() { return dimmerMode; }
     public void setDimmerMode(Sound2LightEngine.DimmerMode dimmerMode) { this.dimmerMode = dimmerMode; }
 
+    public double getAlwaysOnIntensity() { return alwaysOnIntensity; }
+    public void setAlwaysOnIntensity(double alwaysOnIntensity) {
+        this.alwaysOnIntensity = Math.max(0.0, Math.min(1.0, alwaysOnIntensity));
+    }
+
     public ColorEngine.Palette getColorPalette() { return colorPalette; }
     public void setColorPalette(ColorEngine.Palette colorPalette) { this.colorPalette = colorPalette; }
 
@@ -123,6 +129,7 @@ public class AppConfig {
                     this.movementSpeed,
                     this.movementSize,
                     this.dimmerMode,
+                    this.alwaysOnIntensity,
                     this.colorPalette,
                     this.movementEnabled,
                     this.lightEnabled,

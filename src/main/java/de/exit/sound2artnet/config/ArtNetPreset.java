@@ -34,6 +34,7 @@ public class ArtNetPreset {
     private double movementSpeed;
     private double movementSize;
     private Sound2LightEngine.DimmerMode dimmerMode;
+    private double alwaysOnIntensity = 1.0;
     private ColorEngine.Palette colorPalette;
     private boolean movementEnabled;
     private boolean lightEnabled;
@@ -53,6 +54,7 @@ public class ArtNetPreset {
         this.movementSpeed = 1.0;
         this.movementSize = 0.8;
         this.dimmerMode = Sound2LightEngine.DimmerMode.AUDIO_LEVEL;
+        this.alwaysOnIntensity = 1.0;
         this.colorPalette = ColorEngine.Palette.CLUB_NEON;
         this.movementEnabled = true;
         this.lightEnabled = true;
@@ -73,6 +75,7 @@ public class ArtNetPreset {
             @JsonProperty("movementSpeed") double movementSpeed,
             @JsonProperty("movementSize") double movementSize,
             @JsonProperty("dimmerMode") Sound2LightEngine.DimmerMode dimmerMode,
+            @JsonProperty("alwaysOnIntensity") Double alwaysOnIntensity,
             @JsonProperty("colorPalette") ColorEngine.Palette colorPalette,
             @JsonProperty("movementEnabled") Boolean movementEnabled,
             @JsonProperty("lightEnabled") Boolean lightEnabled,
@@ -89,6 +92,7 @@ public class ArtNetPreset {
         this.movementSpeed = movementSpeed > 0 ? movementSpeed : 1.0;
         this.movementSize = movementSize > 0 ? movementSize : 0.8;
         this.dimmerMode = dimmerMode != null ? dimmerMode : Sound2LightEngine.DimmerMode.AUDIO_LEVEL;
+        this.alwaysOnIntensity = alwaysOnIntensity != null ? Math.max(0.0, Math.min(1.0, alwaysOnIntensity)) : 1.0;
         this.colorPalette = colorPalette != null ? colorPalette : ColorEngine.Palette.CLUB_NEON;
         this.movementEnabled = movementEnabled != null ? movementEnabled : true;
         this.lightEnabled = lightEnabled != null ? lightEnabled : true;
@@ -146,6 +150,9 @@ public class ArtNetPreset {
 
     public Sound2LightEngine.DimmerMode getDimmerMode() { return dimmerMode; }
     public void setDimmerMode(Sound2LightEngine.DimmerMode dimmerMode) { this.dimmerMode = dimmerMode; }
+
+    public double getAlwaysOnIntensity() { return alwaysOnIntensity; }
+    public void setAlwaysOnIntensity(double alwaysOnIntensity) { this.alwaysOnIntensity = Math.max(0.0, Math.min(1.0, alwaysOnIntensity)); }
 
     public ColorEngine.Palette getColorPalette() { return colorPalette; }
     public void setColorPalette(ColorEngine.Palette colorPalette) { this.colorPalette = colorPalette; }

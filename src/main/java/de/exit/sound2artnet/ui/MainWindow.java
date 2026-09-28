@@ -154,6 +154,10 @@ public class MainWindow extends StackPane {
     private Slider slAmplitude;
     private Label lblDimmer;
     private ComboBox<Sound2LightEngine.DimmerMode> cbDimmerMode;
+    private HBox alwaysOnBox;
+    private Label lblAlwaysOnTitle;
+    private Slider slAlwaysOnIntensity;
+    private Label lblAlwaysOnVal;
     private Label lblPal;
     private ComboBox<ColorEngine.Palette> cbPalette;
 
@@ -187,6 +191,7 @@ public class MainWindow extends StackPane {
         showEngine.setStrobeEnabled(config.isStrobeEnabled());
         showEngine.setMovementPattern(config.getMovementPattern());
         showEngine.setDimmerMode(config.getDimmerMode());
+        showEngine.setAlwaysOnIntensity(config.getAlwaysOnIntensity());
         showEngine.getColorEngine().setPalette(config.getColorPalette());
         showEngine.getMovementGenerator().setCurrentSpeed(config.getMovementSpeed());
         showEngine.getMovementGenerator().setBaseAmplitude(config.getMovementSize());
@@ -786,17 +791,57 @@ public class MainWindow extends StackPane {
         });
         ampBox.getChildren().addAll(slAmplitude, lblAmpVal);
 
-        // 6. Dimmer-Modus
+        // 6. Dimmer-Modus & Always-On Intensitäts-Slider
         lblDimmer = new Label(I18n.get("engine.dimmer_response"));
         lblDimmer.setTextFill(MaterialTheme.COLOR_TEXT_MED);
         lblDimmer.setFont(Font.font("Segoe UI", FontWeight.BOLD, 10));
+
+        VBox dimmerBox = new VBox(6);
+        dimmerBox.setAlignment(Pos.CENTER_LEFT);
+
         cbDimmerMode = new ComboBox<>(FXCollections.observableArrayList(Sound2LightEngine.DimmerMode.values()));
         cbDimmerMode.setValue(showEngine.getDimmerMode());
         cbDimmerMode.setMaxWidth(Double.MAX_VALUE);
-        cbDimmerMode.setOnAction(e -> {
-            showEngine.setDimmerMode(cbDimmerMode.getValue());
+
+        alwaysOnBox = new HBox(8);
+        alwaysOnBox.setAlignment(Pos.CENTER_LEFT);
+        alwaysOnBox.setPadding(new Insets(2, 0, 0, 0));
+
+        lblAlwaysOnTitle = new Label(I18n.get("engine.intensity") + ":");
+        lblAlwaysOnTitle.setTextFill(MaterialTheme.COLOR_TEXT_MED);
+        lblAlwaysOnTitle.setFont(Font.font("Segoe UI", FontWeight.BOLD, 10));
+        lblAlwaysOnTitle.setMinWidth(65);
+
+        slAlwaysOnIntensity = new Slider(0.0, 1.0, config.getAlwaysOnIntensity());
+        HBox.setHgrow(slAlwaysOnIntensity, Priority.ALWAYS);
+        lblAlwaysOnVal = new Label(String.format("%.0f%%", slAlwaysOnIntensity.getValue() * 100));
+        lblAlwaysOnVal.setMinWidth(40);
+        lblAlwaysOnVal.setTextFill(MaterialTheme.COLOR_TEXT_HIGH);
+
+        slAlwaysOnIntensity.valueProperty().addListener((obs, o, n) -> {
+            showEngine.setAlwaysOnIntensity(n.doubleValue());
+            lblAlwaysOnVal.setText(String.format("%.0f%%", n.doubleValue() * 100));
             autoSaveConfig();
         });
+
+        alwaysOnBox.getChildren().addAll(lblAlwaysOnTitle, slAlwaysOnIntensity, lblAlwaysOnVal);
+
+        Runnable updateAlwaysOnVisibility = () -> {
+            boolean isAlwaysOn = cbDimmerMode.getValue() == Sound2LightEngine.DimmerMode.ALWAYS_ON;
+            boolean lgt = chkLightEnabled.isSelected();
+            alwaysOnBox.setVisible(isAlwaysOn);
+            alwaysOnBox.setManaged(isAlwaysOn);
+            slAlwaysOnIntensity.setDisable(!lgt);
+        };
+
+        cbDimmerMode.setOnAction(e -> {
+            showEngine.setDimmerMode(cbDimmerMode.getValue());
+            updateAlwaysOnVisibility.run();
+            autoSaveConfig();
+        });
+
+        dimmerBox.getChildren().addAll(cbDimmerMode, alwaysOnBox);
+        updateAlwaysOnVisibility.run();
 
         // 7. Farbpalette
         lblPal = new Label(I18n.get("engine.color_palette"));
@@ -818,8 +863,10 @@ public class MainWindow extends StackPane {
             slSpeed.setDisable(!mov);
             slAmplitude.setDisable(!mov);
             cbDimmerMode.setDisable(!lgt);
+            slAlwaysOnIntensity.setDisable(!lgt);
             cbPalette.setDisable(!lgt);
             chkStrobeEnabled.setDisable(!lgt);
+            updateAlwaysOnVisibility.run();
         };
         updateDisabledStates.run();
 
@@ -851,7 +898,7 @@ public class MainWindow extends StackPane {
         grid.add(lblAmp, 0, 5);
         grid.add(ampBox, 1, 5);
         grid.add(lblDimmer, 0, 6);
-        grid.add(cbDimmerMode, 1, 6);
+        grid.add(dimmerBox, 1, 6);
         grid.add(lblPal, 0, 7);
         grid.add(cbPalette, 1, 7);
 
@@ -1032,6 +1079,10 @@ public class MainWindow extends StackPane {
             cbDimmerMode.setValue(preset.getDimmerMode());
             showEngine.setDimmerMode(preset.getDimmerMode());
         }
+        if (slAlwaysOnIntensity != null) {
+            slAlwaysOnIntensity.setValue(preset.getAlwaysOnIntensity());
+            showEngine.setAlwaysOnIntensity(preset.getAlwaysOnIntensity());
+        }
         if (preset.getColorPalette() != null) {
             cbPalette.setValue(preset.getColorPalette());
             showEngine.getColorEngine().setPalette(preset.getColorPalette());
@@ -1079,6 +1130,7 @@ public class MainWindow extends StackPane {
         sel.setMovementSpeed(slSpeed.getValue());
         sel.setMovementSize(slAmplitude.getValue());
         sel.setDimmerMode(cbDimmerMode.getValue());
+        sel.setAlwaysOnIntensity(slAlwaysOnIntensity != null ? slAlwaysOnIntensity.getValue() : 1.0);
         sel.setColorPalette(cbPalette.getValue());
         sel.setMovementEnabled(chkMovementEnabled != null && chkMovementEnabled.isSelected());
         sel.setLightEnabled(chkLightEnabled != null && chkLightEnabled.isSelected());
@@ -1169,6 +1221,7 @@ public class MainWindow extends StackPane {
                     slSpeed.getValue(),
                     slAmplitude.getValue(),
                     cbDimmerMode.getValue(),
+                    slAlwaysOnIntensity != null ? slAlwaysOnIntensity.getValue() : 1.0,
                     cbPalette.getValue(),
                     chkMovementEnabled != null && chkMovementEnabled.isSelected(),
                     chkLightEnabled != null && chkLightEnabled.isSelected(),
@@ -1412,6 +1465,9 @@ public class MainWindow extends StackPane {
             cbPalette.setItems(FXCollections.observableArrayList(ColorEngine.Palette.values()));
             cbPalette.setValue(val);
         }
+        if (lblAlwaysOnTitle != null) {
+            lblAlwaysOnTitle.setText(I18n.get("engine.intensity") + ":");
+        }
 
         // 7. Visualizer
         if (visualizer != null) visualizer.updateLocalizedTexts();
@@ -1649,6 +1705,9 @@ public class MainWindow extends StackPane {
         config.setMovementSpeed(slSpeed.getValue());
         config.setMovementSize(slAmplitude.getValue());
         config.setDimmerMode(cbDimmerMode.getValue());
+        if (slAlwaysOnIntensity != null) {
+            config.setAlwaysOnIntensity(slAlwaysOnIntensity.getValue());
+        }
         config.setColorPalette(cbPalette.getValue());
         config.setFixtures(new ArrayList<>(patchList));
         config.setPresets(new ArrayList<>(presetList));

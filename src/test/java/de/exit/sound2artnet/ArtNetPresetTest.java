@@ -66,7 +66,8 @@ public class ArtNetPresetTest {
                 MovementPattern.CIRCLE,
                 1.2,
                 0.8,
-                Sound2LightEngine.DimmerMode.AUDIO_LEVEL,
+                Sound2LightEngine.DimmerMode.ALWAYS_ON,
+                0.75,
                 ColorEngine.Palette.CLUB_NEON,
                 true,
                 true,
@@ -80,6 +81,7 @@ public class ArtNetPresetTest {
         assertEquals(0, preset.getUniverse());
         assertEquals(40, preset.getFps());
         assertEquals(1, preset.getFixtures().size());
+        assertEquals(0.75, preset.getAlwaysOnIntensity(), 0.001);
 
         // Test copyFixtures isolation
         List<FixturePatch> copies = preset.copyFixtures();
@@ -132,6 +134,7 @@ public class ArtNetPresetTest {
                 1.0,
                 0.7,
                 Sound2LightEngine.DimmerMode.AUDIO_LEVEL,
+                1.0,
                 ColorEngine.Palette.CLUB_NEON,
                 true,
                 true,
@@ -150,7 +153,8 @@ public class ArtNetPresetTest {
                 MovementPattern.PAN_SWEEP,
                 1.5,
                 0.9,
-                Sound2LightEngine.DimmerMode.BEAT_PULSE,
+                Sound2LightEngine.DimmerMode.ALWAYS_ON,
+                0.60,
                 ColorEngine.Palette.FIRE_AND_ICE,
                 true,
                 true,
@@ -180,6 +184,7 @@ public class ArtNetPresetTest {
         assertEquals(45, loadedP2.getFps());
         assertEquals(1, loadedP2.getFixtures().size());
         assertEquals("Beam 1", loadedP2.getFixtures().get(0).getName());
+        assertEquals(0.60, loadedP2.getAlwaysOnIntensity(), 0.001);
     }
 
     @Test
@@ -196,5 +201,31 @@ public class ArtNetPresetTest {
 
         sender.stop();
         assertFalse(sender.isRunning());
+    }
+
+    @Test
+    public void testSound2LightEngineAlwaysOnIntensity() {
+        Sound2LightEngine engine = new Sound2LightEngine(null, null);
+        FixturePatch spot = new FixturePatch("Spot 1", 1, FixtureLibrary.createGeneric9chSpot());
+        engine.setPatchedFixtures(List.of(spot));
+        engine.setDimmerMode(Sound2LightEngine.DimmerMode.ALWAYS_ON);
+
+        // 100% intensity -> Dimmer channel (channel 7, 0-indexed offset 6) should be 255
+        engine.setAlwaysOnIntensity(1.0);
+        engine.tick();
+        byte[] frame100 = engine.getCurrentDmxFrame();
+        assertEquals((byte) 255, frame100[6]);
+
+        // 50% intensity -> Dimmer channel should be approx 128
+        engine.setAlwaysOnIntensity(0.5);
+        engine.tick();
+        byte[] frame50 = engine.getCurrentDmxFrame();
+        assertEquals((byte) 128, frame50[6]);
+
+        // 0% intensity -> Dimmer channel should be 0
+        engine.setAlwaysOnIntensity(0.0);
+        engine.tick();
+        byte[] frame0 = engine.getCurrentDmxFrame();
+        assertEquals((byte) 0, frame0[6]);
     }
 }

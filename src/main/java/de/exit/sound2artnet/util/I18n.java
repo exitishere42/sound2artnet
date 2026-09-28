@@ -265,6 +265,8 @@ public class I18n {
         EN.put("engine.range", "RANGE / AMPLITUDE:");
         DE.put("engine.dimmer_response", "DIMMER-REAKTION:");
         EN.put("engine.dimmer_response", "DIMMER RESPONSE:");
+        DE.put("engine.intensity", "Intensität");
+        EN.put("engine.intensity", "Intensity");
         DE.put("engine.color_palette", "FARBPALETTE:");
         EN.put("engine.color_palette", "COLOR PALETTE:");
 

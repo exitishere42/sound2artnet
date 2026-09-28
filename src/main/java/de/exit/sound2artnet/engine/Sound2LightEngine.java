@@ -88,6 +88,7 @@ public class Sound2LightEngine {
     private boolean movementEnabled = true;
     private boolean lightEnabled = true;
     private boolean strobeEnabled = true;
+    private double alwaysOnIntensity = 1.0;
     private volatile boolean lastTickBeat = false;
     private volatile double currentBpm = 0.0;
     private volatile SpeedTier currentSpeedTier = SpeedTier.IDLE;
@@ -174,12 +175,12 @@ public class Sound2LightEngine {
         if (lightEnabled) {
             switch (dimmerMode) {
                 case BEAT_PULSE -> masterDimmerVal = (int) Math.round(beatDimmer * 255);
-                case ALWAYS_ON -> masterDimmerVal = 255;
+                case ALWAYS_ON -> masterDimmerVal = (int) Math.round(alwaysOnIntensity * 255);
                 case AUDIO_LEVEL -> {
                     double val = Math.min(1.0, rms * 3.5);
                     masterDimmerVal = (int) Math.round(val * 255);
                 }
-                default -> masterDimmerVal = 255;
+                default -> masterDimmerVal = (int) Math.round(alwaysOnIntensity * 255);
             }
         }
 
@@ -219,6 +220,8 @@ public class Sound2LightEngine {
                 }
             }
 
+            double colorDimmerMod = hasDimmerChannel ? 1.0 : (masterDimmerVal / 255.0);
+
             for (ChannelMapping cm : profile.getChannels()) {
                 int targetDmx = startAddr - 1 + cm.getOffset();
                 if (targetDmx < 0 || targetDmx >= 512) {
@@ -234,10 +237,10 @@ public class Sound2LightEngine {
                     case PAN_TILT_SPEED -> val = cm.getDefaultValue();
                     case DIMMER -> val = lightEnabled ? fixtureDimmer : 0;
                     case STROBE -> val = strobeActive ? strobeDmxVal : cm.getDefaultValue();
-                    case RED -> val = lightEnabled ? (int) Math.round(activeColor.getRed() * 255 * rgbStrobeMod) : 0;
-                    case GREEN -> val = lightEnabled ? (int) Math.round(activeColor.getGreen() * 255 * rgbStrobeMod) : 0;
-                    case BLUE -> val = lightEnabled ? (int) Math.round(activeColor.getBlue() * 255 * rgbStrobeMod) : 0;
-                    case WHITE, AMBER, UV -> val = lightEnabled ? cm.getDefaultValue() : 0;
+                    case RED -> val = lightEnabled ? (int) Math.round(activeColor.getRed() * 255 * rgbStrobeMod * colorDimmerMod) : 0;
+                    case GREEN -> val = lightEnabled ? (int) Math.round(activeColor.getGreen() * 255 * rgbStrobeMod * colorDimmerMod) : 0;
+                    case BLUE -> val = lightEnabled ? (int) Math.round(activeColor.getBlue() * 255 * rgbStrobeMod * colorDimmerMod) : 0;
+                    case WHITE, AMBER, UV -> val = lightEnabled ? (int) Math.round(cm.getDefaultValue() * colorDimmerMod) : 0;
                     case COLOR_WHEEL -> val = lightEnabled ? colorEngine.getColorWheelIndex(activeColor) : 0;
                     case GOBO_WHEEL, PRISM, FOCUS, CONSTANT -> val = cm.getDefaultValue();
                     case UNUSED -> val = 0;
@@ -334,5 +337,13 @@ public class Sound2LightEngine {
     public void setSimulatedBpmAndBeat(Double bpm, Boolean beat) {
         this.manualBpmOverride = bpm;
         this.manualBeatOverride = beat;
+    }
+
+    public double getAlwaysOnIntensity() {
+        return alwaysOnIntensity;
+    }
+
+    public void setAlwaysOnIntensity(double alwaysOnIntensity) {
+        this.alwaysOnIntensity = Math.max(0.0, Math.min(1.0, alwaysOnIntensity));
     }
 }
