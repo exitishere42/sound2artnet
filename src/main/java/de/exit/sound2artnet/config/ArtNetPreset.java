@@ -37,9 +37,11 @@ public class ArtNetPreset {
     private double alwaysOnIntensity = 1.0;
     private double audioLevelMax = 1.0;
     private ColorEngine.Palette colorPalette;
+    private ColorEngine.GoboMode goboMode;
     private boolean movementEnabled;
     private boolean lightEnabled;
     private boolean strobeEnabled;
+    private boolean goboEnabled;
 
     private String lastModified;
 
@@ -58,9 +60,11 @@ public class ArtNetPreset {
         this.alwaysOnIntensity = 1.0;
         this.audioLevelMax = 1.0;
         this.colorPalette = ColorEngine.Palette.CLUB_NEON;
+        this.goboMode = ColorEngine.GoboMode.AUTO_BEAT;
         this.movementEnabled = true;
         this.lightEnabled = true;
         this.strobeEnabled = true;
+        this.goboEnabled = false;
         this.lastModified = LocalDateTime.now().format(FORMATTER);
     }
 
@@ -80,9 +84,11 @@ public class ArtNetPreset {
             @JsonProperty("alwaysOnIntensity") Double alwaysOnIntensity,
             @JsonProperty("audioLevelMax") Double audioLevelMax,
             @JsonProperty("colorPalette") ColorEngine.Palette colorPalette,
+            @JsonProperty("goboMode") ColorEngine.GoboMode goboMode,
             @JsonProperty("movementEnabled") Boolean movementEnabled,
             @JsonProperty("lightEnabled") Boolean lightEnabled,
             @JsonProperty("strobeEnabled") Boolean strobeEnabled,
+            @JsonProperty("goboEnabled") Boolean goboEnabled,
             @JsonProperty("lastModified") String lastModified) {
         this.id = id != null ? id : UUID.randomUUID().toString();
         this.name = name != null && !name.isBlank() ? name.trim() : "Preset";
@@ -98,10 +104,36 @@ public class ArtNetPreset {
         this.alwaysOnIntensity = alwaysOnIntensity != null ? Math.max(0.0, Math.min(1.0, alwaysOnIntensity)) : 1.0;
         this.audioLevelMax = audioLevelMax != null ? Math.max(0.0, Math.min(1.0, audioLevelMax)) : 1.0;
         this.colorPalette = colorPalette != null ? colorPalette : ColorEngine.Palette.CLUB_NEON;
+        this.goboMode = goboMode != null ? goboMode : ColorEngine.GoboMode.AUTO_BEAT;
         this.movementEnabled = movementEnabled != null ? movementEnabled : true;
         this.lightEnabled = lightEnabled != null ? lightEnabled : true;
         this.strobeEnabled = strobeEnabled != null ? strobeEnabled : true;
+        this.goboEnabled = goboEnabled != null ? goboEnabled : false;
         this.lastModified = lastModified != null ? lastModified : LocalDateTime.now().format(FORMATTER);
+    }
+
+    public ArtNetPreset(
+            String id,
+            String name,
+            String description,
+            String targetIp,
+            int universe,
+            int fps,
+            List<FixturePatch> fixtures,
+            MovementPattern movementPattern,
+            double movementSpeed,
+            double movementSize,
+            Sound2LightEngine.DimmerMode dimmerMode,
+            Double alwaysOnIntensity,
+            Double audioLevelMax,
+            ColorEngine.Palette colorPalette,
+            Boolean movementEnabled,
+            Boolean lightEnabled,
+            Boolean strobeEnabled,
+            String lastModified) {
+        this(id, name, description, targetIp, universe, fps, fixtures, movementPattern, movementSpeed, movementSize,
+                dimmerMode, alwaysOnIntensity, audioLevelMax, colorPalette, ColorEngine.GoboMode.AUTO_BEAT,
+                movementEnabled, lightEnabled, strobeEnabled, false, lastModified);
     }
 
     /**
@@ -164,6 +196,9 @@ public class ArtNetPreset {
     public ColorEngine.Palette getColorPalette() { return colorPalette; }
     public void setColorPalette(ColorEngine.Palette colorPalette) { this.colorPalette = colorPalette; }
 
+    public ColorEngine.GoboMode getGoboMode() { return goboMode != null ? goboMode : ColorEngine.GoboMode.AUTO_BEAT; }
+    public void setGoboMode(ColorEngine.GoboMode goboMode) { this.goboMode = goboMode != null ? goboMode : ColorEngine.GoboMode.AUTO_BEAT; }
+
     public boolean isMovementEnabled() { return movementEnabled; }
     public void setMovementEnabled(boolean movementEnabled) { this.movementEnabled = movementEnabled; }
 
@@ -172,6 +207,9 @@ public class ArtNetPreset {
 
     public boolean isStrobeEnabled() { return strobeEnabled; }
     public void setStrobeEnabled(boolean strobeEnabled) { this.strobeEnabled = strobeEnabled; }
+
+    public boolean isGoboEnabled() { return goboEnabled; }
+    public void setGoboEnabled(boolean goboEnabled) { this.goboEnabled = goboEnabled; }
 
     public String getLastModified() { return lastModified; }
     public void setLastModified(String lastModified) { this.lastModified = lastModified; }

@@ -255,6 +255,8 @@ public class I18n {
         EN.put("engine.light", "Light");
         DE.put("engine.strobe", "Strobo");
         EN.put("engine.strobe", "Strobe");
+        DE.put("engine.gobo", "Gobo");
+        EN.put("engine.gobo", "Gobo");
         DE.put("engine.detection_mode", "ERKENNUNGS-MODUS:");
         EN.put("engine.detection_mode", "DETECTION MODE:");
         DE.put("engine.beat_sensitivity", "BEAT-EMPFINDLICHKEIT:");
@@ -273,6 +275,8 @@ public class I18n {
         EN.put("engine.max_level", "Max Level");
         DE.put("engine.color_palette", "FARBPALETTE:");
         EN.put("engine.color_palette", "COLOR PALETTE:");
+        DE.put("engine.gobo_mode", "GOBO-MODUS:");
+        EN.put("engine.gobo_mode", "GOBO MODE:");
 
         // Detection Modes
         DE.put("detect.level_detect", "Level-Detect");
@@ -357,6 +361,22 @@ public class I18n {
         EN.put("palette.monochrome_teal", "Material Teal");
         DE.put("palette.trippin", "TRIPPIN");
         EN.put("palette.trippin", "TRIPPIN");
+
+        // Gobo Modes
+        DE.put("gobo.auto_beat", "Auto-Beat");
+        EN.put("gobo.auto_beat", "Auto-Beat");
+        DE.put("gobo.static_cycle", "Statisch-Wechsel");
+        EN.put("gobo.static_cycle", "Static Cycle");
+        DE.put("gobo.rotating_cycle", "Rotierend-Wechsel");
+        EN.put("gobo.rotating_cycle", "Rotating Cycle");
+        DE.put("gobo.gobo_shake", "Gobo-Shake");
+        EN.put("gobo.gobo_shake", "Gobo Shake");
+        DE.put("gobo.beam_reducer", "Beam-Reducer");
+        EN.put("gobo.beam_reducer", "Beam Reducer");
+        for (int i = 1; i <= 10; i++) {
+            DE.put("gobo.gobo_" + i, "Gobo " + i);
+            EN.put("gobo.gobo_" + i, "Gobo " + i);
+        }
 
         // --- Visualizer ---
         DE.put("visualizer.title", "DMX512 KANÄLE (1 - 512)");

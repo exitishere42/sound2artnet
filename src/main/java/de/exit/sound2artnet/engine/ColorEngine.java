@@ -50,11 +50,59 @@ public class ColorEngine {
         }
     }
 
+    /**
+     * Gobo-Steuermodi für Spot-/Hybrid-Moving-Heads (optimiert u. a. für ROBE MegaPointe:
+     * Static Gobo Wheel 1..10, Rotating Gobo Wheel 1..9 inkl. Rotation, Gobo Shake & Beam Reducer).
+     */
+    public enum GoboMode {
+        AUTO_BEAT("Auto-Beat"),
+        STATIC_CYCLE("Statisch-Wechsel"),
+        ROTATING_CYCLE("Rotierend-Wechsel"),
+        GOBO_SHAKE("Gobo-Shake"),
+        BEAM_REDUCER("Beam-Reducer"),
+        GOBO_1("Gobo 1"),
+        GOBO_2("Gobo 2"),
+        GOBO_3("Gobo 3"),
+        GOBO_4("Gobo 4"),
+        GOBO_5("Gobo 5"),
+        GOBO_6("Gobo 6"),
+        GOBO_7("Gobo 7"),
+        GOBO_8("Gobo 8"),
+        GOBO_9("Gobo 9"),
+        GOBO_10("Gobo 10");
+
+        private final String defaultDisplayName;
+
+        GoboMode(String defaultDisplayName) {
+            this.defaultDisplayName = defaultDisplayName;
+        }
+
+        public String getDisplayName() {
+            return I18n.get("gobo." + name().toLowerCase());
+        }
+
+        @Override
+        public String toString() {
+            return getDisplayName();
+        }
+    }
+
+    // ROBE MegaPointe / Standard Spot DMX-Stützwerte
+    // Static Gobo Wheel: Gobo 1..10 (4..63), Beam Reducer 1..4 (64..87), Gobo 1..10 Shake (88..167)
+    private static final int[] STATIC_GOBO_DMX = {6, 12, 18, 24, 30, 36, 42, 48, 54, 60};
+    private static final int[] BEAM_REDUCER_DMX = {66, 72, 78, 84};
+    private static final int[] STATIC_SHAKE_DMX = {92, 100, 108, 116, 124, 132, 140, 148, 156, 164};
+    // Rotating Gobo Wheel: Gobo 1..9 im Rotations-Modus (32..59)
+    private static final int[] ROTATING_GOBO_DMX = {33, 36, 39, 42, 45, 48, 51, 54, 57};
+
     private Palette currentPalette = Palette.CLUB_NEON;
+    private GoboMode goboMode = GoboMode.AUTO_BEAT;
     private int currentColorIndex = 0;
     private Color currentColor = Palette.CLUB_NEON.colors[0];
     private Color targetColor = Palette.CLUB_NEON.colors[0];
     private int beatCounter = 0;
+    private int goboStepIndex = 0;
+    private Sound2LightEngine.SpeedTier lastTier = Sound2LightEngine.SpeedTier.MEDIUM;
     private double strobeBurstTimer = 0.0;
     private boolean strobeShutterOn = false;
     private int strobeDmxValue = 0;
@@ -75,10 +123,15 @@ public class ColorEngine {
         if (tier == null) {
             tier = Sound2LightEngine.SpeedTier.MEDIUM;
         }
+        this.lastTier = tier;
 
-        // 1. Beat Trigger für Farbwechsel (abhängig von der Geschwindigkeits-Stufe)
+        // 1. Beat Trigger für Farbwechsel & Gobo-Wechsel (abhängig von der Geschwindigkeits-Stufe)
         if (isBeat) {
             beatCounter++;
+            int beatsPerGoboStep = tier.isFastEffectTier() ? 4 : 2;
+            if (beatCounter == 1 || beatCounter % beatsPerGoboStep == 0) {
+                goboStepIndex++;
+            }
             Color[] colors = currentPalette.getColors();
             if (tier == Sound2LightEngine.SpeedTier.SLOW) {
                 // Bei langsamer Musik (~90 BPM) nur jeden 2. Schlag sanft weiterblenden
@@ -174,6 +227,79 @@ public class ColorEngine {
 
     public Palette getCurrentPalette() {
         return currentPalette;
+    }
+
+    public synchronized void setGoboMode(GoboMode goboMode) {
+        if (goboMode != null) {
+            this.goboMode = goboMode;
+        }
+    }
+
+    public synchronized GoboMode getGoboMode() {
+        return goboMode;
+    }
+
+    /**
+     * Berechnet den DMX-Wert für das 1. Goborad (Static Gobo Wheel beim ROBE MegaPointe
+     * bzw. einziges Goborad bei Standard-Spot-Moving-Heads).
+     */
+    public synchronized int getGoboWheel1Dmx(int totalGoboWheels) {
+        return switch (goboMode) {
+            case STATIC_CYCLE -> STATIC_GOBO_DMX[goboStepIndex % STATIC_GOBO_DMX.length];
+            case ROTATING_CYCLE -> (totalGoboWheels >= 2) ? 0 : ROTATING_GOBO_DMX[goboStepIndex % ROTATING_GOBO_DMX.length];
+            case AUTO_BEAT -> {
+                if (totalGoboWheels >= 2 && (goboStepIndex / 2) % 2 == 1) {
+                    // Während das 2. Goborad (Rotating Gobo) aktiv ist, bleibt das 1. Goborad offen (0),
+                    // damit sich beide Goboräder beim ROBE MegaPointe nicht gegenseitig verdecken!
+                    yield 0;
+                }
+                yield STATIC_GOBO_DMX[goboStepIndex % STATIC_GOBO_DMX.length];
+            }
+            case GOBO_SHAKE -> STATIC_SHAKE_DMX[goboStepIndex % STATIC_SHAKE_DMX.length];
+            case BEAM_REDUCER -> BEAM_REDUCER_DMX[goboStepIndex % BEAM_REDUCER_DMX.length];
+            case GOBO_1 -> STATIC_GOBO_DMX[0];
+            case GOBO_2 -> STATIC_GOBO_DMX[1];
+            case GOBO_3 -> STATIC_GOBO_DMX[2];
+            case GOBO_4 -> STATIC_GOBO_DMX[3];
+            case GOBO_5 -> STATIC_GOBO_DMX[4];
+            case GOBO_6 -> STATIC_GOBO_DMX[5];
+            case GOBO_7 -> STATIC_GOBO_DMX[6];
+            case GOBO_8 -> STATIC_GOBO_DMX[7];
+            case GOBO_9 -> STATIC_GOBO_DMX[8];
+            case GOBO_10 -> STATIC_GOBO_DMX[9];
+        };
+    }
+
+    /**
+     * Berechnet den DMX-Wert für das 2. Goborad (Rotating Gobo Wheel beim ROBE MegaPointe).
+     */
+    public synchronized int getGoboWheel2Dmx() {
+        return switch (goboMode) {
+            case ROTATING_CYCLE -> ROTATING_GOBO_DMX[goboStepIndex % ROTATING_GOBO_DMX.length];
+            case AUTO_BEAT -> ((goboStepIndex / 2) % 2 == 1)
+                    ? ROTATING_GOBO_DMX[goboStepIndex % ROTATING_GOBO_DMX.length]
+                    : 0;
+            default -> 0;
+        };
+    }
+
+    /**
+     * Berechnet den DMX-Wert für den Gobo-Rotationskanal (z. B. Kanal 20 "Rot. gobo indexing and rotation"
+     * beim ROBE MegaPointe: 1..127 Vorwärts-Rotation schnell->langsam, 128 Stop, 129..255 Rückwärts-Rotation langsam->schnell).
+     */
+    public synchronized int getGoboRotationDmx() {
+        boolean rotatingActive = (goboMode == GoboMode.ROTATING_CYCLE) ||
+                (goboMode == GoboMode.AUTO_BEAT && (goboStepIndex / 2) % 2 == 1);
+        if (!rotatingActive) {
+            return 128; // Keine Rotation (Default)
+        }
+        boolean forward = ((beatCounter / 8) % 2 == 0);
+        return switch (lastTier) {
+            case IDLE, SLOW -> forward ? 102 : 154;
+            case MEDIUM -> forward ? 84 : 172;
+            case FAST -> forward ? 62 : 194;
+            case RAVE -> forward ? 38 : 218;
+        };
     }
 
     /**

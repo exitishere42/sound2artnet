@@ -77,7 +77,8 @@ Visually and structurally, **sound2artnet** features the exact same dark Materia
 - **Movement Patterns**: `Auto-BPM`, `Circle`, `Eight`, `Ballyhoo`, `Wave`, `Pan-Sweep`, `Tilt-Swing`, and `Beat-Bounce`.
 - **Default Center Position When Movement Is Disabled**: Turning off movement automatically returns all Moving Heads to their neutral center position (`DMX 128`, pointing straight down).
 - **Toggleable Strobe Effect**: Dedicated `Strobo` toggle in the settings triggers short strobe bursts on strong beats during fast tempo tiers (`Fast` and `Rave`) — using either the fixture's hardware strobe channel or a software shutter across dimmer/RGB channels.
-- **Color Palettes & Dimmer Modes**: Multiple color palettes (`Club Neon`, `Cyberpunk`, `Fire & Ice`, `Rainbow`, `Material Teal`) and selectable dimmer responses (`Beat Pulse`, `Audio Level`, `Always On`) with dedicated intensity/max-level sliders.
+- **Color Palettes & Dimmer Modes**: Multiple color palettes (`Club Neon`, `Cyberpunk`, `Fire & Ice`, `Rainbow`, `Material Teal`, `TRIPPIN`) and selectable dimmer responses (`Beat Pulse`, `Audio Level`, `Always On`) with dedicated intensity/max-level sliders.
+- **ROBE MegaPointe & Dual-Wheel Gobo Control**: Dedicated `Gobo` toggle and `Gobo Mode` selector (`Auto-Beat`, `Static Cycle`, `Rotating Cycle`, `Gobo Shake`, `Beam Reducer`, and fixed `Gobo 1`–`Gobo 10`) with native DMX mapping for ROBE MegaPointe's static gobo wheel (Ch 19), rotating gobo wheel (Ch 20), and BPM-synced continuous gobo rotation (Ch 21).
 
 ### 4. Fixture Management & QLC+ Import
 - **QLC+ Import (`*.qxf`)**: Direct import of QLC+ fixture definitions with automatic detection of DMX modes, pixel/segment master consolidation, and multi-fixture patching.
@@ -90,7 +91,7 @@ Visually and structurally, **sound2artnet** features the exact same dark Materia
 - **Live Metrics**: Real-time readouts for audio RMS, peak, tempo (BPM), active speed tier, packets per second (including a live history chart), and total packets sent.
 - **512-Channel DMX Visualizer**: Live bar graph of all 512 DMX channels with semantic role labels (`PAN`, `TILT`, `DIM`, `STRB`, `R`, `G`, `B`, `C`, `M`, `Y`, etc.) and quick-jump range buttons.
 - **Multi-Profile & Venue Presets**: Dedicated `Profile` tab for saving and switching multiple venue configurations (Target IP, Universe, FPS, Fixture Patches, and Engine Settings). Double-click or click `Laden` to activate instantly with live Art-Net target switching without restarting the stream.
-- **In-App Update & Global Settings Dialog**: Click on the title logo badge (`v1.5.5`) to inspect release notes, check for updates, or switch global settings (e.g., German/English language, autostart).
+- **In-App Update & Global Settings Dialog**: Click on the title logo badge (`v1.6.0`) to inspect release notes, check for updates, or switch global settings (e.g., German/English language, autostart).
 - **Automatic Persistence**: All settings, MIDI bindings, profiles, and patched fixtures are automatically saved to `config.json`.
 
 ---
@@ -163,11 +164,11 @@ mvn clean test
 ```bash
 mvn clean package
 ```
-The standalone fat JAR will be created at `target/sound2artnet-1.5.5-all.jar`.
+The standalone fat JAR will be created at `target/sound2artnet-1.6.0-all.jar`.
 
 ### Headless CLI Mode (No GUI)
 ```bash
-java -jar target/sound2artnet-1.5.5-all.jar --cli --ip 192.168.200.232 --universe 0 --fps 40
+java -jar target/sound2artnet-1.6.0-all.jar --cli --ip 192.168.200.232 --universe 0 --fps 40
 ```
 
 ---

@@ -299,5 +299,38 @@ public class QlcFixtureParserTest {
             assertEquals(ChannelFunction.DIMMER, prof.getChannels().get(12).getFunction());
         }
     }
+
+    @Test
+    public void testRobeMegaPointeGobos() throws Exception {
+        File mpFile = new File("C:\\Users\\timo\\Documents\\QLC+ Saves\\qxf\\ROBE-MegaPointe@MrDino.qxf");
+        if (mpFile.exists()) {
+            QlcFixtureDefinition def = QlcFixtureParser.parse(mpFile);
+            FixtureProfile prof = def.toFixtureProfile("Mode 1 - Standard 16-bit (39 ch)");
+            assertEquals(39, prof.getChannelCount());
+
+            // Ch 18 (19): Static gobo wheel -> GOBO_WHEEL
+            assertEquals(ChannelFunction.GOBO_WHEEL, prof.getChannels().get(18).getFunction());
+            // Ch 19 (20): Rotating gobo wheel -> GOBO_WHEEL
+            assertEquals(ChannelFunction.GOBO_WHEEL, prof.getChannels().get(19).getFunction());
+            // Ch 20 (21): Rot. gobo indexing and rotation -> CONSTANT (Default 128 = No rotation)
+            assertEquals(ChannelFunction.CONSTANT, prof.getChannels().get(20).getFunction());
+            assertEquals(128, prof.getChannels().get(20).getDefaultValue());
+        }
+
+        de.exit.sound2artnet.engine.ColorEngine ce = new de.exit.sound2artnet.engine.ColorEngine();
+        ce.setGoboMode(de.exit.sound2artnet.engine.ColorEngine.GoboMode.STATIC_CYCLE);
+        int w1 = ce.getGoboWheel1Dmx(2);
+        int w2 = ce.getGoboWheel2Dmx();
+        assertTrue(w1 >= 4 && w1 <= 63, "Static gobo DMX must be in ROBE MegaPointe static gobo range (4..63)");
+        assertEquals(0, w2, "Rotating gobo wheel must remain open (0) during static cycle");
+        assertEquals(128, ce.getGoboRotationDmx(), "Rotation channel must be 128 (stop) when rotating gobo wheel is open");
+
+        ce.setGoboMode(de.exit.sound2artnet.engine.ColorEngine.GoboMode.ROTATING_CYCLE);
+        int rw1 = ce.getGoboWheel1Dmx(2);
+        int rw2 = ce.getGoboWheel2Dmx();
+        assertEquals(0, rw1, "Static gobo wheel must be open (0) when rotating gobo wheel is active on dual-wheel fixture");
+        assertTrue(rw2 >= 32 && rw2 <= 59, "Rotating gobo DMX must be in ROBE MegaPointe rotation mode range (32..59)");
+        assertNotEquals(128, ce.getGoboRotationDmx(), "Rotation channel must actively rotate when rotating gobo is active");
+    }
 }
 

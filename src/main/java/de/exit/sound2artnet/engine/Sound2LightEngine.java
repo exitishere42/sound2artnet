@@ -88,6 +88,7 @@ public class Sound2LightEngine {
     private boolean movementEnabled = true;
     private boolean lightEnabled = true;
     private boolean strobeEnabled = true;
+    private boolean goboEnabled = false;
     private double alwaysOnIntensity = 1.0;
     private double audioLevelMax = 1.0;
     private volatile boolean lastTickBeat = false;
@@ -220,6 +221,8 @@ public class Sound2LightEngine {
             boolean hasStrobeChannel = false;
             boolean hasDimmerChannel = false;
             boolean hasColorMixing = false;
+            int totalGoboWheels = 0;
+            int lastGoboWheelOffset = -10;
             for (ChannelMapping cm : profile.getChannels()) {
                 ChannelFunction fn = cm.getFunction();
                 if (fn == ChannelFunction.STROBE) hasStrobeChannel = true;
@@ -227,6 +230,10 @@ public class Sound2LightEngine {
                 if (fn == ChannelFunction.RED || fn == ChannelFunction.GREEN || fn == ChannelFunction.BLUE ||
                     fn == ChannelFunction.CYAN || fn == ChannelFunction.MAGENTA || fn == ChannelFunction.YELLOW) {
                     hasColorMixing = true;
+                }
+                if (fn == ChannelFunction.GOBO_WHEEL) {
+                    totalGoboWheels++;
+                    lastGoboWheelOffset = cm.getOffset();
                 }
             }
 
@@ -253,6 +260,7 @@ public class Sound2LightEngine {
             }
 
             double colorDimmerMod = hasDimmerChannel ? 1.0 : (masterDimmerVal / 255.0);
+            int goboWheelCounter = 0;
 
             for (ChannelMapping cm : profile.getChannels()) {
                 int targetDmx = startAddr - 1 + cm.getOffset();
@@ -277,7 +285,24 @@ public class Sound2LightEngine {
                     case YELLOW -> val = lightEnabled ? (int) Math.round((1.0 - activeColor.getBlue()) * 255) : 0;
                     case WHITE, AMBER, UV -> val = lightEnabled ? (int) Math.round(cm.getDefaultValue() * colorDimmerMod) : 0;
                     case COLOR_WHEEL -> val = (lightEnabled && !hasColorMixing) ? colorEngine.getColorWheelIndex(activeColor) : cm.getDefaultValue();
-                    case GOBO_WHEEL, PRISM, FOCUS, CONSTANT -> val = cm.getDefaultValue();
+                    case GOBO_WHEEL -> {
+                        int wheelIdx = goboWheelCounter++;
+                        if (lightEnabled && goboEnabled) {
+                            val = (wheelIdx == 0) ? colorEngine.getGoboWheel1Dmx(totalGoboWheels) : colorEngine.getGoboWheel2Dmx();
+                        } else {
+                            val = cm.getDefaultValue();
+                        }
+                    }
+                    case PRISM, FOCUS -> val = cm.getDefaultValue();
+                    case CONSTANT -> {
+                        // Gobo-Rotationskanal direkt hinter dem rotierenden Goborad (z. B. Kanal 20 beim ROBE MegaPointe mit Default=128)
+                        if (lightEnabled && goboEnabled && totalGoboWheels >= 1 &&
+                            cm.getOffset() == lastGoboWheelOffset + 1 && cm.getDefaultValue() == 128) {
+                            val = colorEngine.getGoboRotationDmx();
+                        } else {
+                            val = cm.getDefaultValue();
+                        }
+                    }
                     case UNUSED -> val = 0;
                 }
 
@@ -355,6 +380,14 @@ public class Sound2LightEngine {
 
     public void setStrobeEnabled(boolean strobeEnabled) {
         this.strobeEnabled = strobeEnabled;
+    }
+
+    public boolean isGoboEnabled() {
+        return goboEnabled;
+    }
+
+    public void setGoboEnabled(boolean goboEnabled) {
+        this.goboEnabled = goboEnabled;
     }
 
     public boolean isLastTickBeat() {

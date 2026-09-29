@@ -171,6 +171,7 @@ public class MainWindow extends StackPane {
     private CheckBox chkMovementEnabled;
     private CheckBox chkLightEnabled;
     private CheckBox chkStrobeEnabled;
+    private CheckBox chkGoboEnabled;
     private Label lblDetectMode;
     private ComboBox<BeatDetector.DetectionMode> cbDetectionMode;
     private Label lblBeatSens;
@@ -193,6 +194,8 @@ public class MainWindow extends StackPane {
     private Label lblAudioLevelMaxVal;
     private Label lblPal;
     private ComboBox<ColorEngine.Palette> cbPalette;
+    private Label lblGoboMode;
+    private ComboBox<ColorEngine.GoboMode> cbGoboMode;
 
     // Visualizer & Status
     private ChannelVisualizer visualizer;
@@ -222,11 +225,13 @@ public class MainWindow extends StackPane {
         showEngine.setMovementEnabled(config.isMovementEnabled());
         showEngine.setLightEnabled(config.isLightEnabled());
         showEngine.setStrobeEnabled(config.isStrobeEnabled());
+        showEngine.setGoboEnabled(config.isGoboEnabled());
         showEngine.setMovementPattern(config.getMovementPattern());
         showEngine.setDimmerMode(config.getDimmerMode());
         showEngine.setAlwaysOnIntensity(config.getAlwaysOnIntensity());
         showEngine.setAudioLevelMax(config.getAudioLevelMax());
         showEngine.getColorEngine().setPalette(config.getColorPalette());
+        showEngine.getColorEngine().setGoboMode(config.getGoboMode());
         showEngine.getMovementGenerator().setCurrentSpeed(config.getMovementSpeed());
         showEngine.getMovementGenerator().setBaseAmplitude(config.getMovementSize());
         audioService.getAnalyzer().setManualGain(config.getGain());
@@ -761,7 +766,11 @@ public class MainWindow extends StackPane {
         chkStrobeEnabled = new CheckBox(I18n.get("engine.strobe"));
         chkStrobeEnabled.setSelected(showEngine.isStrobeEnabled());
         chkStrobeEnabled.setTextFill(MaterialTheme.COLOR_TEXT_HIGH);
-        activeBox.getChildren().addAll(chkMovementEnabled, chkLightEnabled, chkStrobeEnabled);
+
+        chkGoboEnabled = new CheckBox(I18n.get("engine.gobo"));
+        chkGoboEnabled.setSelected(showEngine.isGoboEnabled());
+        chkGoboEnabled.setTextFill(MaterialTheme.COLOR_TEXT_HIGH);
+        activeBox.getChildren().addAll(chkMovementEnabled, chkLightEnabled, chkStrobeEnabled, chkGoboEnabled);
 
         // 1. Erkennungs-Modus (Level-Detect / Beat-Detect / Manuell)
         lblDetectMode = new Label(I18n.get("engine.detection_mode"));
@@ -941,10 +950,23 @@ public class MainWindow extends StackPane {
             autoSaveConfig();
         });
 
+        // 8. Gobo-Modus
+        lblGoboMode = new Label(I18n.get("engine.gobo_mode"));
+        lblGoboMode.setTextFill(MaterialTheme.COLOR_TEXT_MED);
+        lblGoboMode.setFont(Font.font("Segoe UI", FontWeight.BOLD, 10));
+        cbGoboMode = new ComboBox<>(FXCollections.observableArrayList(ColorEngine.GoboMode.values()));
+        cbGoboMode.setValue(showEngine.getColorEngine().getGoboMode());
+        cbGoboMode.setMaxWidth(Double.MAX_VALUE);
+        cbGoboMode.setOnAction(e -> {
+            showEngine.getColorEngine().setGoboMode(cbGoboMode.getValue());
+            autoSaveConfig();
+        });
+
         // Abhängige Steuerelemente bei Deaktivierung ausgrauen
         Runnable updateDisabledStates = () -> {
             boolean mov = chkMovementEnabled.isSelected();
             boolean lgt = chkLightEnabled.isSelected();
+            boolean gob = chkGoboEnabled.isSelected();
             cbPattern.setDisable(!mov);
             slSpeed.setDisable(!mov);
             slAmplitude.setDisable(!mov);
@@ -953,6 +975,8 @@ public class MainWindow extends StackPane {
             slAudioLevelMax.setDisable(!lgt);
             cbPalette.setDisable(!lgt);
             chkStrobeEnabled.setDisable(!lgt);
+            chkGoboEnabled.setDisable(!lgt);
+            cbGoboMode.setDisable(!lgt || !gob);
             updateDimmerControlsVisibility.run();
         };
         updateDisabledStates.run();
@@ -969,6 +993,11 @@ public class MainWindow extends StackPane {
         });
         chkStrobeEnabled.setOnAction(e -> {
             showEngine.setStrobeEnabled(chkStrobeEnabled.isSelected());
+            autoSaveConfig();
+        });
+        chkGoboEnabled.setOnAction(e -> {
+            showEngine.setGoboEnabled(chkGoboEnabled.isSelected());
+            updateDisabledStates.run();
             autoSaveConfig();
         });
 
@@ -988,6 +1017,8 @@ public class MainWindow extends StackPane {
         grid.add(dimmerBox, 1, 6);
         grid.add(lblPal, 0, 7);
         grid.add(cbPalette, 1, 7);
+        grid.add(lblGoboMode, 0, 8);
+        grid.add(cbGoboMode, 1, 8);
 
         ColumnConstraints cc0 = new ColumnConstraints(160);
         ColumnConstraints cc1 = new ColumnConstraints(300, 400, Double.MAX_VALUE);
@@ -1178,6 +1209,10 @@ public class MainWindow extends StackPane {
             cbPalette.setValue(preset.getColorPalette());
             showEngine.getColorEngine().setPalette(preset.getColorPalette());
         }
+        if (cbGoboMode != null && preset.getGoboMode() != null) {
+            cbGoboMode.setValue(preset.getGoboMode());
+            showEngine.getColorEngine().setGoboMode(preset.getGoboMode());
+        }
         if (chkMovementEnabled != null) {
             chkMovementEnabled.setSelected(preset.isMovementEnabled());
             showEngine.setMovementEnabled(preset.isMovementEnabled());
@@ -1189,6 +1224,10 @@ public class MainWindow extends StackPane {
         if (chkStrobeEnabled != null) {
             chkStrobeEnabled.setSelected(preset.isStrobeEnabled());
             showEngine.setStrobeEnabled(preset.isStrobeEnabled());
+        }
+        if (chkGoboEnabled != null) {
+            chkGoboEnabled.setSelected(preset.isGoboEnabled());
+            showEngine.setGoboEnabled(preset.isGoboEnabled());
         }
 
         if (isRunning) {
@@ -1224,9 +1263,13 @@ public class MainWindow extends StackPane {
         sel.setAlwaysOnIntensity(slAlwaysOnIntensity != null ? slAlwaysOnIntensity.getValue() : 1.0);
         sel.setAudioLevelMax(slAudioLevelMax != null ? slAudioLevelMax.getValue() : 1.0);
         sel.setColorPalette(cbPalette.getValue());
+        if (cbGoboMode != null) {
+            sel.setGoboMode(cbGoboMode.getValue());
+        }
         sel.setMovementEnabled(chkMovementEnabled != null && chkMovementEnabled.isSelected());
         sel.setLightEnabled(chkLightEnabled != null && chkLightEnabled.isSelected());
         sel.setStrobeEnabled(chkStrobeEnabled != null && chkStrobeEnabled.isSelected());
+        sel.setGoboEnabled(chkGoboEnabled != null && chkGoboEnabled.isSelected());
         sel.touch();
 
         config.setActivePresetId(sel.getId());
@@ -1316,9 +1359,11 @@ public class MainWindow extends StackPane {
                     slAlwaysOnIntensity != null ? slAlwaysOnIntensity.getValue() : 1.0,
                     slAudioLevelMax != null ? slAudioLevelMax.getValue() : 1.0,
                     cbPalette.getValue(),
+                    cbGoboMode != null ? cbGoboMode.getValue() : ColorEngine.GoboMode.AUTO_BEAT,
                     chkMovementEnabled != null && chkMovementEnabled.isSelected(),
                     chkLightEnabled != null && chkLightEnabled.isSelected(),
                     chkStrobeEnabled != null && chkStrobeEnabled.isSelected(),
+                    chkGoboEnabled != null && chkGoboEnabled.isSelected(),
                     null
             );
 
@@ -1844,6 +1889,7 @@ public class MainWindow extends StackPane {
         if (chkMovementEnabled != null) chkMovementEnabled.setText(I18n.get("engine.movement"));
         if (chkLightEnabled != null) chkLightEnabled.setText(I18n.get("engine.light"));
         if (chkStrobeEnabled != null) chkStrobeEnabled.setText(I18n.get("engine.strobe"));
+        if (chkGoboEnabled != null) chkGoboEnabled.setText(I18n.get("engine.gobo"));
 
         if (lblDetectMode != null) lblDetectMode.setText(I18n.get("engine.detection_mode"));
         if (lblBeatSens != null) lblBeatSens.setText(I18n.get("engine.beat_sensitivity"));
@@ -1852,6 +1898,7 @@ public class MainWindow extends StackPane {
         if (lblAmp != null) lblAmp.setText(I18n.get("engine.range"));
         if (lblDimmer != null) lblDimmer.setText(I18n.get("engine.dimmer_response"));
         if (lblPal != null) lblPal.setText(I18n.get("engine.color_palette"));
+        if (lblGoboMode != null) lblGoboMode.setText(I18n.get("engine.gobo_mode"));
 
         // ComboBox Listen & Auswahlen auffrischen
         if (cbDetectionMode != null) {
@@ -1873,6 +1920,11 @@ public class MainWindow extends StackPane {
             var val = cbPalette.getValue();
             cbPalette.setItems(FXCollections.observableArrayList(ColorEngine.Palette.values()));
             cbPalette.setValue(val);
+        }
+        if (cbGoboMode != null) {
+            var val = cbGoboMode.getValue();
+            cbGoboMode.setItems(FXCollections.observableArrayList(ColorEngine.GoboMode.values()));
+            cbGoboMode.setValue(val);
         }
         if (lblAlwaysOnTitle != null) {
             lblAlwaysOnTitle.setText(I18n.get("engine.intensity") + ":");
@@ -2399,6 +2451,9 @@ public class MainWindow extends StackPane {
         if (chkStrobeEnabled != null) {
             config.setStrobeEnabled(chkStrobeEnabled.isSelected());
         }
+        if (chkGoboEnabled != null) {
+            config.setGoboEnabled(chkGoboEnabled.isSelected());
+        }
         config.setMovementPattern(cbPattern.getValue());
         config.setMovementSpeed(slSpeed.getValue());
         config.setMovementSize(slAmplitude.getValue());
@@ -2410,6 +2465,9 @@ public class MainWindow extends StackPane {
             config.setAudioLevelMax(slAudioLevelMax.getValue());
         }
         config.setColorPalette(cbPalette.getValue());
+        if (cbGoboMode != null) {
+            config.setGoboMode(cbGoboMode.getValue());
+        }
         config.setMidiBoundType(midiService.getBoundType());
         config.setMidiBoundChannel(midiService.getBoundChannel());
         config.setMidiBoundData1(midiService.getBoundData1());

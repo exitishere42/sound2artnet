@@ -26,11 +26,13 @@ public class AppConfig {
     private boolean movementEnabled = true;
     private boolean lightEnabled = true;
     private boolean strobeEnabled = true;
+    private boolean goboEnabled = false;
     private MovementPattern movementPattern = MovementPattern.AUTO_BPM;
     private double movementSpeed = 1.0;
     private double movementSize = 0.8;
     private Sound2LightEngine.DimmerMode dimmerMode = Sound2LightEngine.DimmerMode.AUDIO_LEVEL;
     private ColorEngine.Palette colorPalette = ColorEngine.Palette.CLUB_NEON;
+    private ColorEngine.GoboMode goboMode = ColorEngine.GoboMode.AUTO_BEAT;
     private List<FixturePatch> fixtures = new ArrayList<>();
     private List<ArtNetPreset> presets = new ArrayList<>();
     private String activePresetId = null;
@@ -82,6 +84,9 @@ public class AppConfig {
     public boolean isStrobeEnabled() { return strobeEnabled; }
     public void setStrobeEnabled(boolean strobeEnabled) { this.strobeEnabled = strobeEnabled; }
 
+    public boolean isGoboEnabled() { return goboEnabled; }
+    public void setGoboEnabled(boolean goboEnabled) { this.goboEnabled = goboEnabled; }
+
     public MovementPattern getMovementPattern() { return movementPattern; }
     public void setMovementPattern(MovementPattern movementPattern) { this.movementPattern = movementPattern; }
 
@@ -106,6 +111,13 @@ public class AppConfig {
 
     public ColorEngine.Palette getColorPalette() { return colorPalette; }
     public void setColorPalette(ColorEngine.Palette colorPalette) { this.colorPalette = colorPalette; }
+
+    public ColorEngine.GoboMode getGoboMode() {
+        return goboMode != null ? goboMode : ColorEngine.GoboMode.AUTO_BEAT;
+    }
+    public void setGoboMode(ColorEngine.GoboMode goboMode) {
+        this.goboMode = goboMode != null ? goboMode : ColorEngine.GoboMode.AUTO_BEAT;
+    }
 
     public List<FixturePatch> getFixtures() { return fixtures; }
     public void setFixtures(List<FixturePatch> fixtures) { this.fixtures = fixtures != null ? fixtures : new ArrayList<>(); }
@@ -142,9 +154,11 @@ public class AppConfig {
                     this.alwaysOnIntensity,
                     this.audioLevelMax,
                     this.colorPalette,
+                    this.goboMode,
                     this.movementEnabled,
                     this.lightEnabled,
                     this.strobeEnabled,
+                    this.goboEnabled,
                     null
             );
             presets.add(standard);
