@@ -177,4 +177,87 @@ public class QlcFixtureParserTest {
             assertEquals(ChannelFunction.DIMMER, prof.getChannels().get(33).getFunction());
         }
     }
+
+    @Test
+    public void testParseRobeWtfMode1() throws Exception {
+        File wtfFile = new File("C:\\Users\\timo\\Documents\\QLC+ Saves\\qxf\\ROBE-WTF@MrDino.qxf");
+        if (wtfFile.exists()) {
+            QlcFixtureDefinition def = QlcFixtureParser.parse(wtfFile);
+            assertNotNull(def);
+            assertEquals("ROBE", def.getManufacturer());
+            assertEquals("WTF!", def.getModel());
+            assertEquals(540, def.getPanMax());
+            assertEquals(360, def.getTiltMax());
+
+            assertEquals(5, def.getModes().size());
+            assertEquals("Mode 1 - Simple wash (32 ch)", def.getModes().get(0).getName());
+            assertEquals(32, def.getModes().get(0).getChannelCount());
+
+            FixtureProfile prof = def.toFixtureProfile("Mode 1 - Simple wash (32 ch)");
+            assertEquals(32, prof.getChannelCount());
+
+            // Ch 0..3: Pan/Tilt & Pan/Tilt Fine
+            assertEquals(ChannelFunction.PAN, prof.getChannels().get(0).getFunction());
+            assertEquals(128, prof.getChannels().get(0).getDefaultValue());
+            assertEquals(ChannelFunction.PAN_FINE, prof.getChannels().get(1).getFunction());
+            assertEquals(ChannelFunction.TILT, prof.getChannels().get(2).getFunction());
+            assertEquals(128, prof.getChannels().get(2).getDefaultValue());
+            assertEquals(ChannelFunction.TILT_FINE, prof.getChannels().get(3).getFunction());
+
+            // Ch 4..7: Pan/Tilt Control, Power/Special, Virtual Wheel
+            assertEquals(ChannelFunction.CONSTANT, prof.getChannels().get(4).getFunction());
+            assertEquals(ChannelFunction.CONSTANT, prof.getChannels().get(5).getFunction());
+            assertEquals(ChannelFunction.CONSTANT, prof.getChannels().get(6).getFunction());
+            assertEquals(ChannelFunction.CONSTANT, prof.getChannels().get(7).getFunction());
+
+            // Ch 8..15: RGBW Coarse & Fine
+            assertEquals(ChannelFunction.RED, prof.getChannels().get(8).getFunction());
+            assertEquals(ChannelFunction.CONSTANT, prof.getChannels().get(9).getFunction(), "Red Fine muss CONSTANT sein");
+            assertEquals(0, prof.getChannels().get(9).getDefaultValue());
+
+            assertEquals(ChannelFunction.GREEN, prof.getChannels().get(10).getFunction());
+            assertEquals(ChannelFunction.CONSTANT, prof.getChannels().get(11).getFunction(), "Green Fine muss CONSTANT sein");
+            assertEquals(0, prof.getChannels().get(11).getDefaultValue());
+
+            assertEquals(ChannelFunction.BLUE, prof.getChannels().get(12).getFunction());
+            assertEquals(ChannelFunction.CONSTANT, prof.getChannels().get(13).getFunction(), "Blue Fine muss CONSTANT sein");
+            assertEquals(0, prof.getChannels().get(13).getDefaultValue());
+
+            assertEquals(ChannelFunction.WHITE, prof.getChannels().get(14).getFunction());
+            assertEquals(0, prof.getChannels().get(14).getDefaultValue(), "White default muss 0 sein");
+            assertEquals(ChannelFunction.CONSTANT, prof.getChannels().get(15).getFunction(), "White Fine muss CONSTANT sein");
+            assertEquals(0, prof.getChannels().get(15).getDefaultValue());
+
+            // Ch 16: CTC (Default 100)
+            assertEquals(ChannelFunction.CONSTANT, prof.getChannels().get(16).getFunction(), "CTC muss CONSTANT sein");
+            assertEquals(100, prof.getChannels().get(16).getDefaultValue(), "CTC Standardwert muss erhalten bleiben");
+
+            // Ch 17, 18: Zoom Zones 1+2
+            assertEquals(ChannelFunction.FOCUS, prof.getChannels().get(17).getFunction());
+            assertEquals(128, prof.getChannels().get(17).getDefaultValue());
+            assertEquals(ChannelFunction.CONSTANT, prof.getChannels().get(18).getFunction());
+
+            // Ch 19, 20: Wash Dimmer & Fine
+            assertEquals(ChannelFunction.DIMMER, prof.getChannels().get(19).getFunction(), "Wash Dimmer muss Master Dimmer sein");
+            assertEquals(ChannelFunction.CONSTANT, prof.getChannels().get(20).getFunction());
+
+            // Ch 21..23: Wash Strobe / Shutter (Duration, Rate, FX)
+            assertEquals(ChannelFunction.CONSTANT, prof.getChannels().get(21).getFunction(), "Flash duration darf nicht Strobe sein");
+            assertEquals(ChannelFunction.STROBE, prof.getChannels().get(22).getFunction(), "Flash rate muss Strobe sein");
+            assertEquals(ChannelFunction.CONSTANT, prof.getChannels().get(23).getFunction(), "Special effects darf nicht Strobe sein");
+
+            // Ch 24..26: CTC White beam & Zoom White beam
+            assertEquals(ChannelFunction.CONSTANT, prof.getChannels().get(24).getFunction(), "CTC White beam darf nicht Weiß sein");
+            assertEquals(ChannelFunction.FOCUS, prof.getChannels().get(25).getFunction());
+            assertEquals(ChannelFunction.CONSTANT, prof.getChannels().get(26).getFunction());
+
+            // Ch 27..31: White beam Dimmer & Strobe
+            assertEquals(ChannelFunction.CONSTANT, prof.getChannels().get(27).getFunction(), "White beam dimmer als Sub-Dimmer");
+            assertEquals(ChannelFunction.CONSTANT, prof.getChannels().get(28).getFunction());
+            assertEquals(ChannelFunction.CONSTANT, prof.getChannels().get(29).getFunction());
+            assertEquals(ChannelFunction.STROBE, prof.getChannels().get(30).getFunction(), "White beam flash rate als Strobe");
+            assertEquals(ChannelFunction.CONSTANT, prof.getChannels().get(31).getFunction());
+        }
+    }
 }
+
