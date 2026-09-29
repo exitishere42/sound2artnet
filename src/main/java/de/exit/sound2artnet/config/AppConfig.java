@@ -42,6 +42,9 @@ public class AppConfig {
     private String midiBoundType = "ANY";
     private int midiBoundChannel = -1;
     private int midiBoundData1 = -1;
+    private String midiBlackoutBoundType = "NONE";
+    private int midiBlackoutBoundChannel = -1;
+    private int midiBlackoutBoundData1 = -1;
     private boolean autostart = false;
     private String language = "de";
 
@@ -177,6 +180,21 @@ public class AppConfig {
 
     public int getMidiBoundData1() { return midiBoundData1; }
     public void setMidiBoundData1(int midiBoundData1) { this.midiBoundData1 = midiBoundData1; }
+
+    public String getMidiBlackoutBoundType() { return midiBlackoutBoundType != null ? midiBlackoutBoundType : "NONE"; }
+    public void setMidiBlackoutBoundType(String midiBlackoutBoundType) {
+        this.midiBlackoutBoundType = midiBlackoutBoundType != null ? midiBlackoutBoundType : "NONE";
+    }
+
+    public int getMidiBlackoutBoundChannel() { return midiBlackoutBoundChannel; }
+    public void setMidiBlackoutBoundChannel(int midiBlackoutBoundChannel) {
+        this.midiBlackoutBoundChannel = midiBlackoutBoundChannel;
+    }
+
+    public int getMidiBlackoutBoundData1() { return midiBlackoutBoundData1; }
+    public void setMidiBlackoutBoundData1(int midiBlackoutBoundData1) {
+        this.midiBlackoutBoundData1 = midiBlackoutBoundData1;
+    }
 
     public boolean isAutostart() { return autostart; }
     public void setAutostart(boolean autostart) { this.autostart = autostart; }

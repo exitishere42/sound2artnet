@@ -332,5 +332,41 @@ public class QlcFixtureParserTest {
         assertTrue(rw2 >= 32 && rw2 <= 59, "Rotating gobo DMX must be in ROBE MegaPointe rotation mode range (32..59)");
         assertNotEquals(128, ce.getGoboRotationDmx(), "Rotation channel must actively rotate when rotating gobo is active");
     }
+
+    @Test
+    public void testMidiBlackoutBindingAndEngineBlackout() {
+        de.exit.sound2artnet.midi.MidiInputService midi = new de.exit.sound2artnet.midi.MidiInputService();
+        int[] beatCount = {0};
+        int[] blackoutCount = {0};
+        midi.setOnBeatTrigger(() -> beatCount[0]++);
+        midi.setOnBlackoutTrigger(() -> blackoutCount[0]++);
+
+        // Learn Note 48 on Ch 0 for Blackout while Beat is "ANY"
+        midi.setLearningBlackout(true);
+        midi.handleShortMessage(javax.sound.midi.ShortMessage.NOTE_ON, 0, 48, 100);
+        midi.handleShortMessage(javax.sound.midi.ShortMessage.NOTE_OFF, 0, 48, 0);
+
+        assertFalse(midi.isLearningBlackout());
+        assertEquals("NOTE", midi.getBlackoutBoundType());
+        assertEquals(0, midi.getBlackoutBoundChannel());
+        assertEquals(48, midi.getBlackoutBoundData1());
+        assertEquals(0, beatCount[0], "Learning Blackout key must not trigger a beat");
+        assertEquals(0, blackoutCount[0]);
+
+        // Pressing Note 48 triggers Blackout and NOT Beat (even though Beat is "ANY")
+        midi.handleShortMessage(javax.sound.midi.ShortMessage.NOTE_ON, 0, 48, 100);
+        assertEquals(1, blackoutCount[0]);
+        assertEquals(0, beatCount[0]);
+        assertTrue(midi.isBlackoutHeld());
+        assertFalse(midi.isBeatHeld());
+
+        midi.handleShortMessage(javax.sound.midi.ShortMessage.NOTE_OFF, 0, 48, 0);
+        assertFalse(midi.isBlackoutHeld());
+
+        // Pressing another note (Note 60) triggers Beat
+        midi.handleShortMessage(javax.sound.midi.ShortMessage.NOTE_ON, 0, 60, 100);
+        assertEquals(1, beatCount[0]);
+        assertEquals(1, blackoutCount[0]);
+    }
 }
 

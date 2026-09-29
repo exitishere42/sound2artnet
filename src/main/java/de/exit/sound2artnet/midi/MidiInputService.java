@@ -61,21 +61,31 @@ public class MidiInputService {
     private volatile boolean linuxCaptureRunning = false;
     private String activeDeviceName = "";
 
-    // Filter / Binding (-1 = Alle Kanäle / Alle Tasten)
+    // Filter / Binding für Beat (-1 = Alle Kanäle / Alle Tasten)
     private volatile String boundType = "ANY"; // "ANY", "NOTE", "CC"
     private volatile int boundChannel = -1;    // -1 oder 0..15
     private volatile int boundData1 = -1;      // -1 oder 0..127
 
+    // Filter / Binding für Blackout (-1 / "NONE" = Nicht zugewiesen)
+    private volatile String blackoutBoundType = "NONE"; // "NONE", "NOTE", "CC"
+    private volatile int blackoutBoundChannel = -1;     // -1 oder 0..15
+    private volatile int blackoutBoundData1 = -1;       // -1 oder 0..127
+
     private volatile boolean learning = false;
+    private volatile boolean learningBlackout = false;
     private final boolean[] ccHighState = new boolean[128];
     private final boolean[] heldNotes = new boolean[16 * 128];
     private final boolean[] heldCcs = new boolean[16 * 128];
     private volatile boolean beatHeld = false;
+    private volatile boolean blackoutHeld = false;
 
     private Runnable onBeatTrigger;
     private Consumer<Boolean> onBeatHoldChange;
+    private Runnable onBlackoutTrigger;
+    private Consumer<Boolean> onBlackoutHoldChange;
     private Consumer<MidiEventInfo> onMidiEvent;
     private Runnable onLearnComplete;
+    private Runnable onBlackoutLearnComplete;
 
     private static boolean isLinux() {
         return System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("linux");
@@ -531,16 +541,61 @@ public class MidiInputService {
         return boundData1;
     }
 
+    public void setBlackoutBinding(String type, int channel, int data1) {
+        this.blackoutBoundType = (type != null && !type.isBlank()) ? type : "NONE";
+        this.blackoutBoundChannel = channel;
+        this.blackoutBoundData1 = data1;
+        updateBeatHeldState();
+    }
+
+    public void clearBlackoutBinding() {
+        this.blackoutBoundType = "NONE";
+        this.blackoutBoundChannel = -1;
+        this.blackoutBoundData1 = -1;
+        this.learningBlackout = false;
+        updateBeatHeldState();
+    }
+
+    public String getBlackoutBoundType() {
+        return blackoutBoundType;
+    }
+
+    public int getBlackoutBoundChannel() {
+        return blackoutBoundChannel;
+    }
+
+    public int getBlackoutBoundData1() {
+        return blackoutBoundData1;
+    }
+
     public boolean isLearning() {
         return learning;
     }
 
     public void setLearning(boolean learning) {
         this.learning = learning;
+        if (learning) {
+            this.learningBlackout = false;
+        }
+    }
+
+    public boolean isLearningBlackout() {
+        return learningBlackout;
+    }
+
+    public void setLearningBlackout(boolean learningBlackout) {
+        this.learningBlackout = learningBlackout;
+        if (learningBlackout) {
+            this.learning = false;
+        }
     }
 
     public boolean isBeatHeld() {
         return beatHeld;
+    }
+
+    public boolean isBlackoutHeld() {
+        return blackoutHeld;
     }
 
     public void setOnBeatTrigger(Runnable onBeatTrigger) {
@@ -551,12 +606,24 @@ public class MidiInputService {
         this.onBeatHoldChange = onBeatHoldChange;
     }
 
+    public void setOnBlackoutTrigger(Runnable onBlackoutTrigger) {
+        this.onBlackoutTrigger = onBlackoutTrigger;
+    }
+
+    public void setOnBlackoutHoldChange(Consumer<Boolean> onBlackoutHoldChange) {
+        this.onBlackoutHoldChange = onBlackoutHoldChange;
+    }
+
     public void setOnMidiEvent(Consumer<MidiEventInfo> onMidiEvent) {
         this.onMidiEvent = onMidiEvent;
     }
 
     public void setOnLearnComplete(Runnable onLearnComplete) {
         this.onLearnComplete = onLearnComplete;
+    }
+
+    public void setOnBlackoutLearnComplete(Runnable onBlackoutLearnComplete) {
+        this.onBlackoutLearnComplete = onBlackoutLearnComplete;
     }
 
     public String formatBindingText() {
@@ -568,6 +635,17 @@ public class MidiInputService {
             return String.format("CC %d  ·  %s", boundData1, chStr);
         }
         return String.format("Note %d (%s)  ·  %s", boundData1, formatNoteName(boundData1), chStr);
+    }
+
+    public String formatBlackoutBindingText() {
+        if (blackoutBoundData1 < 0 || blackoutBoundType == null || "NONE".equalsIgnoreCase(blackoutBoundType)) {
+            return I18n.get("midi.binding.none");
+        }
+        String chStr = (blackoutBoundChannel >= 0) ? ("Ch " + (blackoutBoundChannel + 1)) : "All Ch";
+        if ("CC".equalsIgnoreCase(blackoutBoundType)) {
+            return String.format("CC %d  ·  %s", blackoutBoundData1, chStr);
+        }
+        return String.format("Note %d (%s)  ·  %s", blackoutBoundData1, formatNoteName(blackoutBoundData1), chStr);
     }
 
     public static String formatNoteName(int noteNumber) {
@@ -622,20 +700,33 @@ public class MidiInputService {
                 onBeatHoldChange.accept(false);
             }
         }
+        if (blackoutHeld) {
+            blackoutHeld = false;
+            if (onBlackoutHoldChange != null) {
+                onBlackoutHoldChange.accept(false);
+            }
+        }
     }
 
     private void updateBeatHeldState() {
         boolean anyMatchingHeld = false;
-        for (int ch = 0; ch < 16 && !anyMatchingHeld; ch++) {
+        boolean anyBlackoutHeld = false;
+        for (int ch = 0; ch < 16; ch++) {
             for (int d1 = 0; d1 < 128; d1++) {
                 int idx = ch * 128 + d1;
-                if (heldNotes[idx] && matchesBinding("NOTE", ch, d1)) {
-                    anyMatchingHeld = true;
-                    break;
+                if (heldNotes[idx]) {
+                    if (matchesBlackoutBinding("NOTE", ch, d1)) {
+                        anyBlackoutHeld = true;
+                    } else if (matchesBinding("NOTE", ch, d1)) {
+                        anyMatchingHeld = true;
+                    }
                 }
-                if (heldCcs[idx] && matchesBinding("CC", ch, d1)) {
-                    anyMatchingHeld = true;
-                    break;
+                if (heldCcs[idx]) {
+                    if (matchesBlackoutBinding("CC", ch, d1)) {
+                        anyBlackoutHeld = true;
+                    } else if (matchesBinding("CC", ch, d1)) {
+                        anyMatchingHeld = true;
+                    }
                 }
             }
         }
@@ -645,9 +736,29 @@ public class MidiInputService {
                 onBeatHoldChange.accept(anyMatchingHeld);
             }
         }
+        if (this.blackoutHeld != anyBlackoutHeld) {
+            this.blackoutHeld = anyBlackoutHeld;
+            if (onBlackoutHoldChange != null) {
+                onBlackoutHoldChange.accept(anyBlackoutHeld);
+            }
+        }
     }
 
     private void processIncomingTrigger(String type, int channel, int data1, int data2) {
+        if (learningBlackout) {
+            this.blackoutBoundType = type;
+            this.blackoutBoundChannel = channel;
+            this.blackoutBoundData1 = data1;
+            this.learningBlackout = false;
+            if (onBlackoutLearnComplete != null) {
+                onBlackoutLearnComplete.run();
+            }
+            if (onMidiEvent != null) {
+                onMidiEvent.accept(new MidiEventInfo(type, channel, data1, data2, true));
+            }
+            return;
+        }
+
         if (learning) {
             this.boundType = type;
             this.boundChannel = channel;
@@ -656,6 +767,16 @@ public class MidiInputService {
             if (onLearnComplete != null) {
                 onLearnComplete.run();
             }
+        }
+
+        if (matchesBlackoutBinding(type, channel, data1)) {
+            if (onBlackoutTrigger != null) {
+                onBlackoutTrigger.run();
+            }
+            if (onMidiEvent != null) {
+                onMidiEvent.accept(new MidiEventInfo(type, channel, data1, data2, true));
+            }
+            return;
         }
 
         boolean matches = matchesBinding(type, channel, data1);
@@ -667,7 +788,23 @@ public class MidiInputService {
         }
     }
 
+    private boolean matchesBlackoutBinding(String type, int channel, int data1) {
+        if (blackoutBoundData1 < 0 || blackoutBoundType == null || "NONE".equalsIgnoreCase(blackoutBoundType)) {
+            return false;
+        }
+        if (!blackoutBoundType.equalsIgnoreCase(type)) {
+            return false;
+        }
+        if (blackoutBoundChannel >= 0 && blackoutBoundChannel != channel) {
+            return false;
+        }
+        return blackoutBoundData1 == data1;
+    }
+
     private boolean matchesBinding(String type, int channel, int data1) {
+        if (matchesBlackoutBinding(type, channel, data1)) {
+            return false;
+        }
         if (boundData1 < 0 || "ANY".equalsIgnoreCase(boundType)) {
             return "NOTE".equals(type) || "CC".equals(type);
         }

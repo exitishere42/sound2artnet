@@ -89,6 +89,7 @@ public class Sound2LightEngine {
     private boolean lightEnabled = true;
     private boolean strobeEnabled = true;
     private boolean goboEnabled = false;
+    private volatile boolean blackout = false;
     private double alwaysOnIntensity = 1.0;
     private double audioLevelMax = 1.0;
     private volatile boolean lastTickBeat = false;
@@ -188,13 +189,14 @@ public class Sound2LightEngine {
 
         // 4. DMX512 Frame generieren
         byte[] frame = new byte[512];
+        boolean effectiveLight = lightEnabled && !blackout;
         Color activeColor = colorEngine.getCurrentColor();
-        boolean strobeActive = lightEnabled && strobeEnabled && colorEngine.isStrobeActive();
+        boolean strobeActive = effectiveLight && strobeEnabled && colorEngine.isStrobeActive();
         boolean strobeShutterOn = colorEngine.isStrobeShutterOn();
         int strobeDmxVal = colorEngine.getStrobeDmxValue();
 
         int masterDimmerVal = 0;
-        if (lightEnabled) {
+        if (effectiveLight) {
             switch (dimmerMode) {
                 case BEAT_PULSE -> masterDimmerVal = (int) Math.round(beatDimmer * 255);
                 case ALWAYS_ON -> masterDimmerVal = (int) Math.round(alwaysOnIntensity * 255);
@@ -275,19 +277,19 @@ public class Sound2LightEngine {
                     case TILT -> val = movementEnabled ? tiltDmx : (cm.getDefaultValue() > 0 ? cm.getDefaultValue() : patch.computeTiltDmx(0.5));
                     case TILT_FINE -> val = movementEnabled ? tiltFineDmx : 0;
                     case PAN_TILT_SPEED -> val = cm.getDefaultValue();
-                    case DIMMER -> val = lightEnabled ? fixtureDimmer : 0;
-                    case STROBE -> val = strobeActive ? strobeDmxVal : cm.getDefaultValue();
-                    case RED -> val = lightEnabled ? (int) Math.round(activeColor.getRed() * 255 * rgbStrobeMod * colorDimmerMod) : 0;
-                    case GREEN -> val = lightEnabled ? (int) Math.round(activeColor.getGreen() * 255 * rgbStrobeMod * colorDimmerMod) : 0;
-                    case BLUE -> val = lightEnabled ? (int) Math.round(activeColor.getBlue() * 255 * rgbStrobeMod * colorDimmerMod) : 0;
-                    case CYAN -> val = lightEnabled ? (int) Math.round((1.0 - activeColor.getRed()) * 255) : 0;
-                    case MAGENTA -> val = lightEnabled ? (int) Math.round((1.0 - activeColor.getGreen()) * 255) : 0;
-                    case YELLOW -> val = lightEnabled ? (int) Math.round((1.0 - activeColor.getBlue()) * 255) : 0;
-                    case WHITE, AMBER, UV -> val = lightEnabled ? (int) Math.round(cm.getDefaultValue() * colorDimmerMod) : 0;
-                    case COLOR_WHEEL -> val = (lightEnabled && !hasColorMixing) ? colorEngine.getColorWheelIndex(activeColor) : cm.getDefaultValue();
+                    case DIMMER -> val = effectiveLight ? fixtureDimmer : 0;
+                    case STROBE -> val = blackout ? 0 : (strobeActive ? strobeDmxVal : cm.getDefaultValue());
+                    case RED -> val = effectiveLight ? (int) Math.round(activeColor.getRed() * 255 * rgbStrobeMod * colorDimmerMod) : 0;
+                    case GREEN -> val = effectiveLight ? (int) Math.round(activeColor.getGreen() * 255 * rgbStrobeMod * colorDimmerMod) : 0;
+                    case BLUE -> val = effectiveLight ? (int) Math.round(activeColor.getBlue() * 255 * rgbStrobeMod * colorDimmerMod) : 0;
+                    case CYAN -> val = effectiveLight ? (int) Math.round((1.0 - activeColor.getRed()) * 255) : 0;
+                    case MAGENTA -> val = effectiveLight ? (int) Math.round((1.0 - activeColor.getGreen()) * 255) : 0;
+                    case YELLOW -> val = effectiveLight ? (int) Math.round((1.0 - activeColor.getBlue()) * 255) : 0;
+                    case WHITE, AMBER, UV -> val = effectiveLight ? (int) Math.round(cm.getDefaultValue() * colorDimmerMod) : 0;
+                    case COLOR_WHEEL -> val = (effectiveLight && !hasColorMixing) ? colorEngine.getColorWheelIndex(activeColor) : cm.getDefaultValue();
                     case GOBO_WHEEL -> {
                         int wheelIdx = goboWheelCounter++;
-                        if (lightEnabled && goboEnabled) {
+                        if (effectiveLight && goboEnabled) {
                             val = (wheelIdx == 0) ? colorEngine.getGoboWheel1Dmx(totalGoboWheels) : colorEngine.getGoboWheel2Dmx();
                         } else {
                             val = cm.getDefaultValue();
@@ -296,7 +298,7 @@ public class Sound2LightEngine {
                     case PRISM, FOCUS -> val = cm.getDefaultValue();
                     case CONSTANT -> {
                         // Gobo-Rotationskanal direkt hinter dem rotierenden Goborad (z. B. Kanal 20 beim ROBE MegaPointe mit Default=128)
-                        if (lightEnabled && goboEnabled && totalGoboWheels >= 1 &&
+                        if (effectiveLight && goboEnabled && totalGoboWheels >= 1 &&
                             cm.getOffset() == lastGoboWheelOffset + 1 && cm.getDefaultValue() == 128) {
                             val = colorEngine.getGoboRotationDmx();
                         } else {
@@ -388,6 +390,19 @@ public class Sound2LightEngine {
 
     public void setGoboEnabled(boolean goboEnabled) {
         this.goboEnabled = goboEnabled;
+    }
+
+    public boolean isBlackout() {
+        return blackout;
+    }
+
+    public void setBlackout(boolean blackout) {
+        this.blackout = blackout;
+    }
+
+    public boolean toggleBlackout() {
+        this.blackout = !this.blackout;
+        return this.blackout;
     }
 
     public boolean isLastTickBeat() {

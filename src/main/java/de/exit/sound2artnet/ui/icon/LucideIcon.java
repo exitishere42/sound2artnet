@@ -273,6 +273,10 @@ public class LucideIcon extends Canvas {
                 double[] ay = {4 * scale, 10 * scale, 7 * scale};
                 gc.fillPolygon(ax, ay, 3);
             }
+            case "power" -> {
+                gc.strokeArc(4 * scale, 4 * scale, 16 * scale, 16 * scale, 130, 280, ArcType.OPEN);
+                gc.strokeLine(12 * scale, 2 * scale, 12 * scale, 12 * scale);
+            }
             default -> {
                 gc.strokeOval(4 * scale, 4 * scale, 16 * scale, 16 * scale);
             }

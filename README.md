@@ -54,10 +54,12 @@ Visually and structurally, **sound2artnet** features the exact same dark Materia
 - **Automatic Gain Control (AGC)** & manual **Gain Slider**.
 - **Live BPM Detector & Tap Tempo**: Continuously calculates the tempo of the playing track (or manual MIDI taps) in BPM and automatically maps it to an effect speed tier.
 
-### 2. Dedicated MIDI Tab & Manual Beat Control
+### 2. Dedicated MIDI Tab, Manual Beat & MIDI Blackout Control
 - **MIDI Input Device Support**: Connect any USB MIDI controller, drum pad, or keyboard directly in the **`MIDI`** tab with instant hot-plug rescan.
-- **MIDI Learn & Key Binding**: Click **`MIDI Learn`** and press any MIDI key, pad, or pedal (`Note On` or `Control Change`) to bind it as your manual beat trigger, or reset to **`Any Key`** so every key on the controller triggers a beat.
-- **Tap Tempo & Live Beat Pad**: Tapping your bound MIDI key (or clicking the oversized interactive **`BEAT`** button in the UI) immediately fires a synchronized light pulse (`Beat Pulse`), advances color/movement phases, and computes the exact live BPM and speed tier (`Slow`, `Medium`, `Fast`, `Rave`) from your tap intervals.
+- **MIDI Learn for Beat & Blackout**: Separate **`MIDI Learn`** bindings for both the **Beat Key** and the **Blackout Key** (`Note On` or `Control Change`).
+- **Tap Tempo, Sustained Beat & Live Blackout**:
+  - Tapping or holding your bound Beat key (or the interactive **`BEAT`** pad) triggers a synchronized light pulse and computes live BPM.
+  - Tapping your bound Blackout key (or the **`BLACKOUT`** button) toggles full DMX blackout on/off, while holding it down activates a momentary blackout for the exact press duration.
 - **Live MIDI Monitor**: Real-time display of incoming MIDI messages (`Note On` / `CC`, note name, channel, and velocity).
 
 ### 3. Dynamic Light & Movement Engine (`Auto-BPM`)
@@ -91,7 +93,7 @@ Visually and structurally, **sound2artnet** features the exact same dark Materia
 - **Live Metrics**: Real-time readouts for audio RMS, peak, tempo (BPM), active speed tier, packets per second (including a live history chart), and total packets sent.
 - **512-Channel DMX Visualizer**: Live bar graph of all 512 DMX channels with semantic role labels (`PAN`, `TILT`, `DIM`, `STRB`, `R`, `G`, `B`, `C`, `M`, `Y`, etc.) and quick-jump range buttons.
 - **Multi-Profile & Venue Presets**: Dedicated `Profile` tab for saving and switching multiple venue configurations (Target IP, Universe, FPS, Fixture Patches, and Engine Settings). Double-click or click `Laden` to activate instantly with live Art-Net target switching without restarting the stream.
-- **In-App Update & Global Settings Dialog**: Click on the title logo badge (`v1.6.0`) to inspect release notes, check for updates, or switch global settings (e.g., German/English language, autostart).
+- **In-App Update & Global Settings Dialog**: Click on the title logo badge (`v1.7.0`) to inspect release notes, check for updates, or switch global settings (e.g., German/English language, autostart).
 - **Automatic Persistence**: All settings, MIDI bindings, profiles, and patched fixtures are automatically saved to `config.json`.
 
 ---
@@ -164,11 +166,11 @@ mvn clean test
 ```bash
 mvn clean package
 ```
-The standalone fat JAR will be created at `target/sound2artnet-1.6.0-all.jar`.
+The standalone fat JAR will be created at `target/sound2artnet-1.7.0-all.jar`.
 
 ### Headless CLI Mode (No GUI)
 ```bash
-java -jar target/sound2artnet-1.6.0-all.jar --cli --ip 192.168.200.232 --universe 0 --fps 40
+java -jar target/sound2artnet-1.7.0-all.jar --cli --ip 192.168.200.232 --universe 0 --fps 40
 ```
 
 ---

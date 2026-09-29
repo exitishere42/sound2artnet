@@ -126,14 +126,21 @@ public class MainWindow extends StackPane {
     private Label lblMidiBindingBadge;
     private MaterialButton btnMidiLearn;
     private MaterialButton btnMidiAnyKey;
+    private Label lblMidiBlackoutBindingTitle;
+    private Label lblMidiBlackoutBindingBadge;
+    private MaterialButton btnMidiBlackoutLearn;
+    private MaterialButton btnMidiBlackoutClear;
     private Label lblMidiMonitorTitle;
     private LucideIcon iconMidiSignalDot;
     private Label lblMidiMonitorValue;
     private Label lblMidiTapTitle;
     private MaterialButton btnMidiTap;
+    private MaterialButton btnMidiBlackout;
     private Label lblMidiBpmValue;
     private Label lblMidiTierValue;
     private MaterialButton btnMidiResetBpm;
+    private long blackoutPressStartMs = 0L;
+    private boolean blackoutActivatedOnPress = false;
 
     // Presets Table & Controls
     private final ObservableList<ArtNetPreset> presetList = FXCollections.observableArrayList();
@@ -240,13 +247,21 @@ public class MainWindow extends StackPane {
         audioService.getAnalyzer().getBeatDetector().setSensitivity(config.getBeatSensitivity());
 
         midiService.setBinding(config.getMidiBoundType(), config.getMidiBoundChannel(), config.getMidiBoundData1());
+        midiService.setBlackoutBinding(config.getMidiBlackoutBoundType(), config.getMidiBlackoutBoundChannel(), config.getMidiBlackoutBoundData1());
         midiService.setOnBeatTrigger(() -> Platform.runLater(this::triggerManualBeat));
         midiService.setOnBeatHoldChange(held -> {
             audioService.getAnalyzer().getBeatDetector().setManualBeatHeld(held);
             Platform.runLater(() -> onManualBeatHoldChanged(held));
         });
+        midiService.setOnBlackoutTrigger(() -> Platform.runLater(this::onBlackoutPressed));
+        midiService.setOnBlackoutHoldChange(held -> {
+            if (!held) {
+                Platform.runLater(this::onBlackoutReleased);
+            }
+        });
         midiService.setOnMidiEvent(ev -> Platform.runLater(() -> onMidiEventReceived(ev)));
         midiService.setOnLearnComplete(() -> Platform.runLater(this::onMidiLearnCompleted));
+        midiService.setOnBlackoutLearnComplete(() -> Platform.runLater(this::onMidiBlackoutLearnCompleted));
 
         I18n.setLanguage(config.getLanguage());
         I18n.addListener(lang -> Platform.runLater(this::updateAllLocalizedTexts));
@@ -1491,16 +1506,16 @@ public class MainWindow extends StackPane {
         HBox mainRow = new HBox(12);
         VBox.setVgrow(mainRow, Priority.ALWAYS);
 
-        // Linke Karte: MIDI-Gerät, Tasten-Zuweisung & Monitor
-        VBox leftCard = new VBox(10);
-        leftCard.setPadding(new Insets(12));
+        // Linke Karte: MIDI-Gerät, Tasten-Zuweisung (Beat & Blackout) & Monitor
+        VBox leftCard = new VBox(8);
+        leftCard.setPadding(new Insets(10, 12, 10, 12));
         leftCard.setStyle("-fx-background-color: " + MaterialTheme.HEX_SURFACE_2DP +
                           "; -fx-border-color: " + MaterialTheme.HEX_DIVIDER +
                           "; -fx-border-width: 1px; -fx-background-radius: 4px; -fx-border-radius: 4px;");
         HBox.setHgrow(leftCard, Priority.ALWAYS);
 
         // Sektion 1: MIDI-Eingangsgerät
-        VBox devBox = new VBox(4);
+        VBox devBox = new VBox(3);
         lblMidiDeviceTitle = new Label(I18n.get("midi.device_title"));
         lblMidiDeviceTitle.setTextFill(MaterialTheme.COLOR_TEXT_MED);
         lblMidiDeviceTitle.setFont(Font.font(MaterialTheme.FONT_FAMILY, FontWeight.BOLD, 10));
@@ -1530,8 +1545,8 @@ public class MainWindow extends StackPane {
         devRow.getChildren().addAll(cbMidiDevice, btnScanMidi);
         devBox.getChildren().addAll(lblMidiDeviceTitle, devRow);
 
-        // Sektion 2: Tasten-Zuweisung (MIDI Learn)
-        VBox bindBox = new VBox(4);
+        // Sektion 2: Beat-Taste (MIDI Learn)
+        VBox bindBox = new VBox(3);
         lblMidiBindingTitle = new Label(I18n.get("midi.binding_title"));
         lblMidiBindingTitle.setTextFill(MaterialTheme.COLOR_TEXT_MED);
         lblMidiBindingTitle.setFont(Font.font(MaterialTheme.FONT_FAMILY, FontWeight.BOLD, 10));
@@ -1540,9 +1555,9 @@ public class MainWindow extends StackPane {
         bindRow.setAlignment(Pos.CENTER_LEFT);
 
         lblMidiBindingBadge = new Label(midiService.formatBindingText());
-        lblMidiBindingBadge.setFont(Font.font(MaterialTheme.FONT_FAMILY, FontWeight.BOLD, 12));
+        lblMidiBindingBadge.setFont(Font.font(MaterialTheme.FONT_FAMILY, FontWeight.BOLD, 11));
         lblMidiBindingBadge.setTextFill(MaterialTheme.COLOR_PRIMARY);
-        lblMidiBindingBadge.setPadding(new Insets(6, 12, 6, 12));
+        lblMidiBindingBadge.setPadding(new Insets(4, 10, 4, 10));
         lblMidiBindingBadge.setMaxWidth(Double.MAX_VALUE);
         HBox.setHgrow(lblMidiBindingBadge, Priority.ALWAYS);
         lblMidiBindingBadge.setStyle("-fx-background-color: " + MaterialTheme.HEX_SURFACE_1DP +
@@ -1550,10 +1565,10 @@ public class MainWindow extends StackPane {
                                      "; -fx-border-width: 1px; -fx-background-radius: 4px; -fx-border-radius: 4px;");
 
         btnMidiLearn = new MaterialButton(I18n.get("midi.btn.learn"), "radio",
-                Color.web("#00E5FF"), Color.web("#000000"), 12, 10, 5, 11, true, this::toggleMidiLearn);
+                Color.web("#00E5FF"), Color.web("#000000"), 11, 8, 4, 11, true, this::toggleMidiLearn);
 
         btnMidiAnyKey = new MaterialButton(I18n.get("midi.btn.any_key"), "rotate-ccw",
-                MaterialTheme.COLOR_SURFACE_4DP, MaterialTheme.COLOR_TEXT_HIGH, 12, 10, 5, 11, false, () -> {
+                MaterialTheme.COLOR_SURFACE_4DP, MaterialTheme.COLOR_TEXT_HIGH, 11, 8, 4, 11, false, () -> {
             midiService.clearBinding();
             updateMidiLearnButtonState();
             lblMidiBindingBadge.setText(midiService.formatBindingText());
@@ -1563,15 +1578,48 @@ public class MainWindow extends StackPane {
         bindRow.getChildren().addAll(lblMidiBindingBadge, btnMidiLearn, btnMidiAnyKey);
         bindBox.getChildren().addAll(lblMidiBindingTitle, bindRow);
 
+        // Sektion 2b: Blackout-Taste (MIDI Learn)
+        VBox blackoutBindBox = new VBox(3);
+        lblMidiBlackoutBindingTitle = new Label(I18n.get("midi.blackout_binding_title"));
+        lblMidiBlackoutBindingTitle.setTextFill(MaterialTheme.COLOR_TEXT_MED);
+        lblMidiBlackoutBindingTitle.setFont(Font.font(MaterialTheme.FONT_FAMILY, FontWeight.BOLD, 10));
+
+        HBox blackoutBindRow = new HBox(8);
+        blackoutBindRow.setAlignment(Pos.CENTER_LEFT);
+
+        lblMidiBlackoutBindingBadge = new Label(midiService.formatBlackoutBindingText());
+        lblMidiBlackoutBindingBadge.setFont(Font.font(MaterialTheme.FONT_FAMILY, FontWeight.BOLD, 11));
+        lblMidiBlackoutBindingBadge.setTextFill(MaterialTheme.COLOR_ERROR);
+        lblMidiBlackoutBindingBadge.setPadding(new Insets(4, 10, 4, 10));
+        lblMidiBlackoutBindingBadge.setMaxWidth(Double.MAX_VALUE);
+        HBox.setHgrow(lblMidiBlackoutBindingBadge, Priority.ALWAYS);
+        lblMidiBlackoutBindingBadge.setStyle("-fx-background-color: " + MaterialTheme.HEX_SURFACE_1DP +
+                                             "; -fx-border-color: " + MaterialTheme.HEX_DIVIDER +
+                                             "; -fx-border-width: 1px; -fx-background-radius: 4px; -fx-border-radius: 4px;");
+
+        btnMidiBlackoutLearn = new MaterialButton(I18n.get("midi.btn.learn"), "radio",
+                MaterialTheme.COLOR_ERROR, MaterialTheme.COLOR_ON_ERROR, 11, 8, 4, 11, true, this::toggleMidiBlackoutLearn);
+
+        btnMidiBlackoutClear = new MaterialButton(I18n.get("midi.btn.clear_key"), "x",
+                MaterialTheme.COLOR_SURFACE_4DP, MaterialTheme.COLOR_TEXT_HIGH, 11, 8, 4, 11, false, () -> {
+            midiService.clearBlackoutBinding();
+            updateMidiLearnButtonState();
+            lblMidiBlackoutBindingBadge.setText(midiService.formatBlackoutBindingText());
+            autoSaveConfig();
+        });
+
+        blackoutBindRow.getChildren().addAll(lblMidiBlackoutBindingBadge, btnMidiBlackoutLearn, btnMidiBlackoutClear);
+        blackoutBindBox.getChildren().addAll(lblMidiBlackoutBindingTitle, blackoutBindRow);
+
         // Sektion 3: Live MIDI-Monitor
-        VBox monBox = new VBox(4);
+        VBox monBox = new VBox(3);
         lblMidiMonitorTitle = new Label(I18n.get("midi.monitor_title"));
         lblMidiMonitorTitle.setTextFill(MaterialTheme.COLOR_TEXT_MED);
         lblMidiMonitorTitle.setFont(Font.font(MaterialTheme.FONT_FAMILY, FontWeight.BOLD, 10));
 
         HBox monRow = new HBox(8);
         monRow.setAlignment(Pos.CENTER_LEFT);
-        monRow.setPadding(new Insets(6, 10, 6, 10));
+        monRow.setPadding(new Insets(5, 10, 5, 10));
         monRow.setStyle("-fx-background-color: " + MaterialTheme.HEX_SURFACE_1DP +
                         "; -fx-border-color: " + MaterialTheme.HEX_DIVIDER +
                         "; -fx-border-width: 1px; -fx-background-radius: 4px; -fx-border-radius: 4px;");
@@ -1583,13 +1631,13 @@ public class MainWindow extends StackPane {
         monRow.getChildren().addAll(iconMidiSignalDot, lblMidiMonitorValue);
         monBox.getChildren().addAll(lblMidiMonitorTitle, monRow);
 
-        leftCard.getChildren().addAll(devBox, bindBox, monBox);
+        leftCard.getChildren().addAll(devBox, bindBox, blackoutBindBox, monBox);
 
-        // Rechte Karte: Großer Beat-Tap-Trigger & Live-BPM
+        // Rechte Karte: Großer Beat-Tap-Trigger, Blackout & Live-BPM
         VBox rightCard = new VBox(10);
-        rightCard.setPadding(new Insets(12));
-        rightCard.setMinWidth(260);
-        rightCard.setPrefWidth(290);
+        rightCard.setPadding(new Insets(10, 12, 10, 12));
+        rightCard.setMinWidth(300);
+        rightCard.setPrefWidth(340);
         rightCard.setStyle("-fx-background-color: " + MaterialTheme.HEX_SURFACE_2DP +
                            "; -fx-border-color: " + MaterialTheme.HEX_DIVIDER +
                            "; -fx-border-width: 1px; -fx-background-radius: 4px; -fx-border-radius: 4px;");
@@ -1598,8 +1646,11 @@ public class MainWindow extends StackPane {
         lblMidiTapTitle.setTextFill(MaterialTheme.COLOR_TEXT_MED);
         lblMidiTapTitle.setFont(Font.font(MaterialTheme.FONT_FAMILY, FontWeight.BOLD, 10));
 
+        HBox padRow = new HBox(10);
+        VBox.setVgrow(padRow, Priority.ALWAYS);
+
         btnMidiTap = new MaterialButton(I18n.get("midi.btn.tap"), "zap",
-                MaterialTheme.COLOR_PRIMARY, MaterialTheme.COLOR_ON_PRIMARY, 18, 20, 14, 16, true, null);
+                MaterialTheme.COLOR_PRIMARY, MaterialTheme.COLOR_ON_PRIMARY, 16, 16, 12, 15, true, null);
         btnMidiTap.setOnMousePressed(e -> {
             triggerManualBeat();
             audioService.getAnalyzer().getBeatDetector().setManualBeatHeld(true);
@@ -1611,8 +1662,20 @@ public class MainWindow extends StackPane {
         });
         btnMidiTap.setMaxWidth(Double.MAX_VALUE);
         btnMidiTap.setMaxHeight(Double.MAX_VALUE);
-        btnMidiTap.setMinHeight(68);
-        VBox.setVgrow(btnMidiTap, Priority.ALWAYS);
+        btnMidiTap.setMinHeight(64);
+        HBox.setHgrow(btnMidiTap, Priority.ALWAYS);
+
+        btnMidiBlackout = new MaterialButton(I18n.get("midi.btn.blackout"), "power",
+                MaterialTheme.COLOR_SURFACE_4DP, MaterialTheme.COLOR_ERROR, 15, 14, 12, 14, true, null);
+        btnMidiBlackout.setOnMousePressed(e -> onBlackoutPressed());
+        btnMidiBlackout.setOnMouseReleased(e -> onBlackoutReleased());
+        btnMidiBlackout.setMaxWidth(Double.MAX_VALUE);
+        btnMidiBlackout.setMaxHeight(Double.MAX_VALUE);
+        btnMidiBlackout.setMinHeight(64);
+        HBox.setHgrow(btnMidiBlackout, Priority.ALWAYS);
+        updateBlackoutButtonVisual();
+
+        padRow.getChildren().addAll(btnMidiTap, btnMidiBlackout);
 
         HBox bpmFooter = new HBox(10);
         bpmFooter.setAlignment(Pos.CENTER_LEFT);
@@ -1638,7 +1701,7 @@ public class MainWindow extends StackPane {
         });
 
         bpmFooter.getChildren().addAll(lblMidiBpmValue, lblMidiTierValue, bpmSpacer, btnMidiResetBpm);
-        rightCard.getChildren().addAll(lblMidiTapTitle, btnMidiTap, bpmFooter);
+        rightCard.getChildren().addAll(lblMidiTapTitle, padRow, bpmFooter);
 
         mainRow.getChildren().addAll(leftCard, rightCard);
         root.getChildren().addAll(banner, mainRow);
@@ -1652,12 +1715,25 @@ public class MainWindow extends StackPane {
         updateMidiLearnButtonState();
     }
 
+    private void toggleMidiBlackoutLearn() {
+        midiService.setLearningBlackout(!midiService.isLearningBlackout());
+        updateMidiLearnButtonState();
+    }
+
     private void updateMidiLearnButtonState() {
-        if (btnMidiLearn == null) return;
-        if (midiService.isLearning()) {
-            btnMidiLearn.updateColors(Color.web("#FFB74D"), Color.web("#000000"), "radio", I18n.get("midi.btn.learning"));
-        } else {
-            btnMidiLearn.updateColors(Color.web("#00E5FF"), Color.web("#000000"), "radio", I18n.get("midi.btn.learn"));
+        if (btnMidiLearn != null) {
+            if (midiService.isLearning()) {
+                btnMidiLearn.updateColors(Color.web("#FFB74D"), Color.web("#000000"), "radio", I18n.get("midi.btn.learning"));
+            } else {
+                btnMidiLearn.updateColors(Color.web("#00E5FF"), Color.web("#000000"), "radio", I18n.get("midi.btn.learn"));
+            }
+        }
+        if (btnMidiBlackoutLearn != null) {
+            if (midiService.isLearningBlackout()) {
+                btnMidiBlackoutLearn.updateColors(Color.web("#FFB74D"), Color.web("#000000"), "radio", I18n.get("midi.btn.learning"));
+            } else {
+                btnMidiBlackoutLearn.updateColors(MaterialTheme.COLOR_ERROR, MaterialTheme.COLOR_ON_ERROR, "radio", I18n.get("midi.btn.learn"));
+            }
         }
     }
 
@@ -1670,6 +1746,55 @@ public class MainWindow extends StackPane {
             statusLabel.setText(String.format(I18n.get("midi.status.learned"), midiService.formatBindingText()));
         }
         autoSaveConfig();
+    }
+
+    private void onMidiBlackoutLearnCompleted() {
+        updateMidiLearnButtonState();
+        if (lblMidiBlackoutBindingBadge != null) {
+            lblMidiBlackoutBindingBadge.setText(midiService.formatBlackoutBindingText());
+        }
+        if (statusLabel != null) {
+            statusLabel.setText(String.format(I18n.get("midi.status.blackout_learned"), midiService.formatBlackoutBindingText()));
+        }
+        autoSaveConfig();
+    }
+
+    private void onBlackoutPressed() {
+        if (!showEngine.isBlackout()) {
+            blackoutPressStartMs = System.currentTimeMillis();
+            blackoutActivatedOnPress = true;
+            setBlackoutState(true);
+        } else {
+            blackoutActivatedOnPress = false;
+            setBlackoutState(false);
+        }
+    }
+
+    private void onBlackoutReleased() {
+        if (blackoutActivatedOnPress) {
+            long heldMs = System.currentTimeMillis() - blackoutPressStartMs;
+            if (heldMs >= 250) {
+                setBlackoutState(false);
+            }
+            blackoutActivatedOnPress = false;
+        }
+    }
+
+    private void setBlackoutState(boolean active) {
+        showEngine.setBlackout(active);
+        updateBlackoutButtonVisual();
+        if (statusLabel != null) {
+            statusLabel.setText(active ? I18n.get("midi.status.blackout_on") : I18n.get("midi.status.blackout_off"));
+        }
+    }
+
+    private void updateBlackoutButtonVisual() {
+        if (btnMidiBlackout == null) return;
+        if (showEngine.isBlackout()) {
+            btnMidiBlackout.updateColors(Color.web("#FF1744"), Color.WHITE, "power", I18n.get("midi.btn.blackout"));
+        } else {
+            btnMidiBlackout.updateColors(MaterialTheme.COLOR_SURFACE_4DP, MaterialTheme.COLOR_ERROR, "power", I18n.get("midi.btn.blackout"));
+        }
     }
 
     private void onMidiEventReceived(MidiInputService.MidiEventInfo ev) {
@@ -1961,14 +2086,18 @@ public class MainWindow extends StackPane {
         if (btnScanMidi != null) btnScanMidi.setText(I18n.get("btn.scan"));
         if (lblMidiBindingTitle != null) lblMidiBindingTitle.setText(I18n.get("midi.binding_title"));
         if (lblMidiBindingBadge != null) lblMidiBindingBadge.setText(midiService.formatBindingText());
+        if (lblMidiBlackoutBindingTitle != null) lblMidiBlackoutBindingTitle.setText(I18n.get("midi.blackout_binding_title"));
+        if (lblMidiBlackoutBindingBadge != null) lblMidiBlackoutBindingBadge.setText(midiService.formatBlackoutBindingText());
         updateMidiLearnButtonState();
         if (btnMidiAnyKey != null) btnMidiAnyKey.setText(I18n.get("midi.btn.any_key"));
+        if (btnMidiBlackoutClear != null) btnMidiBlackoutClear.setText(I18n.get("midi.btn.clear_key"));
         if (lblMidiMonitorTitle != null) lblMidiMonitorTitle.setText(I18n.get("midi.monitor_title"));
         if (lblMidiMonitorValue != null && !midiService.isOpen()) {
             lblMidiMonitorValue.setText(I18n.get("midi.monitor_waiting"));
         }
         if (lblMidiTapTitle != null) lblMidiTapTitle.setText(I18n.get("midi.tap_title"));
         if (btnMidiTap != null) btnMidiTap.setText(I18n.get("midi.btn.tap"));
+        updateBlackoutButtonVisual();
         if (btnMidiResetBpm != null) btnMidiResetBpm.setText(I18n.get("midi.btn.reset_bpm"));
         if (lblMidiTierValue != null) lblMidiTierValue.setText(showEngine.getCurrentSpeedTier().getDisplayName());
 
@@ -2471,6 +2600,9 @@ public class MainWindow extends StackPane {
         config.setMidiBoundType(midiService.getBoundType());
         config.setMidiBoundChannel(midiService.getBoundChannel());
         config.setMidiBoundData1(midiService.getBoundData1());
+        config.setMidiBlackoutBoundType(midiService.getBlackoutBoundType());
+        config.setMidiBlackoutBoundChannel(midiService.getBlackoutBoundChannel());
+        config.setMidiBlackoutBoundData1(midiService.getBlackoutBoundData1());
         config.setFixtures(new ArrayList<>(patchList));
         config.setPresets(new ArrayList<>(presetList));
         ConfigManager.saveConfig(config);
