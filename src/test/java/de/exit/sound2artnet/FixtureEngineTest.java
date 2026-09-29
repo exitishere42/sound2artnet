@@ -143,4 +143,43 @@ public class FixtureEngineTest {
         byte[] frameStrobeOff = engine.getCurrentDmxFrame();
         assertEquals(0, frameStrobeOff[4] & 0xFF, "Bei deaktiviertem Strobo-Toggle muss der Strobe-Kanal immer 0 bleiben");
     }
+
+    @Test
+    public void testSmoothEffectTransitionsAt170Bpm() {
+        de.exit.sound2artnet.engine.MovementGenerator gen = new de.exit.sound2artnet.engine.MovementGenerator();
+        FixtureProfile spot = FixtureLibrary.createGeneric9chSpot();
+        FixturePatch patch = new FixturePatch("MH 170 BPM", 1, spot);
+        patch.setPhaseOffset(Math.PI);
+
+        double dt = 0.025; // 40 FPS
+        double bpm = 170.0;
+        double beatIntervalSec = 60.0 / bpm; // ~0.3529s
+        double timeSinceLastBeat = 0.0;
+
+        double[] prevPos = gen.computePosition(patch, MovementPattern.AUTO_BPM, 0.7);
+        boolean transitionObserved = false;
+
+        // Simuliere 25 Sekunden bei 170 BPM (mehrere Effektwechsel in AUTO_BPM)
+        for (int frame = 0; frame < 1000; frame++) {
+            timeSinceLastBeat += dt;
+            boolean isBeat = false;
+            if (timeSinceLastBeat >= beatIntervalSec) {
+                timeSinceLastBeat -= beatIntervalSec;
+                isBeat = true;
+            }
+            gen.update(isBeat, 0.7, bpm, Sound2LightEngine.SpeedTier.RAVE, dt);
+            double[] pos = gen.computePosition(patch, MovementPattern.AUTO_BPM, 0.7);
+
+            if (gen.getPatternTransitionProgress() < 1.0) {
+                transitionObserved = true;
+            }
+
+            double dPan = Math.abs(pos[0] - prevPos[0]);
+            double dTilt = Math.abs(pos[1] - prevPos[1]);
+            assertTrue(dPan < 0.08, "Kein harter Pan-Sprung bei 170 BPM erlaubt (dPan=" + dPan + " bei Frame " + frame + ")");
+            assertTrue(dTilt < 0.08, "Kein harter Tilt-Sprung bei 170 BPM erlaubt (dTilt=" + dTilt + " bei Frame " + frame + ")");
+            prevPos = pos;
+        }
+        assertTrue(transitionObserved, "Während 25s auf 170 BPM muss ein weicher Effekt-Übergang stattgefunden haben");
+    }
 }

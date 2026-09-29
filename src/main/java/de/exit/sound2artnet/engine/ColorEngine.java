@@ -76,24 +76,25 @@ public class ColorEngine {
                     currentColorIndex = (currentColorIndex + 1) % colors.length;
                     targetColor = colors[currentColorIndex];
                 }
-            } else if (tier == Sound2LightEngine.SpeedTier.RAVE) {
-                // Bei extrem schneller Musik (>= 138 BPM) dynamische Farbsprünge auf jeden Kick
-                int step = (beatCounter % 4 == 0 && colors.length > 2) ? 2 : 1;
-                currentColorIndex = (currentColorIndex + step) % colors.length;
-                targetColor = colors[currentColorIndex];
+            } else if (tier == Sound2LightEngine.SpeedTier.RAVE && bpm >= 145.0) {
+                // Bei sehr hohen BPM (z. B. 170 BPM) jeden 2. Schlag weiterblenden, damit der Übergang sichtbar und weich bleibt
+                if (beatCounter % 2 == 0) {
+                    currentColorIndex = (currentColorIndex + 1) % colors.length;
+                    targetColor = colors[currentColorIndex];
+                }
             } else {
                 currentColorIndex = (currentColorIndex + 1) % colors.length;
                 targetColor = colors[currentColorIndex];
             }
         }
 
-        // 2. Überblend-Geschwindigkeit passend zur BPM-Stufe
+        // 2. Überblend-Geschwindigkeit passend zur BPM-Stufe (weiche Farbübergänge statt harter Cuts)
         double fadeRate = switch (tier) {
             case IDLE -> 2.0;
             case SLOW -> 3.2;     // Weiche, langsame Übergänge bei ~90 BPM
-            case MEDIUM -> 7.5;   // Ausgewogene Übergänge
-            case FAST -> 18.0;    // Knackige Wechsel bei ~120 BPM
-            case RAVE -> 55.0;    // Harte Cuts bei >= 138 BPM
+            case MEDIUM -> 6.0;   // Ausgewogene Übergänge
+            case FAST -> 9.5;     // Flüssige Übergänge bei ~120 BPM
+            case RAVE -> 12.5;    // Weiche, schnelle Überblendung auch bei 170 BPM (statt hartem Cut)
         };
 
         double stepFactor = Math.min(1.0, deltaSeconds * fadeRate);

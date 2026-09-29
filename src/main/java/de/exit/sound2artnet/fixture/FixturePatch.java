@@ -84,6 +84,21 @@ public class FixturePatch {
     }
 
     /**
+     * Berechnet das 16-Bit Fine-Byte (LSB 0..255) für Pan_Fine für butterweiche Fahrten.
+     */
+    public int computePanFineDmx(double normalizedVal) {
+        double v = Math.max(0.0, Math.min(1.0, normalizedVal));
+        if (invertPan) {
+            v = 1.0 - v;
+        }
+        int min = Math.min(panMin, panMax);
+        int max = Math.max(panMin, panMax);
+        double exact = min + v * (max - min);
+        double frac = exact - Math.floor(exact);
+        return (int) Math.round(frac * 255.0);
+    }
+
+    /**
      * Rechnet einen normalisierten Tilt-Wert (0.0 bis 1.0) in den DMX-Wert um,
      * unter Berücksichtigung von Invertierung und benutzerdefinierten Limits.
      */
@@ -95,6 +110,21 @@ public class FixturePatch {
         int min = Math.min(tiltMin, tiltMax);
         int max = Math.max(tiltMin, tiltMax);
         return (int) Math.round(min + v * (max - min));
+    }
+
+    /**
+     * Berechnet das 16-Bit Fine-Byte (LSB 0..255) für Tilt_Fine für butterweiche Fahrten.
+     */
+    public int computeTiltFineDmx(double normalizedVal) {
+        double v = Math.max(0.0, Math.min(1.0, normalizedVal));
+        if (invertTilt) {
+            v = 1.0 - v;
+        }
+        int min = Math.min(tiltMin, tiltMax);
+        int max = Math.max(tiltMin, tiltMax);
+        double exact = min + v * (max - min);
+        double frac = exact - Math.floor(exact);
+        return (int) Math.round(frac * 255.0);
     }
 
     // Getter & Setter

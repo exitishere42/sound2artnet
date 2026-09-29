@@ -160,10 +160,10 @@ public class Sound2LightEngine {
             beatDimmer = 1.0;
         } else {
             double dimmerDecay = switch (currentSpeedTier) {
-                case IDLE, SLOW -> 2.6;
-                case MEDIUM -> 4.0;
-                case FAST -> 5.5;
-                case RAVE -> 7.5;
+                case IDLE, SLOW -> 2.4;
+                case MEDIUM -> 3.0;
+                case FAST -> 3.5;
+                case RAVE -> 4.2;
             };
             beatDimmer = Math.max(0.0, beatDimmer - (deltaSeconds * dimmerDecay));
         }
@@ -220,10 +220,12 @@ public class Sound2LightEngine {
                 }
             }
 
-            // Pan / Tilt berechnen
+            // Pan / Tilt (inkl. 16-Bit Fine) berechnen
             double[] normPos = movementGenerator.computePosition(patch, movementPattern, rms);
             int panDmx = patch.computePanDmx(normPos[0]);
+            int panFineDmx = patch.computePanFineDmx(normPos[0]);
             int tiltDmx = patch.computeTiltDmx(normPos[1]);
+            int tiltFineDmx = patch.computeTiltFineDmx(normPos[1]);
 
             int fixtureDimmer = masterDimmerVal;
             double rgbStrobeMod = 1.0;
@@ -251,9 +253,9 @@ public class Sound2LightEngine {
                 int val = cm.getDefaultValue();
                 switch (cm.getFunction()) {
                     case PAN -> val = movementEnabled ? panDmx : (cm.getDefaultValue() > 0 ? cm.getDefaultValue() : patch.computePanDmx(0.5));
-                    case PAN_FINE -> val = 0;
+                    case PAN_FINE -> val = movementEnabled ? panFineDmx : 0;
                     case TILT -> val = movementEnabled ? tiltDmx : (cm.getDefaultValue() > 0 ? cm.getDefaultValue() : patch.computeTiltDmx(0.5));
-                    case TILT_FINE -> val = 0;
+                    case TILT_FINE -> val = movementEnabled ? tiltFineDmx : 0;
                     case PAN_TILT_SPEED -> val = cm.getDefaultValue();
                     case DIMMER -> val = lightEnabled ? fixtureDimmer : 0;
                     case STROBE -> val = strobeActive ? strobeDmxVal : cm.getDefaultValue();
