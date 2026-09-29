@@ -247,6 +247,32 @@ public class LucideIcon extends Canvas {
                 gc.strokePolyline(new double[]{7 * scale, 7 * scale, 17 * scale, 17 * scale}, new double[]{21 * scale, 13 * scale, 13 * scale, 21 * scale}, 4);
                 gc.strokePolyline(new double[]{7 * scale, 7 * scale, 15 * scale, 15 * scale}, new double[]{3 * scale, 8 * scale, 8 * scale, 3 * scale}, 4);
             }
+            case "piano", "keyboard" -> {
+                // Lucide piano / midi keys
+                gc.strokeRoundRect(2 * scale, 4 * scale, 20 * scale, 16 * scale, 3 * scale, 3 * scale);
+                gc.strokeLine(2 * scale, 14 * scale, 22 * scale, 14 * scale);
+                gc.strokeLine(6 * scale, 14 * scale, 6 * scale, 20 * scale);
+                gc.strokeLine(10 * scale, 14 * scale, 10 * scale, 20 * scale);
+                gc.strokeLine(14 * scale, 14 * scale, 14 * scale, 20 * scale);
+                gc.strokeLine(18 * scale, 14 * scale, 18 * scale, 20 * scale);
+                gc.fillRect(5 * scale, 4 * scale, 2 * scale, 7 * scale);
+                gc.fillRect(9 * scale, 4 * scale, 2 * scale, 7 * scale);
+                gc.fillRect(15 * scale, 4 * scale, 2 * scale, 7 * scale);
+            }
+            case "radio" -> {
+                // Lucide radio (concentric signal waves)
+                gc.fillOval(10 * scale, 10 * scale, 4 * scale, 4 * scale);
+                gc.strokeArc(6 * scale, 6 * scale, 12 * scale, 12 * scale, -45, 90, ArcType.OPEN);
+                gc.strokeArc(6 * scale, 6 * scale, 12 * scale, 12 * scale, 135, 90, ArcType.OPEN);
+                gc.strokeArc(2 * scale, 2 * scale, 20 * scale, 20 * scale, -45, 90, ArcType.OPEN);
+                gc.strokeArc(2 * scale, 2 * scale, 20 * scale, 20 * scale, 135, 90, ArcType.OPEN);
+            }
+            case "rotate-ccw" -> {
+                gc.strokeArc(4 * scale, 4 * scale, 16 * scale, 16 * scale, -130, 280, ArcType.OPEN);
+                double[] ax = {5 * scale, 5 * scale, 10 * scale};
+                double[] ay = {4 * scale, 10 * scale, 7 * scale};
+                gc.fillPolygon(ax, ay, 3);
+            }
             default -> {
                 gc.strokeOval(4 * scale, 4 * scale, 16 * scale, 16 * scale);
             }

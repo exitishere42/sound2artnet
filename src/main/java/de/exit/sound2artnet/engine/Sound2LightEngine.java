@@ -121,16 +121,23 @@ public class Sound2LightEngine {
         double treble = 0.0;
         boolean isBeat = false;
         double detectedBpm = 0.0;
+        boolean isManualMode = false;
 
-        if (audioCapture != null && audioCapture.isRunning()) {
+        if (audioCapture != null) {
             var analyzer = audioCapture.getAnalyzer();
-            rms = analyzer.getRmsLevel();
-            double[] bands = analyzer.getBandLevels();
-            bass = (bands[0] + bands[1]) * 0.5;
-            treble = (bands[5] + bands[6] + bands[7]) / 3.0;
             var bd = analyzer.getBeatDetector();
-            isBeat = bd.consumeBeat();
-            detectedBpm = bd.getEstimatedBpm();
+            isManualMode = (bd.getDetectionMode() == de.exit.sound2artnet.audio.BeatDetector.DetectionMode.MANUAL);
+            if (audioCapture.isRunning()) {
+                rms = analyzer.getRmsLevel();
+                double[] bands = analyzer.getBandLevels();
+                bass = (bands[0] + bands[1]) * 0.5;
+                treble = (bands[5] + bands[6] + bands[7]) / 3.0;
+                isBeat = bd.consumeBeat();
+                detectedBpm = bd.getEstimatedBpm();
+            } else if (isManualMode) {
+                isBeat = bd.consumeBeat();
+                detectedBpm = bd.getEstimatedBpm();
+            }
         }
 
         if (manualBpmOverride != null) {
@@ -162,8 +169,9 @@ public class Sound2LightEngine {
         }
 
         // 3. Movement & Color Engine updaten (mit aktueller BPM und Geschwindigkeits-Stufe)
+        double effectiveRms = (isManualMode && rms < 0.02) ? beatDimmer * 0.6 : rms;
         if (movementEnabled) {
-            movementGenerator.update(isBeat, rms, currentBpm, currentSpeedTier, deltaSeconds);
+            movementGenerator.update(isBeat, effectiveRms, currentBpm, currentSpeedTier, deltaSeconds);
         }
         if (lightEnabled) {
             colorEngine.update(isBeat, treble, currentBpm, currentSpeedTier, strobeEnabled, deltaSeconds);
@@ -182,7 +190,8 @@ public class Sound2LightEngine {
                 case BEAT_PULSE -> masterDimmerVal = (int) Math.round(beatDimmer * 255);
                 case ALWAYS_ON -> masterDimmerVal = (int) Math.round(alwaysOnIntensity * 255);
                 case AUDIO_LEVEL -> {
-                    double val = Math.min(1.0, rms * 3.5) * audioLevelMax;
+                    double baseLevel = (isManualMode && rms < 0.02) ? beatDimmer : Math.min(1.0, rms * 3.5);
+                    double val = baseLevel * audioLevelMax;
                     masterDimmerVal = (int) Math.round(val * 255);
                 }
                 default -> masterDimmerVal = (int) Math.round(alwaysOnIntensity * 255);

@@ -15,7 +15,8 @@ import java.util.Arrays;
 public class BeatDetector {
     public enum DetectionMode {
         LEVEL_DETECT("Level-Detect"),
-        BEAT_DETECT("Beat-Detect");
+        BEAT_DETECT("Beat-Detect"),
+        MANUAL("Manuell");
 
         private final String defaultDisplayName;
 
@@ -171,6 +172,12 @@ public class BeatDetector {
      * Erkennungsmethode mit explizitem Peak-Level.
      */
     public synchronized void detect(float[] samples, double rmsLevel, double peakLevel, long nowMs) {
+        if (detectionMode == DetectionMode.MANUAL) {
+            this.isBeat = false;
+            this.beatIntensity = Math.max(0.0, this.beatIntensity - 0.12);
+            return;
+        }
+
         if (samples == null || samples.length < timeSize) {
             this.isBeat = false;
             this.beatIntensity = Math.max(0.0, this.beatIntensity - 0.12);
@@ -217,6 +224,49 @@ public class BeatDetector {
         } else {
             detectByFftBandHysteresis(samples, nowMs);
         }
+    }
+
+    /**
+     * Löst manuell (per MIDI-Taste oder Tap-Button) sofort einen Beat aus und berechnet
+     * das exakte Tap-Tempo (BPM) aus den Abständen der Taps.
+     */
+    public synchronized void triggerManualBeat() {
+        triggerManualBeat(System.currentTimeMillis());
+    }
+
+    public synchronized void triggerManualBeat(long nowMs) {
+        this.isBeat = true;
+        this.pendingBeat = true;
+        this.beatIntensity = 1.0;
+
+        if (lastBeatTime >= 0) {
+            double ioi = nowMs - lastBeatTime;
+            if (ioi > 2500.0) {
+                // Neue Tap-Sequenz nach Pause > 2.5s
+                ioiCount = 0;
+                ioiIndex = 0;
+            } else if (ioi >= 200.0 && ioi <= 2000.0) {
+                ioiHistory[ioiIndex] = ioi;
+                ioiIndex = (ioiIndex + 1) % IOI_HISTORY_SIZE;
+                if (ioiCount < IOI_HISTORY_SIZE) {
+                    ioiCount++;
+                }
+                double sum = 0.0;
+                for (int i = 0; i < ioiCount; i++) {
+                    sum += ioiHistory[i];
+                }
+                this.estimatedPeriodMs = sum / ioiCount;
+                this.tempoConfidence = 1.0;
+            }
+        }
+        this.lastBeatTime = nowMs;
+    }
+
+    public synchronized void resetManualTempo() {
+        this.ioiCount = 0;
+        this.ioiIndex = 0;
+        this.tempoConfidence = 0.0;
+        this.lastBeatTime = -1000;
     }
 
     /**

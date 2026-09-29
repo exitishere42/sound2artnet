@@ -49,12 +49,18 @@ Visually and structurally, **sound2artnet** features the exact same dark Materia
 ### 1. Real-Time Audio Analysis & Beat / BPM Detection
 - **Direct System Audio Capture**: Captures desktop system audio directly on Windows (WASAPI Loopback) and Linux (PipeWire / PulseAudio) via `PC-Sound` without requiring virtual audio cables or extra drivers. Any microphone or audio interface can also be selected.
 - **8-Band Spectrum Analyzer**: Real-time FFT analysis (1024 samples, Hanning window) split into 8 frequency bands (`SUB`, `BASS`, `LOW`, `MID`, `H-MID`, `PRES`, `TREB`, `BRIL`) with peak-hold indicators.
-- **Accurate Kick & Beat Detection**: Multi-stage sub-bass and transient onset analysis for reliable kick drum detection, even on heavily compressed tracks.
+- **Accurate Kick & Beat Detection (`Hybrid`, `Bass Only`, `Manual`)**: Multi-stage sub-bass and transient onset analysis for reliable kick drum detection, plus a dedicated **Manual / MIDI** mode for 100% manual beat and tap-tempo control.
 - **Adjustable Beat Sensitivity**: Dedicated sensitivity slider (`20%` to `200%`) to fine-tune trigger thresholds on the fly for quiet passages or heavy club tracks.
 - **Automatic Gain Control (AGC)** & manual **Gain Slider**.
-- **Live BPM Detector**: Continuously calculates the tempo of the playing track in BPM and automatically maps it to an effect speed tier.
+- **Live BPM Detector & Tap Tempo**: Continuously calculates the tempo of the playing track (or manual MIDI taps) in BPM and automatically maps it to an effect speed tier.
 
-### 2. Dynamic Light & Movement Engine (`Auto-BPM`)
+### 2. Dedicated MIDI Tab & Manual Beat Control
+- **MIDI Input Device Support**: Connect any USB MIDI controller, drum pad, or keyboard directly in the **`MIDI`** tab with instant hot-plug rescan.
+- **MIDI Learn & Key Binding**: Click **`MIDI Learn`** and press any MIDI key, pad, or pedal (`Note On` or `Control Change`) to bind it as your manual beat trigger, or reset to **`Any Key`** so every key on the controller triggers a beat.
+- **Tap Tempo & Live Beat Pad**: Tapping your bound MIDI key (or clicking the oversized interactive **`BEAT`** button in the UI) immediately fires a synchronized light pulse (`Beat Pulse`), advances color/movement phases, and computes the exact live BPM and speed tier (`Slow`, `Medium`, `Fast`, `Rave`) from your tap intervals.
+- **Live MIDI Monitor**: Real-time display of incoming MIDI messages (`Note On` / `CC`, note name, channel, and velocity).
+
+### 3. Dynamic Light & Movement Engine (`Auto-BPM`)
 
 ```text
 +----------+---------------+------------------+--------------------+------------------+
@@ -71,21 +77,21 @@ Visually and structurally, **sound2artnet** features the exact same dark Materia
 - **Movement Patterns**: `Auto-BPM`, `Circle`, `Eight`, `Ballyhoo`, `Wave`, `Pan-Sweep`, `Tilt-Swing`, and `Beat-Bounce`.
 - **Default Center Position When Movement Is Disabled**: Turning off movement automatically returns all Moving Heads to their neutral center position (`DMX 128`, pointing straight down).
 - **Toggleable Strobe Effect**: Dedicated `Strobo` toggle in the settings triggers short strobe bursts on strong beats during fast tempo tiers (`Fast` and `Rave`) — using either the fixture's hardware strobe channel or a software shutter across dimmer/RGB channels.
-- **Color Palettes & Dimmer Modes**: Multiple color palettes (`Club Neon`, `Cyberpunk`, `Fire & Ice`, `Rainbow`, `Material Teal`) and selectable dimmer responses (`Beat Pulse`, `Audio Level`, `Always On`).
+- **Color Palettes & Dimmer Modes**: Multiple color palettes (`Club Neon`, `Cyberpunk`, `Fire & Ice`, `Rainbow`, `Material Teal`) and selectable dimmer responses (`Beat Pulse`, `Audio Level`, `Always On`) with dedicated intensity/max-level sliders.
 
-### 3. Fixture Management & QLC+ Import
-- **QLC+ Import (`*.qxf`)**: Direct import of QLC+ fixture definitions with automatic detection of DMX modes and channel functions, plus multi-fixture patching.
+### 4. Fixture Management & QLC+ Import
+- **QLC+ Import (`*.qxf`)**: Direct import of QLC+ fixture definitions with automatic detection of DMX modes, pixel/segment master consolidation, and multi-fixture patching.
 - **Built-in Profile Library**: Ready-to-use templates for 9-/11-channel Spot Moving Heads, 9-/14-channel Wash Moving Heads, and 4-/7-channel RGBW PAR cans.
 - **Fixture Editor**: Full customization of all channels (`PAN`, `PAN_FINE`, `TILT`, `TILT_FINE`, `PAN_TILT_SPEED`, `DIMMER`, `STROBE`, `RED`, `GREEN`, `BLUE`, `CYAN`, `MAGENTA`, `YELLOW`, `WHITE`, `AMBER`, `UV`, `COLOR_WHEEL`, `GOBO_WHEEL`, `PRISM`, `FOCUS`, `CONSTANT`, `UNUSED`).
 - **Safety Limits & Phase Offset**: Configurable Pan/Tilt limits (`Min`/`Max`), Pan/Tilt inversion, and phase offset (`0°–360°`) for symmetrical or wave-like group movements.
 
-### 4. Art-Net 4 Output & 512-Channel DMX Live Visualizer
+### 5. Art-Net 4 Output & 512-Channel DMX Live Visualizer
 - **Art-Net 4 Sender**: Broadcasts standard-compliant `ArtDMX` packets (UDP port `6454`) to any target IP (unicast, broadcast, or `127.0.0.1`) and universe (`0–15`) at a configurable frame rate (`10–44 FPS`).
 - **Live Metrics**: Real-time readouts for audio RMS, peak, tempo (BPM), active speed tier, packets per second (including a live history chart), and total packets sent.
 - **512-Channel DMX Visualizer**: Live bar graph of all 512 DMX channels with semantic role labels (`PAN`, `TILT`, `DIM`, `STRB`, `R`, `G`, `B`, `C`, `M`, `Y`, etc.) and quick-jump range buttons.
-- **Multi-Profile & Venue Presets**: Dedicated 3rd tab (`Profile`) for saving and switching multiple venue configurations (Target IP, Universe, FPS, Fixture Patches, and Engine Settings). Double-click or click `Laden` to activate instantly with live Art-Net target switching without restarting the stream.
-- **In-App Update & Global Settings Dialog**: Click on the title logo badge (`v1.4.4`) to inspect release notes, check for updates, or switch global settings (e.g., German/English language, autostart).
-- **Automatic Persistence**: All settings, profiles, and patched fixtures are automatically saved to `config.json`.
+- **Multi-Profile & Venue Presets**: Dedicated `Profile` tab for saving and switching multiple venue configurations (Target IP, Universe, FPS, Fixture Patches, and Engine Settings). Double-click or click `Laden` to activate instantly with live Art-Net target switching without restarting the stream.
+- **In-App Update & Global Settings Dialog**: Click on the title logo badge (`v1.5.0`) to inspect release notes, check for updates, or switch global settings (e.g., German/English language, autostart).
+- **Automatic Persistence**: All settings, MIDI bindings, profiles, and patched fixtures are automatically saved to `config.json`.
 
 ---
 
@@ -157,11 +163,11 @@ mvn clean test
 ```bash
 mvn clean package
 ```
-The standalone fat JAR will be created at `target/sound2artnet-1.4.4-all.jar`.
+The standalone fat JAR will be created at `target/sound2artnet-1.5.0-all.jar`.
 
 ### Headless CLI Mode (No GUI)
 ```bash
-java -jar target/sound2artnet-1.4.4-all.jar --cli --ip 192.168.200.232 --universe 0 --fps 40
+java -jar target/sound2artnet-1.5.0-all.jar --cli --ip 192.168.200.232 --universe 0 --fps 40
 ```
 
 ---

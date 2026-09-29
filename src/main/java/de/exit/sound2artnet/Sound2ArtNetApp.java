@@ -92,7 +92,7 @@ public class Sound2ArtNetApp extends Application {
                 tickTimeline.stop();
             }
             if (mainWindow != null) {
-                mainWindow.stopService();
+                mainWindow.shutdown();
             }
         });
 

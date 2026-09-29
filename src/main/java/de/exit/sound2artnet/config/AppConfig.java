@@ -36,6 +36,10 @@ public class AppConfig {
     private String activePresetId = null;
     private double alwaysOnIntensity = 1.0;
     private double audioLevelMax = 1.0;
+    private String midiDevice = "";
+    private String midiBoundType = "ANY";
+    private int midiBoundChannel = -1;
+    private int midiBoundData1 = -1;
     private boolean autostart = false;
     private String language = "de";
 
@@ -147,6 +151,18 @@ public class AppConfig {
             this.activePresetId = standard.getId();
         }
     }
+
+    public String getMidiDevice() { return midiDevice != null ? midiDevice : ""; }
+    public void setMidiDevice(String midiDevice) { this.midiDevice = midiDevice != null ? midiDevice : ""; }
+
+    public String getMidiBoundType() { return midiBoundType != null ? midiBoundType : "ANY"; }
+    public void setMidiBoundType(String midiBoundType) { this.midiBoundType = midiBoundType != null ? midiBoundType : "ANY"; }
+
+    public int getMidiBoundChannel() { return midiBoundChannel; }
+    public void setMidiBoundChannel(int midiBoundChannel) { this.midiBoundChannel = midiBoundChannel; }
+
+    public int getMidiBoundData1() { return midiBoundData1; }
+    public void setMidiBoundData1(int midiBoundData1) { this.midiBoundData1 = midiBoundData1; }
 
     public boolean isAutostart() { return autostart; }
     public void setAutostart(boolean autostart) { this.autostart = autostart; }

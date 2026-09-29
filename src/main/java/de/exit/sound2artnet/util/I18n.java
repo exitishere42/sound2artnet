@@ -31,6 +31,8 @@ public class I18n {
         EN.put("tab.engine", "Sound-to-Light & Movement Engine");
         DE.put("tab.presets", "Profile");
         EN.put("tab.presets", "Profiles");
+        DE.put("tab.midi", "MIDI");
+        EN.put("tab.midi", "MIDI");
 
         // --- Art-Net Profile / Presets ---
         DE.put("preset.title", "Art-Net Profile & Presets");
@@ -277,6 +279,44 @@ public class I18n {
         EN.put("detect.level_detect", "Level Detect");
         DE.put("detect.beat_detect", "Beat-Detect");
         EN.put("detect.beat_detect", "Beat Detect");
+        DE.put("detect.manual", "Manuell");
+        EN.put("detect.manual", "Manual");
+
+        // --- MIDI & Manueller Beat ---
+        DE.put("midi.banner.manual_active", "Manueller Beat-Modus aktiv");
+        EN.put("midi.banner.manual_active", "Manual Beat Mode Active");
+        DE.put("midi.banner.auto_active", "Erkennungs-Modus: %s");
+        EN.put("midi.banner.auto_active", "Detection Mode: %s");
+        DE.put("midi.btn.activate_manual", "Manuellen Modus aktivieren");
+        EN.put("midi.btn.activate_manual", "Enable Manual Mode");
+        DE.put("midi.device_title", "MIDI-EINGANGSGERÄT");
+        EN.put("midi.device_title", "MIDI INPUT DEVICE");
+        DE.put("midi.no_device", "Kein MIDI-Gerät");
+        EN.put("midi.no_device", "No MIDI Device");
+        DE.put("midi.binding_title", "TASTEN-ZUWEISUNG");
+        EN.put("midi.binding_title", "KEY BINDING");
+        DE.put("midi.binding.any", "Alle Tasten");
+        EN.put("midi.binding.any", "Any Key");
+        DE.put("midi.btn.learn", "MIDI Learn");
+        EN.put("midi.btn.learn", "MIDI Learn");
+        DE.put("midi.btn.learning", "Taste drücken...");
+        EN.put("midi.btn.learning", "Press key...");
+        DE.put("midi.btn.any_key", "Alle Tasten");
+        EN.put("midi.btn.any_key", "Any Key");
+        DE.put("midi.monitor_title", "LETZTES MIDI-SIGNAL");
+        EN.put("midi.monitor_title", "LAST MIDI SIGNAL");
+        DE.put("midi.monitor_waiting", "Warte auf MIDI-Eingabe...");
+        EN.put("midi.monitor_waiting", "Waiting for MIDI input...");
+        DE.put("midi.tap_title", "LIVE BEAT-TRIGGER & TAP-TEMPO");
+        EN.put("midi.tap_title", "LIVE BEAT TRIGGER & TAP TEMPO");
+        DE.put("midi.btn.tap", "BEAT");
+        EN.put("midi.btn.tap", "BEAT");
+        DE.put("midi.btn.reset_bpm", "Reset");
+        EN.put("midi.btn.reset_bpm", "Reset");
+        DE.put("midi.status.learned", "MIDI-Taste angelernt: %s");
+        EN.put("midi.status.learned", "MIDI key learned: %s");
+        DE.put("midi.status.connected", "MIDI-Gerät verbunden: %s");
+        EN.put("midi.status.connected", "MIDI device connected: %s");
 
         // Movement Patterns
         DE.put("pattern.auto_bpm", "Auto-BPM");

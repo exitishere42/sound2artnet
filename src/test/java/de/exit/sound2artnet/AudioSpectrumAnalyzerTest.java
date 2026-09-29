@@ -168,6 +168,7 @@ public class AudioSpectrumAnalyzerTest {
         float sampleRate = 44100.0f;
 
         for (BeatDetector.DetectionMode mode : BeatDetector.DetectionMode.values()) {
+            if (mode == BeatDetector.DetectionMode.MANUAL) continue;
             for (double bpm : bpms) {
                 BeatDetector detector = new BeatDetector(1024, sampleRate);
                 detector.setDetectionMode(mode);
@@ -236,6 +237,7 @@ public class AudioSpectrumAnalyzerTest {
         }
 
         for (BeatDetector.DetectionMode mode : BeatDetector.DetectionMode.values()) {
+            if (mode == BeatDetector.DetectionMode.MANUAL) continue;
             BeatDetector detector = new BeatDetector(1024, sampleRate);
             detector.setDetectionMode(mode);
 
@@ -355,6 +357,7 @@ public class AudioSpectrumAnalyzerTest {
         }
 
         for (BeatDetector.DetectionMode mode : BeatDetector.DetectionMode.values()) {
+            if (mode == BeatDetector.DetectionMode.MANUAL) continue;
             AudioSpectrumAnalyzer analyzer = new AudioSpectrumAnalyzer(sampleRate);
             analyzer.getBeatDetector().setDetectionMode(mode);
 
