@@ -78,4 +78,44 @@ public class MidiAndManualBeatTest {
         midi.handleShortMessage(ShortMessage.NOTE_ON, 0, 60, 100);
         assertEquals(4, beatCount.get());
     }
+
+    @Test
+    public void testLinuxAlsaSequencerAndRawMidiParsing() {
+        MidiInputService midi = new MidiInputService();
+        AtomicInteger beatCount = new AtomicInteger(0);
+        midi.setOnBeatTrigger(beatCount::incrementAndGet);
+
+        // 1. Linux ALSA Sequencer (`aseqdump -p <port>`) Note-On & Control-Change Zeilen
+        midi.setLearning(true);
+        midi.parseAseqdumpLine(" 20:0   Note on                 0, note 48, velocity 110");
+        assertFalse(midi.isLearning());
+        assertEquals("NOTE", midi.getBoundType());
+        assertEquals(0, midi.getBoundChannel());
+        assertEquals(48, midi.getBoundData1());
+        assertEquals(1, beatCount.get());
+
+        // Andere Note über aseqdump wird ignoriert
+        midi.parseAseqdumpLine(" 20:0   Note on                 0, note 60, velocity 100");
+        assertEquals(1, beatCount.get());
+
+        // Gebundene Note 48 über aseqdump löst aus
+        midi.parseAseqdumpLine(" 20:0   Note on                 0, note 48, velocity 95");
+        assertEquals(2, beatCount.get());
+
+        // 2. Linux ALSA RawMIDI (`amidi -p hw:1,0,0 -d`) Hex-Bytes ("90 30 7F" = Note On Ch 0, Note 48, Vel 127)
+        midi.parseAmidiHexLine("90 30 7F");
+        assertEquals(3, beatCount.get());
+
+        // 3. CC-Pedal (Control Change 64) über aseqdump anlernen
+        midi.setLearning(true);
+        midi.parseAseqdumpLine(" 20:0   Control change          0, controller 64, value 127");
+        assertEquals("CC", midi.getBoundType());
+        assertEquals(64, midi.getBoundData1());
+        assertEquals(4, beatCount.get());
+
+        // Pedal loslassen (< 64) und erneut drücken (>= 64)
+        midi.parseAseqdumpLine(" 20:0   Control change          0, controller 64, value 0");
+        midi.parseAseqdumpLine(" 20:0   Control change          0, controller 64, value 127");
+        assertEquals(5, beatCount.get());
+    }
 }

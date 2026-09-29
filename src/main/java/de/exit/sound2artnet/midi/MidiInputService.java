@@ -3,19 +3,38 @@ package de.exit.sound2artnet.midi;
 import de.exit.sound2artnet.util.I18n;
 
 import javax.sound.midi.*;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
- * Verwaltet MIDI-Eingangsgeräte (USB-MIDI-Keyboards, Pad-Controller, DJ-Controller),
- * MIDI-Learn für Tasten-/Pad-Zuweisung und das latenzfreie Auslösen manueller Beats.
+ * Verwaltet MIDI-Eingangsgeräte (USB-MIDI-Keyboards, Pad-Controller, DJ-Controller)
+ * plattformübergreifend unter Windows (WinMM / javax.sound.midi) und Linux
+ * (ALSA Sequencer / PipeWire via aseqdump, ALSA RawMIDI via amidi sowie javax.sound.midi).
  */
 public class MidiInputService {
     private static final Logger LOGGER = Logger.getLogger(MidiInputService.class.getName());
     private static final String[] NOTE_NAMES = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
+
+    private static final Pattern ASEQDUMP_LIST_PATTERN =
+            Pattern.compile("^\\s*(\\d+:\\d+)\\s+(.+?)\\s{2,}(.+)$");
+    private static final Pattern AMIDI_LIST_PATTERN =
+            Pattern.compile("^\\s*I[O ]\\s+(hw:\\S+)\\s+(.+)$");
+    private static final Pattern ASEQDUMP_NOTE_ON_PATTERN =
+            Pattern.compile("Note on\\s+(\\d+),\\s*note\\s+(\\d+),\\s*velocity\\s+(\\d+)", Pattern.CASE_INSENSITIVE);
+    private static final Pattern ASEQDUMP_NOTE_OFF_PATTERN =
+            Pattern.compile("Note off\\s+(\\d+),\\s*note\\s+(\\d+)", Pattern.CASE_INSENSITIVE);
+    private static final Pattern ASEQDUMP_CC_PATTERN =
+            Pattern.compile("Control change\\s+(\\d+),\\s*controller\\s+(\\d+),\\s*value\\s+(\\d+)", Pattern.CASE_INSENSITIVE);
 
     public record MidiEventInfo(
             String type,       // "NOTE" oder "CC"
@@ -37,6 +56,9 @@ public class MidiInputService {
 
     private MidiDevice activeDevice;
     private Transmitter activeTransmitter;
+    private Process activeLinuxProcess;
+    private Thread activeLinuxReaderThread;
+    private volatile boolean linuxCaptureRunning = false;
     private String activeDeviceName = "";
 
     // Filter / Binding (-1 = Alle Kanäle / Alle Tasten)
@@ -51,64 +73,402 @@ public class MidiInputService {
     private Consumer<MidiEventInfo> onMidiEvent;
     private Runnable onLearnComplete;
 
+    private static boolean isLinux() {
+        return System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("linux");
+    }
+
     /**
-     * Listet alle verfügbaren MIDI-Eingangsgeräte (Transmitter) auf.
+     * Listet alle verfügbaren MIDI-Eingangsgeräte unter Windows und Linux auf.
      */
     public static List<MidiDeviceInfo> listInputDevices() {
         List<MidiDeviceInfo> result = new ArrayList<>();
+
+        // 1. Linux: ALSA Sequencer / PipeWire Ports über `aseqdump -l` & RawMIDI über `amidi -l`
+        if (isLinux()) {
+            scanLinuxAlsaDevices(result);
+        }
+
+        // 2. Plattformübergreifend: Java Sound MIDI (Windows WinMM & Linux ALSA RawMIDI)
         try {
             MidiDevice.Info[] infos = MidiSystem.getMidiDeviceInfo();
             for (MidiDevice.Info info : infos) {
                 try {
                     MidiDevice dev = MidiSystem.getMidiDevice(info);
-                    // Nur echte Eingangsgeräte (MaxTransmitters != 0) und keinen internen Sequencer
                     if (dev.getMaxTransmitters() != 0 && !(dev instanceof Sequencer) && !(dev instanceof Synthesizer)) {
                         String rawName = info.getName() != null ? info.getName().trim() : "MIDI Input";
-                        if (rawName.equalsIgnoreCase("Real Time Sequencer")) {
+                        String desc = info.getDescription() != null ? info.getDescription().trim() : "";
+                        String vendor = info.getVendor() != null ? info.getVendor().trim() : "";
+                        if (rawName.equalsIgnoreCase("Real Time Sequencer") || rawName.equalsIgnoreCase("Gervill")) {
                             continue;
                         }
-                        result.add(new MidiDeviceInfo(
-                                rawName,
-                                info.getVendor() != null ? info.getVendor().trim() : "",
-                                info.getDescription() != null ? info.getDescription().trim() : "",
-                                info
-                        ));
+
+                        String cleanName = cleanJavaMidiName(rawName, desc);
+                        String hwPort = extractHwPort(rawName, desc);
+
+                        // Unter Linux prüfen, ob dieses Gerät bereits über ALSA Sequencer / amidi erkannt wurde
+                        boolean merged = false;
+                        if (isLinux()) {
+                            for (int i = 0; i < result.size(); i++) {
+                                MidiDeviceInfo existing = result.get(i);
+                                if (matchesLinuxDevice(existing, cleanName, rawName, desc, hwPort)) {
+                                    result.set(i, new MidiDeviceInfo(
+                                            existing.name(),
+                                            existing.vendor().isEmpty() ? vendor : existing.vendor(),
+                                            existing.description().isEmpty() ? desc : existing.description(),
+                                            info,
+                                            existing.alsaSeqPort(),
+                                            existing.alsaRawPort() != null ? existing.alsaRawPort() : hwPort
+                                    ));
+                                    merged = true;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (!merged) {
+                            result.add(new MidiDeviceInfo(cleanName, vendor, desc, info, null, hwPort));
+                        }
                     }
                 } catch (MidiUnavailableException ignored) {
                 }
             }
         } catch (Throwable t) {
-            LOGGER.log(Level.WARNING, "Fehler beim Scannen der MIDI-Geräte: " + t.getMessage(), t);
+            LOGGER.log(Level.WARNING, "Fehler beim Scannen der Java-MIDI-Geräte: " + t.getMessage(), t);
         }
         return result;
     }
 
+    private static void scanLinuxAlsaDevices(List<MidiDeviceInfo> result) {
+        // A. ALSA Sequencer (`aseqdump -l`) - funktioniert auf Debian/GNOME/PipeWire ohne EBUSY-Blockade
+        try {
+            ProcessBuilder pb = new ProcessBuilder("aseqdump", "-l");
+            pb.environment().put("LC_ALL", "C");
+            pb.redirectErrorStream(true);
+            Process proc = pb.start();
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(proc.getInputStream(), StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    Matcher m = ASEQDUMP_LIST_PATTERN.matcher(line);
+                    if (m.matches()) {
+                        String port = m.group(1).trim();
+                        String clientName = m.group(2).trim();
+                        String portName = m.group(3).trim();
+                        if (isIgnoredLinuxMidiPort(port, clientName, portName)) {
+                            continue;
+                        }
+                        String displayName = buildCleanLinuxMidiName(clientName, portName);
+                        result.add(new MidiDeviceInfo(displayName, clientName, portName, null, port, null));
+                    }
+                }
+            }
+            proc.waitFor(2, TimeUnit.SECONDS);
+        } catch (Exception ignored) {
+            // aseqdump evtl. nicht installiert -> Weiter mit amidi / javax.sound.midi
+        }
+
+        // B. ALSA RawMIDI (`amidi -l`)
+        try {
+            ProcessBuilder pb = new ProcessBuilder("amidi", "-l");
+            pb.environment().put("LC_ALL", "C");
+            pb.redirectErrorStream(true);
+            Process proc = pb.start();
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(proc.getInputStream(), StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    Matcher m = AMIDI_LIST_PATTERN.matcher(line);
+                    if (m.matches()) {
+                        String hwPort = m.group(1).trim();
+                        String name = m.group(2).trim();
+                        boolean attached = false;
+                        for (int i = 0; i < result.size(); i++) {
+                            MidiDeviceInfo existing = result.get(i);
+                            if (existing.name().toLowerCase(Locale.ROOT).contains(name.toLowerCase(Locale.ROOT))
+                                    || name.toLowerCase(Locale.ROOT).contains(existing.vendor().toLowerCase(Locale.ROOT))) {
+                                result.set(i, new MidiDeviceInfo(
+                                        existing.name(),
+                                        existing.vendor(),
+                                        existing.description(),
+                                        existing.midiInfo(),
+                                        existing.alsaSeqPort(),
+                                        hwPort
+                                ));
+                                attached = true;
+                                break;
+                            }
+                        }
+                        if (!attached) {
+                            result.add(new MidiDeviceInfo(name, "", hwPort, null, null, hwPort));
+                        }
+                    }
+                }
+            }
+            proc.waitFor(2, TimeUnit.SECONDS);
+        } catch (Exception ignored) {
+        }
+    }
+
+    private static boolean isIgnoredLinuxMidiPort(String port, String clientName, String portName) {
+        if (port.startsWith("0:")) {
+            return true; // System Timer / System Announce
+        }
+        String lowerClient = clientName.toLowerCase(Locale.ROOT);
+        String lowerPort = portName.toLowerCase(Locale.ROOT);
+        if (lowerClient.equals("system") || lowerClient.contains("midi through")) {
+            return true;
+        }
+        if (lowerClient.contains("pipewire-system") || lowerClient.contains("pipewire-rt-event")) {
+            return true;
+        }
+        return lowerClient.contains("aseqdump") || lowerPort.contains("aseqdump");
+    }
+
+    private static String buildCleanLinuxMidiName(String clientName, String portName) {
+        if (portName.isEmpty() || portName.equalsIgnoreCase(clientName)) {
+            return clientName;
+        }
+        if (portName.toLowerCase(Locale.ROOT).startsWith(clientName.toLowerCase(Locale.ROOT))) {
+            return portName;
+        }
+        return clientName + " - " + portName;
+    }
+
+    private static String cleanJavaMidiName(String rawName, String description) {
+        // Unter Linux liefert OpenJDK oft "MPK2 [hw:2,0,0]" mit description "MPK2, USB Audio, AKAI MPK mini"
+        if (rawName.contains("[hw:")) {
+            String stripped = rawName.replaceAll("\\s*\\[hw:[^\\]]+\\]", "").trim();
+            if (description != null && !description.isBlank()) {
+                String[] parts = description.split(",");
+                if (parts.length >= 3 && !parts[2].trim().isEmpty()) {
+                    return parts[2].trim();
+                }
+            }
+            if (!stripped.isEmpty()) {
+                return stripped;
+            }
+        }
+        return rawName;
+    }
+
+    private static String extractHwPort(String rawName, String description) {
+        Matcher m = Pattern.compile("(hw:\\d+,\\d+(?:,\\d+)?)").matcher(rawName + " " + description);
+        return m.find() ? m.group(1) : null;
+    }
+
+    private static boolean matchesLinuxDevice(MidiDeviceInfo existing, String cleanName, String rawName, String desc, String hwPort) {
+        if (hwPort != null && hwPort.equalsIgnoreCase(existing.alsaRawPort())) {
+            return true;
+        }
+        String exLower = existing.name().toLowerCase(Locale.ROOT);
+        String cleanLower = cleanName.toLowerCase(Locale.ROOT);
+        if (exLower.equals(cleanLower) || exLower.contains(cleanLower) || cleanLower.contains(exLower)) {
+            return true;
+        }
+        String strippedRaw = rawName.replaceAll("\\s*\\[hw:[^\\]]+\\]", "").trim().toLowerCase(Locale.ROOT);
+        return !strippedRaw.isEmpty() && (exLower.contains(strippedRaw) || desc.toLowerCase(Locale.ROOT).contains(exLower));
+    }
+
     public synchronized boolean openDevice(MidiDeviceInfo deviceInfo) {
         closeDevice();
-        if (deviceInfo == null || deviceInfo.midiInfo() == null) {
+        if (deviceInfo == null) {
             return false;
         }
-        try {
-            MidiDevice dev = MidiSystem.getMidiDevice(deviceInfo.midiInfo());
-            if (!dev.isOpen()) {
-                dev.open();
-            }
-            Transmitter transmitter = dev.getTransmitter();
-            transmitter.setReceiver(new MidiInputReceiver());
 
-            this.activeDevice = dev;
-            this.activeTransmitter = transmitter;
-            this.activeDeviceName = deviceInfo.name();
-            LOGGER.info("MIDI-Eingangsgerät geöffnet: " + activeDeviceName);
+        // 1. Unter Linux: Bevorzuge ALSA Sequencer (`aseqdump -p <port>`), da PipeWire / snd_seq_midi
+        //    RawMIDI-Geräte unter Debian/GNOME oft exklusiv belegt und aseqdump konfliktfrei läuft.
+        if (isLinux() && deviceInfo.alsaSeqPort() != null && !deviceInfo.alsaSeqPort().isBlank()) {
+            if (openLinuxAseqdump(deviceInfo.alsaSeqPort(), deviceInfo.name())) {
+                return true;
+            }
+        }
+
+        // 2. Standard Java Sound MIDI (Primär unter Windows sowie unter Linux, falls verfügbar)
+        if (deviceInfo.midiInfo() != null) {
+            try {
+                MidiDevice dev = MidiSystem.getMidiDevice(deviceInfo.midiInfo());
+                if (!dev.isOpen()) {
+                    dev.open();
+                }
+                Transmitter transmitter = dev.getTransmitter();
+                transmitter.setReceiver(new MidiInputReceiver());
+
+                this.activeDevice = dev;
+                this.activeTransmitter = transmitter;
+                this.activeDeviceName = deviceInfo.name();
+                LOGGER.info("MIDI-Eingangsgerät (Java MIDI) geöffnet: " + activeDeviceName);
+                return true;
+            } catch (Exception e) {
+                LOGGER.log(Level.WARNING, "Java-MIDI-Gerät konnte nicht geöffnet werden (" + deviceInfo.name() + "): " + e.getMessage());
+                closeDevice();
+            }
+        }
+
+        // 3. Linux Fallback: ALSA RawMIDI über `amidi -p <hwPort> -d`
+        if (isLinux() && deviceInfo.alsaRawPort() != null && !deviceInfo.alsaRawPort().isBlank()) {
+            if (openLinuxAmidi(deviceInfo.alsaRawPort(), deviceInfo.name())) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private boolean openLinuxAseqdump(String seqPort, String displayName) {
+        try {
+            ProcessBuilder pb = new ProcessBuilder("aseqdump", "-p", seqPort);
+            pb.environment().put("LC_ALL", "C");
+            pb.redirectErrorStream(true);
+            Process proc = pb.start();
+
+            // Kurz prüfen, ob der Prozess sofort mit einem Fehler beendet wurde
+            if (!proc.isAlive() && proc.exitValue() != 0) {
+                return false;
+            }
+
+            this.activeLinuxProcess = proc;
+            this.linuxCaptureRunning = true;
+            this.activeDeviceName = displayName;
+
+            this.activeLinuxReaderThread = new Thread(() -> {
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(proc.getInputStream(), StandardCharsets.UTF_8))) {
+                    String line;
+                    while (linuxCaptureRunning && (line = reader.readLine()) != null) {
+                        parseAseqdumpLine(line);
+                    }
+                } catch (Exception e) {
+                    if (linuxCaptureRunning) {
+                        LOGGER.log(Level.FINE, "Linux aseqdump Stream beendet: " + e.getMessage());
+                    }
+                }
+            }, "Linux-MIDI-Aseqdump-" + seqPort);
+            this.activeLinuxReaderThread.setDaemon(true);
+            this.activeLinuxReaderThread.start();
+
+            LOGGER.info("MIDI-Eingangsgerät (Linux ALSA Sequencer " + seqPort + ") geöffnet: " + displayName);
             return true;
         } catch (Exception e) {
-            LOGGER.log(Level.WARNING, "Konnte MIDI-Gerät nicht öffnen (" + deviceInfo.name() + "): " + e.getMessage(), e);
+            LOGGER.log(Level.WARNING, "Konnte aseqdump für Port " + seqPort + " nicht starten: " + e.getMessage());
             closeDevice();
             return false;
         }
     }
 
+    private boolean openLinuxAmidi(String rawPort, String displayName) {
+        try {
+            ProcessBuilder pb = new ProcessBuilder("amidi", "-p", rawPort, "-d");
+            pb.environment().put("LC_ALL", "C");
+            pb.redirectErrorStream(true);
+            Process proc = pb.start();
+
+            if (!proc.isAlive() && proc.exitValue() != 0) {
+                return false;
+            }
+
+            this.activeLinuxProcess = proc;
+            this.linuxCaptureRunning = true;
+            this.activeDeviceName = displayName;
+
+            this.activeLinuxReaderThread = new Thread(() -> {
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(proc.getInputStream(), StandardCharsets.UTF_8))) {
+                    String line;
+                    while (linuxCaptureRunning && (line = reader.readLine()) != null) {
+                        parseAmidiHexLine(line);
+                    }
+                } catch (Exception e) {
+                    if (linuxCaptureRunning) {
+                        LOGGER.log(Level.FINE, "Linux amidi Stream beendet: " + e.getMessage());
+                    }
+                }
+            }, "Linux-MIDI-Amidi-" + rawPort);
+            this.activeLinuxReaderThread.setDaemon(true);
+            this.activeLinuxReaderThread.start();
+
+            LOGGER.info("MIDI-Eingangsgerät (Linux ALSA RawMIDI " + rawPort + ") geöffnet: " + displayName);
+            return true;
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING, "Konnte amidi für Port " + rawPort + " nicht starten: " + e.getMessage());
+            closeDevice();
+            return false;
+        }
+    }
+
+    /**
+     * Parst eine Ausgabezeile von `aseqdump -p <port>` unter Linux.
+     */
+    public void parseAseqdumpLine(String line) {
+        if (line == null || line.isBlank()) {
+            return;
+        }
+        Matcher mNoteOn = ASEQDUMP_NOTE_ON_PATTERN.matcher(line);
+        if (mNoteOn.find()) {
+            int ch = clampMidiChannel(Integer.parseInt(mNoteOn.group(1)));
+            int note = clampMidiData(Integer.parseInt(mNoteOn.group(2)));
+            int vel = clampMidiData(Integer.parseInt(mNoteOn.group(3)));
+            handleShortMessage(ShortMessage.NOTE_ON, ch, note, vel);
+            return;
+        }
+        Matcher mNoteOff = ASEQDUMP_NOTE_OFF_PATTERN.matcher(line);
+        if (mNoteOff.find()) {
+            int ch = clampMidiChannel(Integer.parseInt(mNoteOff.group(1)));
+            int note = clampMidiData(Integer.parseInt(mNoteOff.group(2)));
+            handleShortMessage(ShortMessage.NOTE_OFF, ch, note, 0);
+            return;
+        }
+        Matcher mCc = ASEQDUMP_CC_PATTERN.matcher(line);
+        if (mCc.find()) {
+            int ch = clampMidiChannel(Integer.parseInt(mCc.group(1)));
+            int cc = clampMidiData(Integer.parseInt(mCc.group(2)));
+            int val = clampMidiData(Integer.parseInt(mCc.group(3)));
+            handleShortMessage(ShortMessage.CONTROL_CHANGE, ch, cc, val);
+        }
+    }
+
+    /**
+     * Parst eine Hex-Zeile von `amidi -p <hw> -d` unter Linux (z. B. "90 3C 64").
+     */
+    public void parseAmidiHexLine(String line) {
+        if (line == null || line.isBlank()) {
+            return;
+        }
+        String[] tokens = line.trim().split("\\s+");
+        if (tokens.length >= 3) {
+            try {
+                int status = Integer.parseInt(tokens[0], 16) & 0xFF;
+                int data1 = clampMidiData(Integer.parseInt(tokens[1], 16));
+                int data2 = clampMidiData(Integer.parseInt(tokens[2], 16));
+                int command = status & 0xF0;
+                int channel = status & 0x0F;
+                if (command == ShortMessage.NOTE_ON || command == ShortMessage.NOTE_OFF || command == ShortMessage.CONTROL_CHANGE) {
+                    handleShortMessage(command, channel, data1, data2);
+                }
+            } catch (NumberFormatException ignored) {
+            }
+        }
+    }
+
+    private static int clampMidiChannel(int ch) {
+        return Math.max(0, Math.min(15, ch));
+    }
+
+    private static int clampMidiData(int d) {
+        return Math.max(0, Math.min(127, d));
+    }
+
     public synchronized void closeDevice() {
+        linuxCaptureRunning = false;
+        if (activeLinuxProcess != null) {
+            try {
+                activeLinuxProcess.destroy();
+                if (!activeLinuxProcess.waitFor(200, TimeUnit.MILLISECONDS)) {
+                    activeLinuxProcess.destroyForcibly();
+                }
+            } catch (Exception ignored) {
+            }
+            activeLinuxProcess = null;
+        }
+        if (activeLinuxReaderThread != null) {
+            activeLinuxReaderThread.interrupt();
+            activeLinuxReaderThread = null;
+        }
         if (activeTransmitter != null) {
             try {
                 activeTransmitter.close();
@@ -129,7 +489,10 @@ public class MidiInputService {
     }
 
     public synchronized boolean isOpen() {
-        return activeDevice != null && activeDevice.isOpen();
+        if (activeDevice != null && activeDevice.isOpen()) {
+            return true;
+        }
+        return linuxCaptureRunning && activeLinuxProcess != null && activeLinuxProcess.isAlive();
     }
 
     public String getActiveDeviceName() {
