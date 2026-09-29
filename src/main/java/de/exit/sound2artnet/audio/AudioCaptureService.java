@@ -1,5 +1,8 @@
 package de.exit.sound2artnet.audio;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import javax.sound.sampled.*;
 import java.io.File;
 import java.io.IOException;
@@ -12,7 +15,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Erfasst Audiodaten in Echtzeit über das Java Sound API (javax.sound.sampled).
+ * Erfasst Audiodaten in Echtzeit über das Java Sound API (javax.sound.sampled)
+ * oder native Desktop-Audio- und Mikrofon-Streams unter Windows und Linux.
  */
 public class AudioCaptureService {
     private static final Logger LOGGER = Logger.getLogger(AudioCaptureService.class.getName());
@@ -29,7 +33,7 @@ public class AudioCaptureService {
     private volatile boolean isRunning = false;
     private String currentDeviceName = "Standard-Eingabe";
 
-    private Process loopbackProcess;
+    private Process captureProcess;
 
     public static boolean isWindows() {
         return System.getProperty("os.name", "").toLowerCase().contains("win");
@@ -44,14 +48,34 @@ public class AudioCaptureService {
         return isWindows() || isLinux();
     }
 
+    public static boolean isLinuxAudioSupported() {
+        if (!isLinux()) return false;
+        return isCommandAvailable("pw-record")
+            || isCommandAvailable("parec")
+            || isCommandAvailable("pacat")
+            || isCommandAvailable("ffmpeg");
+    }
+
+    public static boolean isLinuxLoopbackSupported() {
+        return isLinuxAudioSupported();
+    }
+
     /**
      * Ermittelt alle verfügbaren Aufnahme-Audiogeräte.
-     * Unter Windows und Linux wird an erster Stelle der direkte PC-Sound (Loopback) angeboten.
+     * Unter Linux werden native PipeWire/PulseAudio Quellen (PC-Sound und Mikrofone) bevorzugt.
+     * Unter Windows wird an erster Stelle der direkte PC-Sound (WASAPI) angeboten.
      */
     public static List<AudioDeviceInfo> listInputDevices() {
         List<AudioDeviceInfo> devices = new ArrayList<>();
 
-        // 1. Loopback (PC-Sound) an erster Stelle anbieten (Windows oder Linux)
+        if (isLinux()) {
+            List<AudioDeviceInfo> linuxDevs = listLinuxDevices();
+            if (!linuxDevs.isEmpty()) {
+                return linuxDevs;
+            }
+        }
+
+        // 1. Loopback (PC-Sound) an erster Stelle anbieten (Windows / ALSA-Fallback)
         if (isLoopbackSupported()) {
             devices.add(AudioDeviceInfo.pcSoundLoopback());
         }
@@ -75,6 +99,87 @@ public class AudioCaptureService {
         return devices;
     }
 
+    /**
+     * Ermittelt unter Linux die nativen Audioquellen via PipeWire (pw-dump) oder PulseAudio (pactl).
+     */
+    public static List<AudioDeviceInfo> listLinuxDevices() {
+        List<AudioDeviceInfo> list = new ArrayList<>();
+        if (!isLinuxLoopbackSupported()) {
+            return list;
+        }
+
+        // 1. PC-Sound (Desktop Loopback)
+        list.add(AudioDeviceInfo.pcSoundLoopback());
+
+        // 2. Spezifische Mikrofone via PipeWire (pw-dump) ermitteln
+        boolean foundSpecific = false;
+        if (isCommandAvailable("pw-dump")) {
+            try {
+                Process p = new ProcessBuilder("pw-dump")
+                        .redirectError(ProcessBuilder.Redirect.DISCARD)
+                        .start();
+                ObjectMapper mapper = new ObjectMapper();
+                JsonNode root = mapper.readTree(p.getInputStream());
+                p.waitFor();
+                if (root != null && root.isArray()) {
+                    for (JsonNode node : root) {
+                        if ("PipeWire:Interface:Node".equals(node.path("type").asText())) {
+                            JsonNode props = node.path("info").path("props");
+                            String mediaClass = props.path("media.class").asText("");
+                            if ("Audio/Source".equalsIgnoreCase(mediaClass)) {
+                                String desc = props.path("node.description").asText("").trim();
+                                String name = props.path("node.name").asText("").trim();
+                                int id = node.path("id").asInt(0);
+                                String displayName = !desc.isBlank() ? desc : name;
+                                if (!displayName.isBlank() && !displayName.endsWith(".monitor")) {
+                                    // Bereinigen von Klammerzusätzen gemäß UI-Richtlinie
+                                    displayName = displayName.replaceAll("\\s*\\([^)]*\\)", "").trim();
+                                    if (displayName.isBlank()) {
+                                        displayName = "Mikrofon";
+                                    }
+                                    list.add(AudioDeviceInfo.linuxMicrophone(displayName, String.valueOf(id), !foundSpecific));
+                                    foundSpecific = true;
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                LOGGER.fine("pw-dump Parsing fehlgeschlagen: " + e.getMessage());
+            }
+        }
+
+        // 3. Fallback über pactl
+        if (!foundSpecific && isCommandAvailable("pactl")) {
+            try {
+                Process p = new ProcessBuilder("pactl", "list", "short", "sources")
+                        .redirectError(ProcessBuilder.Redirect.DISCARD)
+                        .start();
+                try (var reader = new java.io.BufferedReader(new java.io.InputStreamReader(p.getInputStream()))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        String[] parts = line.split("\\s+");
+                        if (parts.length >= 2) {
+                            String sourceName = parts[1];
+                            if (!sourceName.endsWith(".monitor")) {
+                                list.add(AudioDeviceInfo.linuxMicrophone("Mikrofon " + parts[0], sourceName, !foundSpecific));
+                                foundSpecific = true;
+                            }
+                        }
+                    }
+                }
+                p.waitFor();
+            } catch (Exception ignored) {}
+        }
+
+        // 4. Falls keine spezifischen Quellen benannt wurden: Standard "Mikrofon"
+        if (!foundSpecific) {
+            list.add(AudioDeviceInfo.linuxMicrophone("Mikrofon", null, true));
+        }
+
+        return list;
+    }
+
     public static void printAllAudioDevices() {
         System.out.println("=== Java Sound Audio-Geräte ===");
         Mixer.Info[] mixerInfos = AudioSystem.getMixerInfo();
@@ -96,15 +201,15 @@ public class AudioCaptureService {
     }
 
     /**
-     * Startet die Audioaufnahme mit dem angegebenen AudioDeviceInfo (unterstützt auch WASAPI / Linux Loopback).
+     * Startet die Audioaufnahme mit dem angegebenen AudioDeviceInfo (unterstützt WASAPI und Linux native Capture).
      */
     public synchronized void start(AudioDeviceInfo deviceInfo) throws Exception {
         stop();
-        if (deviceInfo != null && deviceInfo.isLoopback()) {
+        if (deviceInfo != null && isLinux() && (deviceInfo.isLoopback() || deviceInfo.isLinuxStream())) {
+            startLinuxCapture(deviceInfo);
+        } else if (deviceInfo != null && deviceInfo.isLoopback()) {
             if (isWindows()) {
                 startWasapiLoopback();
-            } else if (isLinux()) {
-                startLinuxLoopback();
             } else {
                 throw new UnsupportedOperationException("PC-Sound Loopback wird auf diesem Betriebssystem nicht unterstützt.");
             }
@@ -155,11 +260,11 @@ public class AudioCaptureService {
 
         ProcessBuilder pb = new ProcessBuilder(exe.getAbsolutePath());
         pb.redirectError(ProcessBuilder.Redirect.PIPE);
-        loopbackProcess = pb.start();
+        captureProcess = pb.start();
 
         float sampleRate = 48000.0f;
         try {
-            java.io.BufferedReader errReader = new java.io.BufferedReader(new java.io.InputStreamReader(loopbackProcess.getErrorStream()));
+            java.io.BufferedReader errReader = new java.io.BufferedReader(new java.io.InputStreamReader(captureProcess.getErrorStream()));
             String line = errReader.readLine();
             if (line != null && line.startsWith("WASAPI_READY:")) {
                 String[] parts = line.split(":");
@@ -175,7 +280,7 @@ public class AudioCaptureService {
         currentDeviceName = "PC-Sound";
         isRunning = true;
 
-        captureThread = new Thread(() -> loopbackCaptureLoop(loopbackProcess.getInputStream()), "WasapiLoopbackThread");
+        captureThread = new Thread(() -> loopbackCaptureLoop(captureProcess.getInputStream()), "WasapiLoopbackThread");
         captureThread.setDaemon(true);
         captureThread.setPriority(Thread.MAX_PRIORITY);
         captureThread.start();
@@ -183,8 +288,8 @@ public class AudioCaptureService {
         LOGGER.info("WASAPI Loopback gestartet mit Abtastrate " + sampleRate + " Hz");
     }
 
-    private void startLinuxLoopback() throws IOException {
-        List<List<String>> candidates = buildLinuxLoopbackCommands();
+    private void startLinuxCapture(AudioDeviceInfo deviceInfo) throws IOException {
+        List<List<String>> candidates = buildLinuxCommands(deviceInfo);
         if (candidates.isEmpty()) {
             throw new IOException("Kein unterstütztes Linux-Audiotool gefunden. Bitte 'pipewire-bin', 'pulseaudio-utils' oder 'ffmpeg' installieren.");
         }
@@ -193,7 +298,7 @@ public class AudioCaptureService {
         for (List<String> cmd : candidates) {
             Process proc = null;
             try {
-                LOGGER.info("Versuche Linux-Audio-Loopback mit: " + String.join(" ", cmd));
+                LOGGER.info("Versuche Linux-Audioaufnahme (" + deviceInfo.name() + ") mit: " + String.join(" ", cmd));
                 ProcessBuilder pb = new ProcessBuilder(cmd);
                 pb.redirectError(ProcessBuilder.Redirect.PIPE);
                 proc = pb.start();
@@ -203,27 +308,27 @@ public class AudioCaptureService {
                     try (var r = new java.io.BufferedReader(new java.io.InputStreamReader(p.getErrorStream()))) {
                         String line;
                         while ((line = r.readLine()) != null) {
-                            LOGGER.fine("[LinuxLoopback stderr] " + line);
+                            LOGGER.fine("[LinuxCapture stderr] " + line);
                         }
                     } catch (Exception ignored) {}
-                }, "LinuxLoopback-ErrDrainer");
+                }, "LinuxCapture-ErrDrainer");
                 errDrainer.setDaemon(true);
                 errDrainer.start();
 
                 // Kurz prüfen (120ms), ob der Prozess aktiv bleibt
                 boolean exited = proc.waitFor(120, java.util.concurrent.TimeUnit.MILLISECONDS);
                 if (!exited && proc.isAlive()) {
-                    loopbackProcess = proc;
+                    captureProcess = proc;
                     analyzer.setSampleRate(SAMPLE_RATE);
-                    currentDeviceName = "PC-Sound";
+                    currentDeviceName = deviceInfo.name();
                     isRunning = true;
 
-                    captureThread = new Thread(() -> loopbackCaptureLoop(p.getInputStream()), "LinuxLoopbackThread");
+                    captureThread = new Thread(() -> loopbackCaptureLoop(p.getInputStream()), "LinuxCaptureThread");
                     captureThread.setDaemon(true);
                     captureThread.setPriority(Thread.MAX_PRIORITY);
                     captureThread.start();
 
-                    LOGGER.info("Linux Audio-Loopback erfolgreich gestartet mit: " + cmd.get(0));
+                    LOGGER.info("Linux Audioaufnahme erfolgreich gestartet (" + currentDeviceName + ") via: " + cmd.get(0));
                     return;
                 } else {
                     int exitCode = proc.exitValue();
@@ -238,48 +343,81 @@ public class AudioCaptureService {
             }
         }
 
-        throw new IOException("Linux PC-Sound konnte nicht gestartet werden (PipeWire/PulseAudio nicht verfügbar oder Zugriff verweigert).", lastException);
+        throw new IOException("Linux Audioaufnahme (" + deviceInfo.name() + ") konnte nicht gestartet werden (PipeWire/PulseAudio nicht verfügbar oder Zugriff verweigert).", lastException);
     }
 
-    public static List<List<String>> buildLinuxLoopbackCommands() {
+    public static List<List<String>> buildLinuxCommands(AudioDeviceInfo deviceInfo) {
         List<List<String>> list = new ArrayList<>();
-        String pulseMonitor = resolvePulseDefaultMonitor();
+        boolean isLoopback = deviceInfo != null && deviceInfo.isLoopback();
+        String targetId = deviceInfo != null ? deviceInfo.linuxTargetId() : null;
 
-        // 1. PipeWire: pw-record mit @DEFAULT_MONITOR@
-        if (isCommandAvailable("pw-record")) {
-            list.add(List.of("pw-record", "--target", "@DEFAULT_MONITOR@", "--format", "s16", "--rate", "44100", "--channels", "1", "--raw", "-"));
-            if (pulseMonitor != null && !pulseMonitor.equals("@DEFAULT_MONITOR@")) {
-                list.add(List.of("pw-record", "--target", pulseMonitor, "--format", "s16", "--rate", "44100", "--channels", "1", "--raw", "-"));
+        if (isLoopback) {
+            // === PC-Sound (Desktop Sink Monitor) ===
+            // 1. PipeWire: pw-record mit stream.capture.sink=true
+            if (isCommandAvailable("pw-record")) {
+                if (targetId != null) {
+                    list.add(List.of("pw-record", "--target", targetId, "-P", "{ stream.capture.sink=true }", "--format", "s16", "--rate", "44100", "--channels", "1", "--raw", "-"));
+                }
+                list.add(List.of("pw-record", "-P", "{ stream.capture.sink=true }", "--format", "s16", "--rate", "44100", "--channels", "1", "--raw", "-"));
             }
-        }
 
-        // 2. PulseAudio: parec
-        if (isCommandAvailable("parec")) {
-            if (pulseMonitor != null && !pulseMonitor.equals("@DEFAULT_MONITOR@")) {
-                list.add(List.of("parec", "-d", pulseMonitor, "--format=s16le", "--rate=44100", "--channels=1", "--raw"));
+            // 2. PulseAudio: parec
+            String pulseMonitor = resolvePulseDefaultMonitor();
+            if (isCommandAvailable("parec")) {
+                list.add(List.of("parec", "-d", "@DEFAULT_MONITOR@", "--format=s16le", "--rate=44100", "--channels=1", "--raw"));
+                if (pulseMonitor != null && !pulseMonitor.equals("@DEFAULT_MONITOR@")) {
+                    list.add(List.of("parec", "-d", pulseMonitor, "--format=s16le", "--rate=44100", "--channels=1", "--raw"));
+                }
+                list.add(List.of("parec", "--format=s16le", "--rate=44100", "--channels=1", "--raw"));
             }
-            list.add(List.of("parec", "-d", "@DEFAULT_MONITOR@", "--format=s16le", "--rate=44100", "--channels=1", "--raw"));
-            list.add(List.of("parec", "--format=s16le", "--rate=44100", "--channels=1", "--raw"));
-        }
 
-        // 3. PulseAudio: pacat
-        if (isCommandAvailable("pacat")) {
-            if (pulseMonitor != null && !pulseMonitor.equals("@DEFAULT_MONITOR@")) {
-                list.add(List.of("pacat", "--record", "-d", pulseMonitor, "--format=s16le", "--rate=44100", "--channels=1", "--raw"));
+            // 3. PulseAudio: pacat
+            if (isCommandAvailable("pacat")) {
+                list.add(List.of("pacat", "--record", "-d", "@DEFAULT_MONITOR@", "--format=s16le", "--rate=44100", "--channels=1", "--raw"));
             }
-            list.add(List.of("pacat", "--record", "-d", "@DEFAULT_MONITOR@", "--format=s16le", "--rate=44100", "--channels=1", "--raw"));
-        }
 
-        // 4. FFmpeg als vielseitiger Fallback (unterstützt pulse und alsa)
-        if (isCommandAvailable("ffmpeg")) {
-            if (pulseMonitor != null && !pulseMonitor.equals("@DEFAULT_MONITOR@")) {
-                list.add(List.of("ffmpeg", "-nostats", "-loglevel", "error", "-f", "pulse", "-i", pulseMonitor, "-f", "s16le", "-ar", "44100", "-ac", "1", "-"));
+            // 4. FFmpeg
+            if (isCommandAvailable("ffmpeg")) {
+                list.add(List.of("ffmpeg", "-nostats", "-loglevel", "error", "-f", "pulse", "-i", "@DEFAULT_MONITOR@", "-f", "s16le", "-ar", "44100", "-ac", "1", "-"));
+                if (pulseMonitor != null && !pulseMonitor.equals("@DEFAULT_MONITOR@")) {
+                    list.add(List.of("ffmpeg", "-nostats", "-loglevel", "error", "-f", "pulse", "-i", pulseMonitor, "-f", "s16le", "-ar", "44100", "-ac", "1", "-"));
+                }
+                list.add(List.of("ffmpeg", "-nostats", "-loglevel", "error", "-f", "pulse", "-i", "default", "-f", "s16le", "-ar", "44100", "-ac", "1", "-"));
             }
-            list.add(List.of("ffmpeg", "-nostats", "-loglevel", "error", "-f", "pulse", "-i", "@DEFAULT_MONITOR@", "-f", "s16le", "-ar", "44100", "-ac", "1", "-"));
-            list.add(List.of("ffmpeg", "-nostats", "-loglevel", "error", "-f", "pulse", "-i", "default", "-f", "s16le", "-ar", "44100", "-ac", "1", "-"));
+        } else {
+            // === Mikrofon / Audio-Eingang ===
+            // 1. PipeWire: pw-record (standardmäßig Mikrofon)
+            if (isCommandAvailable("pw-record")) {
+                if (targetId != null) {
+                    list.add(List.of("pw-record", "--target", targetId, "--format", "s16", "--rate", "44100", "--channels", "1", "--raw", "-"));
+                }
+                list.add(List.of("pw-record", "--format", "s16", "--rate", "44100", "--channels", "1", "--raw", "-"));
+            }
+
+            // 2. PulseAudio: parec
+            if (isCommandAvailable("parec")) {
+                if (targetId != null) {
+                    list.add(List.of("parec", "-d", targetId, "--format=s16le", "--rate=44100", "--channels=1", "--raw"));
+                }
+                list.add(List.of("parec", "--format=s16le", "--rate=44100", "--channels=1", "--raw"));
+            }
+
+            // 3. PulseAudio: pacat
+            if (isCommandAvailable("pacat")) {
+                list.add(List.of("pacat", "--record", "--format=s16le", "--rate=44100", "--channels=1", "--raw"));
+            }
+
+            // 4. FFmpeg
+            if (isCommandAvailable("ffmpeg")) {
+                list.add(List.of("ffmpeg", "-nostats", "-loglevel", "error", "-f", "pulse", "-i", "default", "-f", "s16le", "-ar", "44100", "-ac", "1", "-"));
+            }
         }
 
         return list;
+    }
+
+    public static List<List<String>> buildLinuxLoopbackCommands() {
+        return buildLinuxCommands(AudioDeviceInfo.pcSoundLoopback());
     }
 
     public static boolean isCommandAvailable(String cmd) {
@@ -382,7 +520,7 @@ public class AudioCaptureService {
         int leftoverByte = -1;
 
         try {
-            while (isRunning && loopbackProcess != null && loopbackProcess.isAlive()) {
+            while (isRunning && captureProcess != null && captureProcess.isAlive()) {
                 int bytesRead = in.read(byteBuffer, 0, byteBuffer.length);
                 if (bytesRead <= 0) {
                     if (bytesRead == -1) break;
@@ -425,7 +563,7 @@ public class AudioCaptureService {
             }
         } catch (Exception e) {
             if (isRunning) {
-                LOGGER.log(Level.WARNING, "Fehler beim Lesen des Loopback-Streams: " + e.getMessage());
+                LOGGER.log(Level.WARNING, "Fehler beim Lesen des Audio-Streams: " + e.getMessage());
             }
         }
     }
@@ -433,16 +571,16 @@ public class AudioCaptureService {
     public synchronized void stop() {
         isRunning = false;
 
-        if (loopbackProcess != null) {
+        if (captureProcess != null) {
             try {
-                loopbackProcess.getOutputStream().close();
-                loopbackProcess.destroy();
-                loopbackProcess.waitFor(500, java.util.concurrent.TimeUnit.MILLISECONDS);
-                if (loopbackProcess.isAlive()) {
-                    loopbackProcess.destroyForcibly();
+                captureProcess.getOutputStream().close();
+                captureProcess.destroy();
+                captureProcess.waitFor(500, java.util.concurrent.TimeUnit.MILLISECONDS);
+                if (captureProcess.isAlive()) {
+                    captureProcess.destroyForcibly();
                 }
             } catch (Exception ignored) {}
-            loopbackProcess = null;
+            captureProcess = null;
         }
 
         if (targetLine != null) {
@@ -494,7 +632,7 @@ public class AudioCaptureService {
     }
 
     public boolean isRunning() {
-        return isRunning && ((targetLine != null && targetLine.isOpen()) || (loopbackProcess != null && loopbackProcess.isAlive()));
+        return isRunning && ((targetLine != null && targetLine.isOpen()) || (captureProcess != null && captureProcess.isAlive()));
     }
 
     public AudioSpectrumAnalyzer getAnalyzer() {

@@ -23,6 +23,18 @@ public class AudioDeviceInfoTest {
     }
 
     @Test
+    void testLinuxMicrophoneDeviceInfo() {
+        AudioDeviceInfo dev = AudioDeviceInfo.linuxMicrophone("Mikrofon", "42", true);
+        assertNotNull(dev);
+        assertEquals("Mikrofon", dev.name());
+        assertEquals("Mikrofon", dev.toString());
+        assertFalse(dev.isLoopback());
+        assertTrue(dev.isDefault());
+        assertEquals("42", dev.linuxTargetId());
+        assertNull(dev.mixerInfo());
+    }
+
+    @Test
     void testLoopbackSupportedOnCurrentOs() {
         boolean supported = AudioCaptureService.isLoopbackSupported();
         String os = System.getProperty("os.name", "").toLowerCase();
@@ -44,14 +56,37 @@ public class AudioDeviceInfoTest {
 
     @Test
     void testBuildLinuxLoopbackCommandsSyntax() {
-        // Syntax- und Formatvalidierung der Linux-Befehlsgenerierung
-        List<List<String>> commands = AudioCaptureService.buildLinuxLoopbackCommands();
+        // Syntax- und Formatvalidierung der Linux-Befehlsgenerierung für PC-Sound
+        List<List<String>> commands = AudioCaptureService.buildLinuxCommands(AudioDeviceInfo.pcSoundLoopback());
         assertNotNull(commands);
         for (List<String> cmd : commands) {
             assertFalse(cmd.isEmpty());
             String tool = cmd.get(0);
             assertTrue(List.of("pw-record", "parec", "pacat", "ffmpeg").contains(tool),
                     "Tool sollte eines der bekannten Linux-Audiowerkzeuge sein: " + tool);
+            if ("pw-record".equals(tool)) {
+                // PipeWire Loopback muss stream.capture.sink=true enthalten
+                assertTrue(cmd.contains("{ stream.capture.sink=true }"),
+                        "pw-record für PC-Sound muss stream.capture.sink=true enthalten");
+            }
+        }
+    }
+
+    @Test
+    void testBuildLinuxMicrophoneCommandsSyntax() {
+        // Syntax- und Formatvalidierung für Mikrofon
+        AudioDeviceInfo mic = AudioDeviceInfo.linuxMicrophone("Mikrofon", null, true);
+        List<List<String>> commands = AudioCaptureService.buildLinuxCommands(mic);
+        assertNotNull(commands);
+        for (List<String> cmd : commands) {
+            assertFalse(cmd.isEmpty());
+            String tool = cmd.get(0);
+            assertTrue(List.of("pw-record", "parec", "pacat", "ffmpeg").contains(tool));
+            if ("pw-record".equals(tool)) {
+                // Mikrofon darf NICHT stream.capture.sink=true enthalten (sonst wird Sink statt Mic aufgenommen)
+                assertFalse(cmd.contains("{ stream.capture.sink=true }"),
+                        "pw-record für Mikrofon darf stream.capture.sink=true nicht enthalten");
+            }
         }
     }
 

@@ -10,10 +10,15 @@ public record AudioDeviceInfo(
     String description,
     Mixer.Info mixerInfo,
     boolean isDefault,
-    boolean isLoopback
+    boolean isLoopback,
+    String linuxTargetId
 ) {
     public AudioDeviceInfo(String name, String description, Mixer.Info mixerInfo, boolean isDefault) {
-        this(name, description, mixerInfo, isDefault, false);
+        this(name, description, mixerInfo, isDefault, false, null);
+    }
+
+    public AudioDeviceInfo(String name, String description, Mixer.Info mixerInfo, boolean isDefault, boolean isLoopback) {
+        this(name, description, mixerInfo, isDefault, isLoopback, null);
     }
 
     public static AudioDeviceInfo pcSoundLoopback() {
@@ -22,8 +27,24 @@ public record AudioDeviceInfo(
             "Direkter PC-Sound",
             null,
             false,
-            true
+            true,
+            null
         );
+    }
+
+    public static AudioDeviceInfo linuxMicrophone(String name, String targetId, boolean isDefault) {
+        return new AudioDeviceInfo(
+            name,
+            "Mikrofon (" + name + ")",
+            null,
+            isDefault,
+            false,
+            targetId
+        );
+    }
+
+    public boolean isLinuxStream() {
+        return linuxTargetId != null || (mixerInfo == null && !isLoopback && AudioCaptureService.isLinux());
     }
 
     @Override
