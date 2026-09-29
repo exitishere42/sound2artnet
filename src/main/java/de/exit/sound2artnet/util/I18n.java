@@ -355,6 +355,8 @@ public class I18n {
         EN.put("palette.rainbow", "Rainbow");
         DE.put("palette.monochrome_teal", "Material Teal");
         EN.put("palette.monochrome_teal", "Material Teal");
+        DE.put("palette.trippin", "TRIPPIN");
+        EN.put("palette.trippin", "TRIPPIN");
 
         // --- Visualizer ---
         DE.put("visualizer.title", "DMX512 KANÄLE (1 - 512)");

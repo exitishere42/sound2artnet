@@ -22,6 +22,10 @@ public class ColorEngine {
         }),
         MONOCHROME_TEAL("Material Teal", new Color[]{
             Color.web("#03DAC6"), Color.web("#00E5FF"), Color.web("#00FF9A"), Color.web("#80DEEA")
+        }),
+        TRIPPIN("TRIPPIN", new Color[]{
+            Color.web("#FF5500"), Color.web("#FF006E"), Color.web("#8338EC"),
+            Color.web("#FFB703"), Color.web("#3A86FF"), Color.web("#FB5607")
         });
 
         private final String defaultDisplayName;
@@ -181,13 +185,13 @@ public class ColorEngine {
         double g = c.getGreen();
         double b = c.getBlue();
 
+        if (r > 0.7 && g >= 0.25 && g <= 0.55 && b < 0.2) return 200; // Orange
         if (r > 0.6 && g < 0.3 && b < 0.3) return 20;  // Rot
         if (r < 0.3 && g < 0.3 && b > 0.6) return 50;  // Blau
         if (r < 0.3 && g > 0.6 && b < 0.3) return 80;  // Grün
-        if (r > 0.6 && g > 0.6 && b < 0.3) return 110; // Gelb
-        if (r > 0.6 && g < 0.3 && b > 0.6) return 140; // Magenta
-        if (r < 0.3 && g > 0.6 && b > 0.6) return 170; // Cyan
-        if (r > 0.7 && g > 0.4 && b < 0.2) return 200; // Orange
+        if (r > 0.6 && g > 0.6 && b < 0.3) return 110; // Gelb / Amber
+        if (r > 0.45 && g < 0.35 && b > 0.4) return 140; // Magenta / Violett
+        if (r < 0.35 && g > 0.45 && b > 0.6) return 170; // Cyan / Electric Blue
         return 0; // Offen / Weiß
     }
 }
