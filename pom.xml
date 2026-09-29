@@ -7,7 +7,7 @@
 
     <groupId>de.exit.sound2artnet</groupId>
     <artifactId>sound2artnet</artifactId>
-    <version>1.4.2</version>
+    <version>1.4.3</version>
     <packaging>jar</packaging>
 
     <name>sound2artnet</name>

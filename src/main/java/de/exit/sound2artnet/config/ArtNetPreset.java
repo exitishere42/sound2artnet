@@ -35,6 +35,7 @@ public class ArtNetPreset {
     private double movementSize;
     private Sound2LightEngine.DimmerMode dimmerMode;
     private double alwaysOnIntensity = 1.0;
+    private double audioLevelMax = 1.0;
     private ColorEngine.Palette colorPalette;
     private boolean movementEnabled;
     private boolean lightEnabled;
@@ -55,6 +56,7 @@ public class ArtNetPreset {
         this.movementSize = 0.8;
         this.dimmerMode = Sound2LightEngine.DimmerMode.AUDIO_LEVEL;
         this.alwaysOnIntensity = 1.0;
+        this.audioLevelMax = 1.0;
         this.colorPalette = ColorEngine.Palette.CLUB_NEON;
         this.movementEnabled = true;
         this.lightEnabled = true;
@@ -76,6 +78,7 @@ public class ArtNetPreset {
             @JsonProperty("movementSize") double movementSize,
             @JsonProperty("dimmerMode") Sound2LightEngine.DimmerMode dimmerMode,
             @JsonProperty("alwaysOnIntensity") Double alwaysOnIntensity,
+            @JsonProperty("audioLevelMax") Double audioLevelMax,
             @JsonProperty("colorPalette") ColorEngine.Palette colorPalette,
             @JsonProperty("movementEnabled") Boolean movementEnabled,
             @JsonProperty("lightEnabled") Boolean lightEnabled,
@@ -93,6 +96,7 @@ public class ArtNetPreset {
         this.movementSize = movementSize > 0 ? movementSize : 0.8;
         this.dimmerMode = dimmerMode != null ? dimmerMode : Sound2LightEngine.DimmerMode.AUDIO_LEVEL;
         this.alwaysOnIntensity = alwaysOnIntensity != null ? Math.max(0.0, Math.min(1.0, alwaysOnIntensity)) : 1.0;
+        this.audioLevelMax = audioLevelMax != null ? Math.max(0.0, Math.min(1.0, audioLevelMax)) : 1.0;
         this.colorPalette = colorPalette != null ? colorPalette : ColorEngine.Palette.CLUB_NEON;
         this.movementEnabled = movementEnabled != null ? movementEnabled : true;
         this.lightEnabled = lightEnabled != null ? lightEnabled : true;
@@ -153,6 +157,9 @@ public class ArtNetPreset {
 
     public double getAlwaysOnIntensity() { return alwaysOnIntensity; }
     public void setAlwaysOnIntensity(double alwaysOnIntensity) { this.alwaysOnIntensity = Math.max(0.0, Math.min(1.0, alwaysOnIntensity)); }
+
+    public double getAudioLevelMax() { return audioLevelMax; }
+    public void setAudioLevelMax(double audioLevelMax) { this.audioLevelMax = Math.max(0.0, Math.min(1.0, audioLevelMax)); }
 
     public ColorEngine.Palette getColorPalette() { return colorPalette; }
     public void setColorPalette(ColorEngine.Palette colorPalette) { this.colorPalette = colorPalette; }

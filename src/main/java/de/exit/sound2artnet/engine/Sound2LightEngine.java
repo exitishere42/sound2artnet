@@ -89,11 +89,13 @@ public class Sound2LightEngine {
     private boolean lightEnabled = true;
     private boolean strobeEnabled = true;
     private double alwaysOnIntensity = 1.0;
+    private double audioLevelMax = 1.0;
     private volatile boolean lastTickBeat = false;
     private volatile double currentBpm = 0.0;
     private volatile SpeedTier currentSpeedTier = SpeedTier.IDLE;
     private Double manualBpmOverride = null;
     private Boolean manualBeatOverride = null;
+    private Double manualRmsOverride = null;
     private double beatDimmer = 0.0;
     private long lastTickTime = System.nanoTime();
 
@@ -138,6 +140,9 @@ public class Sound2LightEngine {
             isBeat = manualBeatOverride;
             manualBeatOverride = null;
         }
+        if (manualRmsOverride != null) {
+            rms = manualRmsOverride;
+        }
 
         this.lastTickBeat = isBeat;
         this.currentBpm = detectedBpm;
@@ -177,7 +182,7 @@ public class Sound2LightEngine {
                 case BEAT_PULSE -> masterDimmerVal = (int) Math.round(beatDimmer * 255);
                 case ALWAYS_ON -> masterDimmerVal = (int) Math.round(alwaysOnIntensity * 255);
                 case AUDIO_LEVEL -> {
-                    double val = Math.min(1.0, rms * 3.5);
+                    double val = Math.min(1.0, rms * 3.5) * audioLevelMax;
                     masterDimmerVal = (int) Math.round(val * 255);
                 }
                 default -> masterDimmerVal = (int) Math.round(alwaysOnIntensity * 255);
@@ -339,11 +344,23 @@ public class Sound2LightEngine {
         this.manualBeatOverride = beat;
     }
 
+    public void setSimulatedRms(Double rms) {
+        this.manualRmsOverride = rms;
+    }
+
     public double getAlwaysOnIntensity() {
         return alwaysOnIntensity;
     }
 
     public void setAlwaysOnIntensity(double alwaysOnIntensity) {
         this.alwaysOnIntensity = Math.max(0.0, Math.min(1.0, alwaysOnIntensity));
+    }
+
+    public double getAudioLevelMax() {
+        return audioLevelMax;
+    }
+
+    public void setAudioLevelMax(double audioLevelMax) {
+        this.audioLevelMax = Math.max(0.0, Math.min(1.0, audioLevelMax));
     }
 }

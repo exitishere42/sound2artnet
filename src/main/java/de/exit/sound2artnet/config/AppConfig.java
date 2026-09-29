@@ -35,6 +35,7 @@ public class AppConfig {
     private List<ArtNetPreset> presets = new ArrayList<>();
     private String activePresetId = null;
     private double alwaysOnIntensity = 1.0;
+    private double audioLevelMax = 1.0;
     private boolean autostart = false;
     private String language = "de";
 
@@ -94,6 +95,11 @@ public class AppConfig {
         this.alwaysOnIntensity = Math.max(0.0, Math.min(1.0, alwaysOnIntensity));
     }
 
+    public double getAudioLevelMax() { return audioLevelMax; }
+    public void setAudioLevelMax(double audioLevelMax) {
+        this.audioLevelMax = Math.max(0.0, Math.min(1.0, audioLevelMax));
+    }
+
     public ColorEngine.Palette getColorPalette() { return colorPalette; }
     public void setColorPalette(ColorEngine.Palette colorPalette) { this.colorPalette = colorPalette; }
 
@@ -130,6 +136,7 @@ public class AppConfig {
                     this.movementSize,
                     this.dimmerMode,
                     this.alwaysOnIntensity,
+                    this.audioLevelMax,
                     this.colorPalette,
                     this.movementEnabled,
                     this.lightEnabled,

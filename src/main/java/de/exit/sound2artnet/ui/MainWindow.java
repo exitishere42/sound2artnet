@@ -162,6 +162,10 @@ public class MainWindow extends StackPane {
     private Label lblAlwaysOnTitle;
     private Slider slAlwaysOnIntensity;
     private Label lblAlwaysOnVal;
+    private HBox audioLevelBox;
+    private Label lblAudioLevelMaxTitle;
+    private Slider slAudioLevelMax;
+    private Label lblAudioLevelMaxVal;
     private Label lblPal;
     private ComboBox<ColorEngine.Palette> cbPalette;
 
@@ -196,6 +200,7 @@ public class MainWindow extends StackPane {
         showEngine.setMovementPattern(config.getMovementPattern());
         showEngine.setDimmerMode(config.getDimmerMode());
         showEngine.setAlwaysOnIntensity(config.getAlwaysOnIntensity());
+        showEngine.setAudioLevelMax(config.getAudioLevelMax());
         showEngine.getColorEngine().setPalette(config.getColorPalette());
         showEngine.getMovementGenerator().setCurrentSpeed(config.getMovementSpeed());
         showEngine.getMovementGenerator().setBaseAmplitude(config.getMovementSize());
@@ -831,22 +836,51 @@ public class MainWindow extends StackPane {
 
         alwaysOnBox.getChildren().addAll(lblAlwaysOnTitle, slAlwaysOnIntensity, lblAlwaysOnVal);
 
-        Runnable updateAlwaysOnVisibility = () -> {
+        audioLevelBox = new HBox(8);
+        audioLevelBox.setAlignment(Pos.CENTER_LEFT);
+        audioLevelBox.setPadding(new Insets(2, 0, 0, 0));
+
+        lblAudioLevelMaxTitle = new Label(I18n.get("engine.max_level") + ":");
+        lblAudioLevelMaxTitle.setTextFill(MaterialTheme.COLOR_TEXT_MED);
+        lblAudioLevelMaxTitle.setFont(Font.font("Segoe UI", FontWeight.BOLD, 10));
+        lblAudioLevelMaxTitle.setMinWidth(65);
+
+        slAudioLevelMax = new Slider(0.0, 1.0, config.getAudioLevelMax());
+        HBox.setHgrow(slAudioLevelMax, Priority.ALWAYS);
+        lblAudioLevelMaxVal = new Label(String.format("%.0f%%", slAudioLevelMax.getValue() * 100));
+        lblAudioLevelMaxVal.setMinWidth(40);
+        lblAudioLevelMaxVal.setTextFill(MaterialTheme.COLOR_TEXT_HIGH);
+
+        slAudioLevelMax.valueProperty().addListener((obs, o, n) -> {
+            showEngine.setAudioLevelMax(n.doubleValue());
+            lblAudioLevelMaxVal.setText(String.format("%.0f%%", n.doubleValue() * 100));
+            autoSaveConfig();
+        });
+
+        audioLevelBox.getChildren().addAll(lblAudioLevelMaxTitle, slAudioLevelMax, lblAudioLevelMaxVal);
+
+        Runnable updateDimmerControlsVisibility = () -> {
             boolean isAlwaysOn = cbDimmerMode.getValue() == Sound2LightEngine.DimmerMode.ALWAYS_ON;
+            boolean isAudioLevel = cbDimmerMode.getValue() == Sound2LightEngine.DimmerMode.AUDIO_LEVEL;
             boolean lgt = chkLightEnabled.isSelected();
+
             alwaysOnBox.setVisible(isAlwaysOn);
             alwaysOnBox.setManaged(isAlwaysOn);
             slAlwaysOnIntensity.setDisable(!lgt);
+
+            audioLevelBox.setVisible(isAudioLevel);
+            audioLevelBox.setManaged(isAudioLevel);
+            slAudioLevelMax.setDisable(!lgt);
         };
 
         cbDimmerMode.setOnAction(e -> {
             showEngine.setDimmerMode(cbDimmerMode.getValue());
-            updateAlwaysOnVisibility.run();
+            updateDimmerControlsVisibility.run();
             autoSaveConfig();
         });
 
-        dimmerBox.getChildren().addAll(cbDimmerMode, alwaysOnBox);
-        updateAlwaysOnVisibility.run();
+        dimmerBox.getChildren().addAll(cbDimmerMode, alwaysOnBox, audioLevelBox);
+        updateDimmerControlsVisibility.run();
 
         // 7. Farbpalette
         lblPal = new Label(I18n.get("engine.color_palette"));
@@ -869,9 +903,10 @@ public class MainWindow extends StackPane {
             slAmplitude.setDisable(!mov);
             cbDimmerMode.setDisable(!lgt);
             slAlwaysOnIntensity.setDisable(!lgt);
+            slAudioLevelMax.setDisable(!lgt);
             cbPalette.setDisable(!lgt);
             chkStrobeEnabled.setDisable(!lgt);
-            updateAlwaysOnVisibility.run();
+            updateDimmerControlsVisibility.run();
         };
         updateDisabledStates.run();
 
@@ -1088,6 +1123,10 @@ public class MainWindow extends StackPane {
             slAlwaysOnIntensity.setValue(preset.getAlwaysOnIntensity());
             showEngine.setAlwaysOnIntensity(preset.getAlwaysOnIntensity());
         }
+        if (slAudioLevelMax != null) {
+            slAudioLevelMax.setValue(preset.getAudioLevelMax());
+            showEngine.setAudioLevelMax(preset.getAudioLevelMax());
+        }
         if (preset.getColorPalette() != null) {
             cbPalette.setValue(preset.getColorPalette());
             showEngine.getColorEngine().setPalette(preset.getColorPalette());
@@ -1136,6 +1175,7 @@ public class MainWindow extends StackPane {
         sel.setMovementSize(slAmplitude.getValue());
         sel.setDimmerMode(cbDimmerMode.getValue());
         sel.setAlwaysOnIntensity(slAlwaysOnIntensity != null ? slAlwaysOnIntensity.getValue() : 1.0);
+        sel.setAudioLevelMax(slAudioLevelMax != null ? slAudioLevelMax.getValue() : 1.0);
         sel.setColorPalette(cbPalette.getValue());
         sel.setMovementEnabled(chkMovementEnabled != null && chkMovementEnabled.isSelected());
         sel.setLightEnabled(chkLightEnabled != null && chkLightEnabled.isSelected());
@@ -1227,6 +1267,7 @@ public class MainWindow extends StackPane {
                     slAmplitude.getValue(),
                     cbDimmerMode.getValue(),
                     slAlwaysOnIntensity != null ? slAlwaysOnIntensity.getValue() : 1.0,
+                    slAudioLevelMax != null ? slAudioLevelMax.getValue() : 1.0,
                     cbPalette.getValue(),
                     chkMovementEnabled != null && chkMovementEnabled.isSelected(),
                     chkLightEnabled != null && chkLightEnabled.isSelected(),
@@ -1472,6 +1513,9 @@ public class MainWindow extends StackPane {
         }
         if (lblAlwaysOnTitle != null) {
             lblAlwaysOnTitle.setText(I18n.get("engine.intensity") + ":");
+        }
+        if (lblAudioLevelMaxTitle != null) {
+            lblAudioLevelMaxTitle.setText(I18n.get("engine.max_level") + ":");
         }
 
         // 7. Visualizer
@@ -1968,6 +2012,9 @@ public class MainWindow extends StackPane {
         config.setDimmerMode(cbDimmerMode.getValue());
         if (slAlwaysOnIntensity != null) {
             config.setAlwaysOnIntensity(slAlwaysOnIntensity.getValue());
+        }
+        if (slAudioLevelMax != null) {
+            config.setAudioLevelMax(slAudioLevelMax.getValue());
         }
         config.setColorPalette(cbPalette.getValue());
         config.setFixtures(new ArrayList<>(patchList));

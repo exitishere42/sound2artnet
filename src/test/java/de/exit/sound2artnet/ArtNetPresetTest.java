@@ -68,6 +68,7 @@ public class ArtNetPresetTest {
                 0.8,
                 Sound2LightEngine.DimmerMode.ALWAYS_ON,
                 0.75,
+                1.0,
                 ColorEngine.Palette.CLUB_NEON,
                 true,
                 true,
@@ -135,6 +136,7 @@ public class ArtNetPresetTest {
                 0.7,
                 Sound2LightEngine.DimmerMode.AUDIO_LEVEL,
                 1.0,
+                0.85,
                 ColorEngine.Palette.CLUB_NEON,
                 true,
                 true,
@@ -155,6 +157,7 @@ public class ArtNetPresetTest {
                 0.9,
                 Sound2LightEngine.DimmerMode.ALWAYS_ON,
                 0.60,
+                0.70,
                 ColorEngine.Palette.FIRE_AND_ICE,
                 true,
                 true,
@@ -185,6 +188,7 @@ public class ArtNetPresetTest {
         assertEquals(1, loadedP2.getFixtures().size());
         assertEquals("Beam 1", loadedP2.getFixtures().get(0).getName());
         assertEquals(0.60, loadedP2.getAlwaysOnIntensity(), 0.001);
+        assertEquals(0.70, loadedP2.getAudioLevelMax(), 0.001);
     }
 
     @Test
@@ -227,5 +231,42 @@ public class ArtNetPresetTest {
         engine.tick();
         byte[] frame0 = engine.getCurrentDmxFrame();
         assertEquals((byte) 0, frame0[6]);
+    }
+
+    @Test
+    public void testSound2LightEngineAudioLevelMax() {
+        Sound2LightEngine engine = new Sound2LightEngine(null, null);
+        FixturePatch spot = new FixturePatch("Spot 1", 1, FixtureLibrary.createGeneric9chSpot());
+        engine.setPatchedFixtures(List.of(spot));
+        engine.setDimmerMode(Sound2LightEngine.DimmerMode.AUDIO_LEVEL);
+
+        // Voller Audiopegel (rms = 1.0 -> Math.min(1.0, 3.5) = 1.0)
+        engine.setSimulatedRms(1.0);
+
+        // Max Level 100% -> Dimmer = 255
+        engine.setAudioLevelMax(1.0);
+        engine.tick();
+        byte[] frame100 = engine.getCurrentDmxFrame();
+        assertEquals((byte) 255, frame100[6]);
+
+        // Max Level 50% -> Dimmer = 128
+        engine.setAudioLevelMax(0.5);
+        engine.tick();
+        byte[] frame50 = engine.getCurrentDmxFrame();
+        assertEquals((byte) 128, frame50[6]);
+
+        // Max Level 0% -> Dimmer = 0
+        engine.setAudioLevelMax(0.0);
+        engine.tick();
+        byte[] frame0 = engine.getCurrentDmxFrame();
+        assertEquals((byte) 0, frame0[6]);
+
+        // Mittlerer Audiopegel (rms = 0.142857 -> rms * 3.5 = 0.5)
+        engine.setSimulatedRms(0.142857);
+        // Bei Max Level 80% -> 0.5 * 0.8 = 0.4 -> 0.4 * 255 = 102
+        engine.setAudioLevelMax(0.8);
+        engine.tick();
+        byte[] frameMid = engine.getCurrentDmxFrame();
+        assertEquals((byte) 102, frameMid[6]);
     }
 }
