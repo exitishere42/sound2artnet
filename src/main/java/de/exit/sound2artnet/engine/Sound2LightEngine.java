@@ -97,6 +97,7 @@ public class Sound2LightEngine {
     private Boolean manualBeatOverride = null;
     private Double manualRmsOverride = null;
     private double beatDimmer = 0.0;
+    private boolean wasBeatHeld = false;
     private long lastTickTime = System.nanoTime();
 
     public Sound2LightEngine(AudioCaptureService audioCapture, ArtNetSender artNetSender) {
@@ -120,6 +121,7 @@ public class Sound2LightEngine {
         double bass = 0.0;
         double treble = 0.0;
         boolean isBeat = false;
+        boolean isBeatHeld = false;
         double detectedBpm = 0.0;
         boolean isManualMode = false;
 
@@ -127,6 +129,7 @@ public class Sound2LightEngine {
             var analyzer = audioCapture.getAnalyzer();
             var bd = analyzer.getBeatDetector();
             isManualMode = (bd.getDetectionMode() == de.exit.sound2artnet.audio.BeatDetector.DetectionMode.MANUAL);
+            isBeatHeld = bd.isManualBeatHeld();
             if (audioCapture.isRunning()) {
                 rms = analyzer.getRmsLevel();
                 double[] bands = analyzer.getBandLevels();
@@ -151,13 +154,17 @@ public class Sound2LightEngine {
             rms = manualRmsOverride;
         }
 
-        this.lastTickBeat = isBeat;
+        this.lastTickBeat = isBeat || isBeatHeld;
         this.currentBpm = detectedBpm;
         this.currentSpeedTier = SpeedTier.fromBpm(detectedBpm);
 
-        // 2. Dimmer Beat Flash aktualisieren (Abklingrate passt sich an BPM-Stufe an)
-        if (isBeat) {
+        // 2. Dimmer Beat Flash aktualisieren (hält exakt solange die MIDI-/Beat-Taste gedrückt bleibt)
+        if (isBeat || isBeatHeld) {
             beatDimmer = 1.0;
+        } else if (wasBeatHeld) {
+            // Sobald die gehaltene MIDI-/Beat-Taste losgelassen wird, endet der gehaltene Beat sofort
+            beatDimmer = 0.0;
+            colorEngine.stopStrobeBurst();
         } else {
             double dimmerDecay = switch (currentSpeedTier) {
                 case IDLE, SLOW -> 2.6;
@@ -167,14 +174,15 @@ public class Sound2LightEngine {
             };
             beatDimmer = Math.max(0.0, beatDimmer - (deltaSeconds * dimmerDecay));
         }
+        wasBeatHeld = isBeatHeld;
 
         // 3. Movement & Color Engine updaten (mit aktueller BPM und Geschwindigkeits-Stufe)
-        double effectiveRms = (isManualMode && rms < 0.02) ? beatDimmer * 0.6 : rms;
+        double effectiveRms = (isManualMode && (rms < 0.02 || isBeatHeld)) ? Math.max(rms, beatDimmer * 0.65) : rms;
         if (movementEnabled) {
             movementGenerator.update(isBeat, effectiveRms, currentBpm, currentSpeedTier, deltaSeconds);
         }
         if (lightEnabled) {
-            colorEngine.update(isBeat, treble, currentBpm, currentSpeedTier, strobeEnabled, deltaSeconds);
+            colorEngine.update(isBeat, isBeatHeld, treble, currentBpm, currentSpeedTier, strobeEnabled, deltaSeconds);
         }
 
         // 4. DMX512 Frame generieren
@@ -190,7 +198,9 @@ public class Sound2LightEngine {
                 case BEAT_PULSE -> masterDimmerVal = (int) Math.round(beatDimmer * 255);
                 case ALWAYS_ON -> masterDimmerVal = (int) Math.round(alwaysOnIntensity * 255);
                 case AUDIO_LEVEL -> {
-                    double baseLevel = (isManualMode && rms < 0.02) ? beatDimmer : Math.min(1.0, rms * 3.5);
+                    double baseLevel = (isBeatHeld || (isManualMode && rms < 0.02))
+                            ? beatDimmer
+                            : Math.min(1.0, rms * 3.5);
                     double val = baseLevel * audioLevelMax;
                     masterDimmerVal = (int) Math.round(val * 255);
                 }

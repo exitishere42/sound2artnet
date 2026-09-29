@@ -68,8 +68,12 @@ public class MidiInputService {
 
     private volatile boolean learning = false;
     private final boolean[] ccHighState = new boolean[128];
+    private final boolean[] heldNotes = new boolean[16 * 128];
+    private final boolean[] heldCcs = new boolean[16 * 128];
+    private volatile boolean beatHeld = false;
 
     private Runnable onBeatTrigger;
+    private Consumer<Boolean> onBeatHoldChange;
     private Consumer<MidiEventInfo> onMidiEvent;
     private Runnable onLearnComplete;
 
@@ -486,6 +490,7 @@ public class MidiInputService {
             activeDevice = null;
         }
         activeDeviceName = "";
+        resetHeldState();
     }
 
     public synchronized boolean isOpen() {
@@ -503,6 +508,7 @@ public class MidiInputService {
         this.boundType = (type != null && !type.isBlank()) ? type : "ANY";
         this.boundChannel = channel;
         this.boundData1 = data1;
+        updateBeatHeldState();
     }
 
     public void clearBinding() {
@@ -510,6 +516,7 @@ public class MidiInputService {
         this.boundChannel = -1;
         this.boundData1 = -1;
         this.learning = false;
+        resetHeldState();
     }
 
     public String getBoundType() {
@@ -532,8 +539,16 @@ public class MidiInputService {
         this.learning = learning;
     }
 
+    public boolean isBeatHeld() {
+        return beatHeld;
+    }
+
     public void setOnBeatTrigger(Runnable onBeatTrigger) {
         this.onBeatTrigger = onBeatTrigger;
+    }
+
+    public void setOnBeatHoldChange(Consumer<Boolean> onBeatHoldChange) {
+        this.onBeatHoldChange = onBeatHoldChange;
     }
 
     public void setOnMidiEvent(Consumer<MidiEventInfo> onMidiEvent) {
@@ -566,19 +581,68 @@ public class MidiInputService {
 
     /**
      * Verarbeitet eine eingehende MIDI-Kurzmitteilung (sowohl für echte Hardware als auch für Tests).
+     * Unterstützt sowohl kurzen Anschlag als auch langes Gedrückthalten (Note On -> Note Off / Vel 0, CC >= 64 -> CC < 64).
      */
-    public void handleShortMessage(int command, int channel, int data1, int data2) {
-        if (command == ShortMessage.NOTE_ON && data2 > 0) {
-            processIncomingTrigger("NOTE", channel, data1, data2);
+    public synchronized void handleShortMessage(int command, int channel, int data1, int data2) {
+        int ch = clampMidiChannel(channel);
+        int d1 = clampMidiData(data1);
+        int d2 = clampMidiData(data2);
+        int idx = ch * 128 + d1;
+
+        if (command == ShortMessage.NOTE_ON && d2 > 0) {
+            heldNotes[idx] = true;
+            processIncomingTrigger("NOTE", ch, d1, d2);
+            updateBeatHeldState();
+        } else if (command == ShortMessage.NOTE_OFF || (command == ShortMessage.NOTE_ON && d2 == 0)) {
+            heldNotes[idx] = false;
+            updateBeatHeldState();
         } else if (command == ShortMessage.CONTROL_CHANGE) {
-            int ccIdx = Math.max(0, Math.min(127, data1));
-            if (data2 >= 64) {
-                if (!ccHighState[ccIdx]) {
-                    ccHighState[ccIdx] = true;
-                    processIncomingTrigger("CC", channel, data1, data2);
+            if (d2 >= 64) {
+                heldCcs[idx] = true;
+                if (!ccHighState[d1]) {
+                    ccHighState[d1] = true;
+                    processIncomingTrigger("CC", ch, d1, d2);
                 }
+                updateBeatHeldState();
             } else {
-                ccHighState[ccIdx] = false;
+                ccHighState[d1] = false;
+                heldCcs[idx] = false;
+                updateBeatHeldState();
+            }
+        }
+    }
+
+    private void resetHeldState() {
+        java.util.Arrays.fill(heldNotes, false);
+        java.util.Arrays.fill(heldCcs, false);
+        java.util.Arrays.fill(ccHighState, false);
+        if (beatHeld) {
+            beatHeld = false;
+            if (onBeatHoldChange != null) {
+                onBeatHoldChange.accept(false);
+            }
+        }
+    }
+
+    private void updateBeatHeldState() {
+        boolean anyMatchingHeld = false;
+        for (int ch = 0; ch < 16 && !anyMatchingHeld; ch++) {
+            for (int d1 = 0; d1 < 128; d1++) {
+                int idx = ch * 128 + d1;
+                if (heldNotes[idx] && matchesBinding("NOTE", ch, d1)) {
+                    anyMatchingHeld = true;
+                    break;
+                }
+                if (heldCcs[idx] && matchesBinding("CC", ch, d1)) {
+                    anyMatchingHeld = true;
+                    break;
+                }
+            }
+        }
+        if (this.beatHeld != anyMatchingHeld) {
+            this.beatHeld = anyMatchingHeld;
+            if (onBeatHoldChange != null) {
+                onBeatHoldChange.accept(anyMatchingHeld);
             }
         }
     }

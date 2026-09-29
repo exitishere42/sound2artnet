@@ -118,4 +118,42 @@ public class MidiAndManualBeatTest {
         midi.parseAseqdumpLine(" 20:0   Control change          0, controller 64, value 127");
         assertEquals(5, beatCount.get());
     }
+
+    @Test
+    public void testMidiButtonHoldSustainsBeatForExactPressDuration() {
+        de.exit.sound2artnet.audio.AudioCaptureService audio = new de.exit.sound2artnet.audio.AudioCaptureService();
+        de.exit.sound2artnet.artnet.ArtNetSender sender = new de.exit.sound2artnet.artnet.ArtNetSender();
+        de.exit.sound2artnet.engine.Sound2LightEngine engine = new de.exit.sound2artnet.engine.Sound2LightEngine(audio, sender);
+        engine.setDimmerMode(de.exit.sound2artnet.engine.Sound2LightEngine.DimmerMode.BEAT_PULSE);
+
+        var profile = de.exit.sound2artnet.fixture.FixtureLibrary.getDefaultProfiles().get(0);
+        var patch = new de.exit.sound2artnet.fixture.FixturePatch("Test MH", 1, profile);
+        engine.setPatchedFixtures(java.util.List.of(patch));
+
+        BeatDetector bd = audio.getAnalyzer().getBeatDetector();
+        bd.setDetectionMode(BeatDetector.DetectionMode.MANUAL);
+
+        MidiInputService midi = new MidiInputService();
+        midi.setOnBeatTrigger(bd::triggerManualBeat);
+        midi.setOnBeatHoldChange(bd::setManualBeatHeld);
+
+        // MIDI-Taste drücken und gedrückt halten (Note On, Ch 0, Note 60, Vel 127)
+        midi.handleShortMessage(ShortMessage.NOTE_ON, 0, 60, 127);
+        assertTrue(midi.isBeatHeld(), "MIDI-Taste muss als gehalten erkannt werden");
+        assertTrue(bd.isManualBeatHeld(), "BeatDetector muss gehaltenen Beat melden");
+
+        // Über 40 Ticks (~1 Sekunde Haltedauer) muss der Beat durchgehend aktiv bleiben (kein Abklingen!)
+        for (int i = 0; i < 40; i++) {
+            engine.tick();
+            assertTrue(engine.isLastTickBeat(), "Beat muss während der gesamten Haltedauer aktiv bleiben (Tick " + i + ")");
+        }
+
+        // MIDI-Taste loslassen (Note Off bzw. Note On Velocity 0)
+        midi.handleShortMessage(ShortMessage.NOTE_OFF, 0, 60, 0);
+        assertFalse(midi.isBeatHeld(), "Nach Note-Off darf die MIDI-Taste nicht mehr als gehalten gelten");
+        assertFalse(bd.isManualBeatHeld(), "Nach Loslassen muss der gehaltene Beat sofort enden");
+
+        engine.tick();
+        assertFalse(engine.isLastTickBeat(), "Sobald die MIDI-Taste losgelassen wird, muss der Beat sofort enden");
+    }
 }

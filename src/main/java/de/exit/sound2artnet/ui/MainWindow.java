@@ -236,6 +236,10 @@ public class MainWindow extends StackPane {
 
         midiService.setBinding(config.getMidiBoundType(), config.getMidiBoundChannel(), config.getMidiBoundData1());
         midiService.setOnBeatTrigger(() -> Platform.runLater(this::triggerManualBeat));
+        midiService.setOnBeatHoldChange(held -> {
+            audioService.getAnalyzer().getBeatDetector().setManualBeatHeld(held);
+            Platform.runLater(() -> onManualBeatHoldChanged(held));
+        });
         midiService.setOnMidiEvent(ev -> Platform.runLater(() -> onMidiEventReceived(ev)));
         midiService.setOnLearnComplete(() -> Platform.runLater(this::onMidiLearnCompleted));
 
@@ -1462,7 +1466,7 @@ public class MainWindow extends StackPane {
         cbMidiDevice.setMaxWidth(Double.MAX_VALUE);
         HBox.setHgrow(cbMidiDevice, Priority.ALWAYS);
         cbMidiDevice.valueProperty().addListener((obs, o, n) -> {
-            if (n != null && n.midiInfo() != null) {
+            if (n != null && (n.midiInfo() != null || n.alsaSeqPort() != null || n.alsaRawPort() != null)) {
                 if (midiService.openDevice(n)) {
                     config.setMidiDevice(n.name());
                     if (statusLabel != null) {
@@ -1550,7 +1554,16 @@ public class MainWindow extends StackPane {
         lblMidiTapTitle.setFont(Font.font(MaterialTheme.FONT_FAMILY, FontWeight.BOLD, 10));
 
         btnMidiTap = new MaterialButton(I18n.get("midi.btn.tap"), "zap",
-                MaterialTheme.COLOR_PRIMARY, MaterialTheme.COLOR_ON_PRIMARY, 18, 20, 14, 16, true, this::triggerManualBeat);
+                MaterialTheme.COLOR_PRIMARY, MaterialTheme.COLOR_ON_PRIMARY, 18, 20, 14, 16, true, null);
+        btnMidiTap.setOnMousePressed(e -> {
+            triggerManualBeat();
+            audioService.getAnalyzer().getBeatDetector().setManualBeatHeld(true);
+            onManualBeatHoldChanged(true);
+        });
+        btnMidiTap.setOnMouseReleased(e -> {
+            audioService.getAnalyzer().getBeatDetector().setManualBeatHeld(false);
+            onManualBeatHoldChanged(false);
+        });
         btnMidiTap.setMaxWidth(Double.MAX_VALUE);
         btnMidiTap.setMaxHeight(Double.MAX_VALUE);
         btnMidiTap.setMinHeight(68);
@@ -1624,6 +1637,22 @@ public class MainWindow extends StackPane {
         }
     }
 
+    private void onManualBeatHoldChanged(boolean held) {
+        if (btnMidiTap == null) return;
+        midiFlashReset.stop();
+        if (held) {
+            btnMidiTap.updateColors(MaterialTheme.COLOR_ACCENT_GREEN, Color.web("#000000"), "zap", I18n.get("midi.btn.tap"));
+            if (iconMidiSignalDot != null) {
+                iconMidiSignalDot.setIcon("circle", MaterialTheme.COLOR_ACCENT_GREEN);
+            }
+        } else {
+            btnMidiTap.updateColors(MaterialTheme.COLOR_PRIMARY, MaterialTheme.COLOR_ON_PRIMARY, "zap", I18n.get("midi.btn.tap"));
+            if (iconMidiSignalDot != null) {
+                iconMidiSignalDot.setIcon("circle", MaterialTheme.COLOR_TEXT_DISABLED);
+            }
+        }
+    }
+
     private void triggerManualBeat() {
         if (cbDetectionMode != null && cbDetectionMode.getValue() != BeatDetector.DetectionMode.MANUAL) {
             cbDetectionMode.setValue(BeatDetector.DetectionMode.MANUAL);
@@ -1642,13 +1671,17 @@ public class MainWindow extends StackPane {
 
         if (btnMidiTap != null) {
             btnMidiTap.updateColors(MaterialTheme.COLOR_ACCENT_GREEN, Color.web("#000000"), "zap", I18n.get("midi.btn.tap"));
-            midiFlashReset.setOnFinished(e -> {
-                btnMidiTap.updateColors(MaterialTheme.COLOR_PRIMARY, MaterialTheme.COLOR_ON_PRIMARY, "zap", I18n.get("midi.btn.tap"));
-                if (iconMidiSignalDot != null) {
-                    iconMidiSignalDot.setIcon("circle", MaterialTheme.COLOR_TEXT_DISABLED);
-                }
-            });
-            midiFlashReset.playFromStart();
+            if (!bd.isManualBeatHeld()) {
+                midiFlashReset.setOnFinished(e -> {
+                    if (!bd.isManualBeatHeld()) {
+                        btnMidiTap.updateColors(MaterialTheme.COLOR_PRIMARY, MaterialTheme.COLOR_ON_PRIMARY, "zap", I18n.get("midi.btn.tap"));
+                        if (iconMidiSignalDot != null) {
+                            iconMidiSignalDot.setIcon("circle", MaterialTheme.COLOR_TEXT_DISABLED);
+                        }
+                    }
+                });
+                midiFlashReset.playFromStart();
+            }
         }
     }
 

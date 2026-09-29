@@ -62,6 +62,12 @@ public class ColorEngine {
     public synchronized void update(boolean isBeat, double trebleEnergy, double bpm,
                                     Sound2LightEngine.SpeedTier tier, boolean strobeEnabled,
                                     double deltaSeconds) {
+        update(isBeat, false, trebleEnergy, bpm, tier, strobeEnabled, deltaSeconds);
+    }
+
+    public synchronized void update(boolean isBeat, boolean isBeatHeld, double trebleEnergy, double bpm,
+                                    Sound2LightEngine.SpeedTier tier, boolean strobeEnabled,
+                                    double deltaSeconds) {
         if (tier == null) {
             tier = Sound2LightEngine.SpeedTier.MEDIUM;
         }
@@ -113,6 +119,11 @@ public class ColorEngine {
                 strobeBurstTimer = (tier == Sound2LightEngine.SpeedTier.RAVE) ? 0.25 : 0.20;
                 strobeDmxValue = (tier == Sound2LightEngine.SpeedTier.RAVE) ? 240 : 215;
                 strobeShutterOn = true;
+            } else if (isBeatHeld) {
+                // Solange der MIDI-/Beat-Knopf gehalten wird, läuft der Strobo-Impuls kontinuierlich weiter
+                strobeBurstTimer = 0.05;
+                strobeDmxValue = (tier == Sound2LightEngine.SpeedTier.RAVE) ? 240 : 215;
+                strobeShutterOn = !strobeShutterOn;
             } else if (strobeBurstTimer > 0.0) {
                 strobeBurstTimer = Math.max(0.0, strobeBurstTimer - deltaSeconds);
                 strobeShutterOn = !strobeShutterOn;
@@ -125,6 +136,12 @@ public class ColorEngine {
                 strobeDmxValue = 0;
             }
         }
+    }
+
+    public synchronized void stopStrobeBurst() {
+        strobeBurstTimer = 0.0;
+        strobeShutterOn = false;
+        strobeDmxValue = 0;
     }
 
     public synchronized Color getCurrentColor() {

@@ -85,6 +85,7 @@ public class BeatDetector {
     // Beat-Status (isBeat für synchronen Hop, pendingBeat als Zwischenspeicher für den 40-FPS-Engine-Tick)
     private volatile boolean isBeat = false;
     private volatile boolean pendingBeat = false;
+    private volatile boolean manualBeatHeld = false;
     private volatile double beatIntensity = 0.0;
 
     public BeatDetector() {
@@ -173,8 +174,12 @@ public class BeatDetector {
      */
     public synchronized void detect(float[] samples, double rmsLevel, double peakLevel, long nowMs) {
         if (detectionMode == DetectionMode.MANUAL) {
-            this.isBeat = false;
-            this.beatIntensity = Math.max(0.0, this.beatIntensity - 0.12);
+            this.isBeat = this.manualBeatHeld;
+            if (this.manualBeatHeld) {
+                this.beatIntensity = 1.0;
+            } else {
+                this.beatIntensity = Math.max(0.0, this.beatIntensity - 0.12);
+            }
             return;
         }
 
@@ -262,11 +267,31 @@ public class BeatDetector {
         this.lastBeatTime = nowMs;
     }
 
+    /**
+     * Setzt, ob die MIDI-Taste bzw. der Beat-Button aktuell gedrückt gehalten wird.
+     * Solange gedrückt gehalten wird, bleibt der Beat aktiv; beim Loslassen endet er sofort.
+     */
+    public synchronized void setManualBeatHeld(boolean held) {
+        this.manualBeatHeld = held;
+        if (held) {
+            this.isBeat = true;
+            this.beatIntensity = 1.0;
+        } else {
+            this.isBeat = false;
+            this.beatIntensity = 0.0;
+        }
+    }
+
+    public boolean isManualBeatHeld() {
+        return manualBeatHeld;
+    }
+
     public synchronized void resetManualTempo() {
         this.ioiCount = 0;
         this.ioiIndex = 0;
         this.tempoConfidence = 0.0;
         this.lastBeatTime = -1000;
+        this.manualBeatHeld = false;
     }
 
     /**
@@ -626,8 +651,11 @@ public class BeatDetector {
      * schnelleren Audio-Hops (~94 FPS) ein Beat ausgelöst wurde.
      */
     public synchronized boolean consumeBeat() {
-        boolean beat = this.pendingBeat || this.isBeat;
+        boolean beat = this.pendingBeat || (this.isBeat && detectionMode != DetectionMode.MANUAL);
         this.pendingBeat = false;
+        if (detectionMode == DetectionMode.MANUAL && !this.manualBeatHeld) {
+            this.isBeat = false;
+        }
         return beat;
     }
 
