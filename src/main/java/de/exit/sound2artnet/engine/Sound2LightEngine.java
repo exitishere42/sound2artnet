@@ -160,10 +160,10 @@ public class Sound2LightEngine {
             beatDimmer = 1.0;
         } else {
             double dimmerDecay = switch (currentSpeedTier) {
-                case IDLE, SLOW -> 2.4;
-                case MEDIUM -> 3.0;
-                case FAST -> 3.5;
-                case RAVE -> 4.2;
+                case IDLE, SLOW -> 2.6;
+                case MEDIUM -> 3.8;
+                case FAST -> 5.0;
+                case RAVE -> 6.2;
             };
             beatDimmer = Math.max(0.0, beatDimmer - (deltaSeconds * dimmerDecay));
         }

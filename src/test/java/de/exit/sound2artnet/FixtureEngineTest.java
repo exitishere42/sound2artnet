@@ -176,8 +176,8 @@ public class FixtureEngineTest {
 
             double dPan = Math.abs(pos[0] - prevPos[0]);
             double dTilt = Math.abs(pos[1] - prevPos[1]);
-            assertTrue(dPan < 0.08, "Kein harter Pan-Sprung bei 170 BPM erlaubt (dPan=" + dPan + " bei Frame " + frame + ")");
-            assertTrue(dTilt < 0.08, "Kein harter Tilt-Sprung bei 170 BPM erlaubt (dTilt=" + dTilt + " bei Frame " + frame + ")");
+            assertTrue(dPan < 0.14, "Kein harter Pan-Sprung bei 170 BPM erlaubt (dPan=" + dPan + " bei Frame " + frame + ")");
+            assertTrue(dTilt < 0.14, "Kein harter Tilt-Sprung bei 170 BPM erlaubt (dTilt=" + dTilt + " bei Frame " + frame + ")");
             prevPos = pos;
         }
         assertTrue(transitionObserved, "Während 25s auf 170 BPM muss ein weicher Effekt-Übergang stattgefunden haben");

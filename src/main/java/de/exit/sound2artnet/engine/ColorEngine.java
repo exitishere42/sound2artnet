@@ -76,25 +76,24 @@ public class ColorEngine {
                     currentColorIndex = (currentColorIndex + 1) % colors.length;
                     targetColor = colors[currentColorIndex];
                 }
-            } else if (tier == Sound2LightEngine.SpeedTier.RAVE && bpm >= 145.0) {
-                // Bei sehr hohen BPM (z. B. 170 BPM) jeden 2. Schlag weiterblenden, damit der Übergang sichtbar und weich bleibt
-                if (beatCounter % 2 == 0) {
-                    currentColorIndex = (currentColorIndex + 1) % colors.length;
-                    targetColor = colors[currentColorIndex];
-                }
+            } else if (tier == Sound2LightEngine.SpeedTier.RAVE) {
+                // Bei schneller Musik (>= 138 BPM) auf jeden Beat wechseln
+                int step = (beatCounter % 4 == 0 && colors.length > 2) ? 2 : 1;
+                currentColorIndex = (currentColorIndex + step) % colors.length;
+                targetColor = colors[currentColorIndex];
             } else {
                 currentColorIndex = (currentColorIndex + 1) % colors.length;
                 targetColor = colors[currentColorIndex];
             }
         }
 
-        // 2. Überblend-Geschwindigkeit passend zur BPM-Stufe (weiche Farbübergänge statt harter Cuts)
+        // 2. Überblend-Geschwindigkeit passend zur BPM-Stufe
         double fadeRate = switch (tier) {
             case IDLE -> 2.0;
             case SLOW -> 3.2;     // Weiche, langsame Übergänge bei ~90 BPM
-            case MEDIUM -> 6.0;   // Ausgewogene Übergänge
-            case FAST -> 9.5;     // Flüssige Übergänge bei ~120 BPM
-            case RAVE -> 12.5;    // Weiche, schnelle Überblendung auch bei 170 BPM (statt hartem Cut)
+            case MEDIUM -> 7.5;   // Ausgewogene Übergänge
+            case FAST -> 14.0;    // Schnelle, flüssige Wechsel bei ~120 BPM
+            case RAVE -> 20.0;    // Dynamische, aber weiche Überblendung bei 170 BPM (~5 Frames statt 1-Frame-Cut)
         };
 
         double stepFactor = Math.min(1.0, deltaSeconds * fadeRate);
