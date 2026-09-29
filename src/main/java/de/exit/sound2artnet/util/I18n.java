@@ -441,6 +441,12 @@ public class I18n {
         EN.put("function.green", "Green");
         DE.put("function.blue", "Blau");
         EN.put("function.blue", "Blue");
+        DE.put("function.cyan", "Cyan");
+        EN.put("function.cyan", "Cyan");
+        DE.put("function.magenta", "Magenta");
+        EN.put("function.magenta", "Magenta");
+        DE.put("function.yellow", "Gelb");
+        EN.put("function.yellow", "Yellow");
         DE.put("function.white", "Weiß");
         EN.put("function.white", "White");
         DE.put("function.amber", "Amber");

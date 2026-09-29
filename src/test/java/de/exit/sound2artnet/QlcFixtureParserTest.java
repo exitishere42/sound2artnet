@@ -259,5 +259,45 @@ public class QlcFixtureParserTest {
             assertEquals(ChannelFunction.CONSTANT, prof.getChannels().get(31).getFunction());
         }
     }
+
+    @Test
+    public void testParseRobeBmflSpotAndPatt2017() throws Exception {
+        File bmflFile = new File("C:\\Users\\timo\\Documents\\QLC+ Saves\\qxf\\ROBE-BMFL-Spot@MrDino.qxf");
+        if (bmflFile.exists()) {
+            QlcFixtureDefinition def = QlcFixtureParser.parse(bmflFile);
+            FixtureProfile prof = def.toFixtureProfile("Mode 1 - Standard 16bit (41 ch)");
+            assertEquals(41, prof.getChannelCount());
+
+            // Ch 0..3: Pan, Pan Fine, Tilt, Tilt Fine
+            assertEquals(ChannelFunction.PAN, prof.getChannels().get(0).getFunction());
+            assertEquals(ChannelFunction.PAN_FINE, prof.getChannels().get(1).getFunction());
+            assertEquals(ChannelFunction.TILT, prof.getChannels().get(2).getFunction());
+            assertEquals(ChannelFunction.TILT_FINE, prof.getChannels().get(3).getFunction());
+
+            // Ch 4: Pan/Tilt speed / time -> PAN_TILT_SPEED (nicht PAN!)
+            assertEquals(ChannelFunction.PAN_TILT_SPEED, prof.getChannels().get(4).getFunction());
+
+            // Ch 10..12 (11..13): Cyan, Magenta, Yellow (subtraktive CMY-Farbmischung)
+            assertEquals(ChannelFunction.CYAN, prof.getChannels().get(10).getFunction());
+            assertEquals(ChannelFunction.MAGENTA, prof.getChannels().get(11).getFunction());
+            assertEquals(ChannelFunction.YELLOW, prof.getChannels().get(12).getFunction());
+
+            // Ch 31 (32): Iris -> CONSTANT (Default 0 = Open, nicht STROBE!)
+            assertEquals(ChannelFunction.CONSTANT, prof.getChannels().get(31).getFunction());
+            assertEquals(0, prof.getChannels().get(31).getDefaultValue());
+        }
+
+        File pattFile = new File("C:\\Users\\timo\\Documents\\QLC+ Saves\\qxf\\ROBE-PATT-2017@MrDino.qxf");
+        if (pattFile.exists()) {
+            QlcFixtureDefinition def = QlcFixtureParser.parse(pattFile);
+            FixtureProfile prof = def.toFixtureProfile("Mode 2 (13 ch)");
+            assertEquals(13, prof.getChannelCount());
+            // Ch 8: Background Dimmer muss Default 255 haben, damit RGB sichtbar ist
+            assertEquals(ChannelFunction.CONSTANT, prof.getChannels().get(8).getFunction());
+            assertEquals(255, prof.getChannels().get(8).getDefaultValue());
+            // Ch 12: Master Dimmer
+            assertEquals(ChannelFunction.DIMMER, prof.getChannels().get(12).getFunction());
+        }
+    }
 }
 

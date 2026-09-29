@@ -200,9 +200,15 @@ public class Sound2LightEngine {
 
             boolean hasStrobeChannel = false;
             boolean hasDimmerChannel = false;
+            boolean hasColorMixing = false;
             for (ChannelMapping cm : profile.getChannels()) {
-                if (cm.getFunction() == ChannelFunction.STROBE) hasStrobeChannel = true;
-                if (cm.getFunction() == ChannelFunction.DIMMER) hasDimmerChannel = true;
+                ChannelFunction fn = cm.getFunction();
+                if (fn == ChannelFunction.STROBE) hasStrobeChannel = true;
+                if (fn == ChannelFunction.DIMMER) hasDimmerChannel = true;
+                if (fn == ChannelFunction.RED || fn == ChannelFunction.GREEN || fn == ChannelFunction.BLUE ||
+                    fn == ChannelFunction.CYAN || fn == ChannelFunction.MAGENTA || fn == ChannelFunction.YELLOW) {
+                    hasColorMixing = true;
+                }
             }
 
             // Pan / Tilt berechnen
@@ -245,8 +251,11 @@ public class Sound2LightEngine {
                     case RED -> val = lightEnabled ? (int) Math.round(activeColor.getRed() * 255 * rgbStrobeMod * colorDimmerMod) : 0;
                     case GREEN -> val = lightEnabled ? (int) Math.round(activeColor.getGreen() * 255 * rgbStrobeMod * colorDimmerMod) : 0;
                     case BLUE -> val = lightEnabled ? (int) Math.round(activeColor.getBlue() * 255 * rgbStrobeMod * colorDimmerMod) : 0;
+                    case CYAN -> val = lightEnabled ? (int) Math.round((1.0 - activeColor.getRed()) * 255) : 0;
+                    case MAGENTA -> val = lightEnabled ? (int) Math.round((1.0 - activeColor.getGreen()) * 255) : 0;
+                    case YELLOW -> val = lightEnabled ? (int) Math.round((1.0 - activeColor.getBlue()) * 255) : 0;
                     case WHITE, AMBER, UV -> val = lightEnabled ? (int) Math.round(cm.getDefaultValue() * colorDimmerMod) : 0;
-                    case COLOR_WHEEL -> val = lightEnabled ? colorEngine.getColorWheelIndex(activeColor) : 0;
+                    case COLOR_WHEEL -> val = (lightEnabled && !hasColorMixing) ? colorEngine.getColorWheelIndex(activeColor) : cm.getDefaultValue();
                     case GOBO_WHEEL, PRISM, FOCUS, CONSTANT -> val = cm.getDefaultValue();
                     case UNUSED -> val = 0;
                 }

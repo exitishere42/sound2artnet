@@ -284,7 +284,12 @@ public class ChannelVisualizer extends VBox {
                             case RED -> "R";
                             case GREEN -> "G";
                             case BLUE -> "B";
+                            case CYAN -> "C";
+                            case MAGENTA -> "M";
+                            case YELLOW -> "Y";
                             case WHITE -> "W";
+                            case AMBER -> "A";
+                            case UV -> "UV";
                             case COLOR_WHEEL -> "COL";
                             case GOBO_WHEEL -> "GOBO";
                             case PRISM -> "PRIS";
