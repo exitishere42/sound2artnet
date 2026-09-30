@@ -1058,7 +1058,13 @@ public class MainWindow extends StackPane {
         grid.getColumnConstraints().addAll(cc0, cc1);
 
         root.getChildren().add(grid);
-        return root;
+
+        ScrollPane scrollPane = new ScrollPane(root);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        scrollPane.setStyle("-fx-background: transparent; -fx-background-color: transparent; -fx-border-color: transparent; -fx-padding: 0;");
+        return scrollPane;
     }
 
     @SuppressWarnings("unchecked")

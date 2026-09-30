@@ -25,10 +25,10 @@ public class I18n {
         EN.put("tab.updates", "Info & Updates");
         DE.put("tab.settings", "Einstellungen");
         EN.put("tab.settings", "Settings");
-        DE.put("tab.fixtures", "Moving Heads & Fixture Patch");
-        EN.put("tab.fixtures", "Moving Heads & Fixture Patch");
-        DE.put("tab.engine", "Sound-to-Light & Bewegungssteuerung");
-        EN.put("tab.engine", "Sound-to-Light & Movement Engine");
+        DE.put("tab.fixtures", "Fixtures");
+        EN.put("tab.fixtures", "Fixtures");
+        DE.put("tab.engine", "Einstellungen");
+        EN.put("tab.engine", "Settings");
         DE.put("tab.presets", "Profile");
         EN.put("tab.presets", "Profiles");
         DE.put("tab.midi", "MIDI");
