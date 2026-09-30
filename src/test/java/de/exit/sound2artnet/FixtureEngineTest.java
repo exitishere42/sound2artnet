@@ -129,12 +129,12 @@ public class FixtureEngineTest {
         byte[] frame120 = engine.getCurrentDmxFrame();
         assertEquals(215, frame120[4] & 0xFF, "Bei 120 BPM (Schnell) und aktiviertem Strobo-Toggle muss Strobo (215) zünden");
 
-        // 3. Bei 156 BPM -> Stufe RAVE ("Extrem"), intensives Strobo (DMX 240)
+        // 3. Bei 156 BPM -> Stufe RAVE ("Extrem"), intensives Strobo (DMX 255)
         engine.setSimulatedBpmAndBeat(156.0, true);
         engine.tick();
         assertEquals(Sound2LightEngine.SpeedTier.RAVE, engine.getCurrentSpeedTier(), "156 BPM muss als Stufe RAVE (Extrem) eingestuft werden");
         byte[] frame156 = engine.getCurrentDmxFrame();
-        assertEquals(240, frame156[4] & 0xFF, "Bei 156 BPM (Extrem) muss schnelles Rave-Strobo (240) zünden");
+        assertEquals(255, frame156[4] & 0xFF, "Bei 156 BPM (Extrem) muss schnelles Rave-Strobo (255) zünden");
 
         // 4. Strobo-Toggle deaktivieren -> selbst bei 156 BPM und Beat muss Strobo strikt 0 sein
         engine.setStrobeEnabled(false);

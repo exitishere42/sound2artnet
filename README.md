@@ -56,7 +56,7 @@ Visually and structurally, **sound2artnet** features the exact same dark Materia
 
 ### 2. Dedicated MIDI Settings Tab, Manual Strobe, Momentary MIDI Blackout & Top Bar Controls
 - **Manual Strobe Button & Blackout Status in Top Bar**:
-  - **Strobe Button (`STROBO`)**: Quick-access top-bar button to fire manual strobe flashes across all compatible fixtures (hardware strobe channel fixtures at DMX 240 + dimmer 255; dimmer-only fixtures at 20 Hz software strobe; RGB fixtures at full flash) for as long as pressed.
+  - **Strobe Button (`STROBO`)**: Quick-access top-bar button to fire manual strobe flashes across all compatible fixtures (hardware strobe channel fixtures at DMX 255 + dimmer 255; dimmer-only fixtures at 20 Hz software strobe; RGB fixtures at full flash) for as long as pressed.
   - **Blackout Status Chip (`BLACKOUT`)**: Positioned right next to the status chip in the top app bar — indicates blackout state in bright red and toggles blackout on click.
 - **MIDI Input Device Support**: Connect any USB MIDI controller, drum pad, or keyboard directly in the clean **`MIDI`** settings tab with instant hot-plug rescan.
 - **MIDI Learn for Beat, Blackout & Strobe**: Dedicated **`MIDI Learn`** bindings for the **Beat Key**, the **Blackout Key**, and the **Strobo Key** (`Note On` or `Control Change`).
@@ -97,7 +97,7 @@ Visually and structurally, **sound2artnet** features the exact same dark Materia
 - **512-Channel DMX Visualizer**: Live bar graph of all 512 DMX channels with semantic role labels (`PAN`, `TILT`, `DIM`, `STRB`, `R`, `G`, `B`, `C`, `M`, `Y`, etc.) and quick-jump range buttons.
 - **Adjustable Module Layout (Dragbar-Only Resizing)**: Smooth vertical SplitPane divider with a centered Material Design grabber pill (`52 x 4 px`). To prevent accidental resize clicks across the full screen width, resizing is exclusively allowed directly on the dragbar pill.
 - **Multi-Profile & Venue Presets**: Dedicated `Profile` tab for saving and switching multiple venue configurations (Target IP, Universe, FPS, Fixture Patches, and Engine Settings). Double-click or click `Laden` to activate instantly with live Art-Net target switching without restarting the stream.
-- **In-App Update & Global Settings Dialog**: Click on the title logo badge (`v1.8.2`) to inspect release notes, check for updates, or switch global settings (e.g., German/English language, autostart).
+- **In-App Update & Global Settings Dialog**: Click on the title logo badge (`v1.8.3`) to inspect release notes, check for updates, or switch global settings (e.g., German/English language, autostart).
 - **Automatic Persistence**: All settings, MIDI bindings, profiles, and patched fixtures are automatically saved to `config.json`.
 
 ---
@@ -170,11 +170,11 @@ mvn clean test
 ```bash
 mvn clean package
 ```
-The standalone fat JAR will be created at `target/sound2artnet-1.8.2-all.jar`.
+The standalone fat JAR will be created at `target/sound2artnet-1.8.3-all.jar`.
 
 ### Headless CLI Mode (No GUI)
 ```bash
-java -jar target/sound2artnet-1.8.2-all.jar --cli --ip 192.168.200.232 --universe 0 --fps 40
+java -jar target/sound2artnet-1.8.3-all.jar --cli --ip 192.168.200.232 --universe 0 --fps 40
 ```
 
 ---

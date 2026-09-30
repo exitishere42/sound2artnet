@@ -174,12 +174,12 @@ public class ColorEngine {
             if (isBeat) {
                 // Bei schnellen Beats zündet ein rhythmischer Strobo-Burst
                 strobeBurstTimer = (tier == Sound2LightEngine.SpeedTier.RAVE) ? 0.25 : 0.20;
-                strobeDmxValue = (tier == Sound2LightEngine.SpeedTier.RAVE) ? 240 : 215;
+                strobeDmxValue = (tier == Sound2LightEngine.SpeedTier.RAVE) ? 255 : 215;
                 strobeShutterOn = true;
             } else if (isBeatHeld) {
                 // Solange der MIDI-/Beat-Knopf gehalten wird, läuft der Strobo-Impuls kontinuierlich weiter
                 strobeBurstTimer = 0.05;
-                strobeDmxValue = (tier == Sound2LightEngine.SpeedTier.RAVE) ? 240 : 215;
+                strobeDmxValue = (tier == Sound2LightEngine.SpeedTier.RAVE) ? 255 : 215;
                 strobeShutterOn = !strobeShutterOn;
             } else if (strobeBurstTimer > 0.0) {
                 strobeBurstTimer = Math.max(0.0, strobeBurstTimer - deltaSeconds);

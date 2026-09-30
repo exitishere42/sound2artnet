@@ -204,11 +204,11 @@ public class MidiAndManualBeatTest {
         midi.handleShortMessage(ShortMessage.NOTE_ON, 0, 42, 127);
         assertTrue(engine.isManualStrobe(), "Beim Drücken muss Manual Strobe in der Engine aktiv sein");
 
-        // Tick ausführen: Strobe Kanal (Index 5 bei 9ch Spot) muss DMX 240 haben, Dimmer (Index 6) 255
+        // Tick ausführen: Strobe Kanal (Index 5 bei 9ch Spot) muss DMX 255 haben, Dimmer (Index 6) 255
         engine.tick();
         byte[] frame = engine.getCurrentDmxFrame();
         assertEquals((byte) 255, frame[6], "Dimmer muss bei manuellem Strobe auf 255 voll offen sein");
-        assertEquals((byte) 240, frame[5], "Hardware-Strobe-Kanal muss bei manuellem Strobe auf 240 stehen");
+        assertEquals((byte) 255, frame[5], "Hardware-Strobe-Kanal muss bei manuellem Strobe auf 255 stehen");
 
         // Taste loslassen
         midi.handleShortMessage(ShortMessage.NOTE_OFF, 0, 42, 0);

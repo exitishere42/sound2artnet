@@ -196,7 +196,7 @@ public class Sound2LightEngine {
         boolean autoStrobeActive = effectiveLight && strobeEnabled && colorEngine.isStrobeActive();
         boolean strobeActive = manualStrobeActive || autoStrobeActive;
         boolean strobeShutterOn = manualStrobeActive ? (System.currentTimeMillis() % 60 < 30) : colorEngine.isStrobeShutterOn();
-        int strobeDmxVal = manualStrobeActive ? 240 : colorEngine.getStrobeDmxValue();
+        int strobeDmxVal = manualStrobeActive ? 255 : colorEngine.getStrobeDmxValue();
 
         int masterDimmerVal = 0;
         if (effectiveLight) {
