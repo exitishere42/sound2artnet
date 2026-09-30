@@ -190,8 +190,8 @@ public class I18n {
         EN.put("ctrl.target_ip", "TARGET IP");
         DE.put("ctrl.target_ip.tt_title", "Art-Net Empfänger IP-Adresse");
         EN.put("ctrl.target_ip.tt_title", "Art-Net Receiver IP Address");
-        DE.put("ctrl.target_ip.tt_desc", "Zieladresse der Art-Net Pakete:\n\n• 127.0.0.1: Lokaler Empfang (QLC+, Resolume, GrandMA onPC)\n• 255.255.255.255: Netzwerk-Broadcast\n• Spezifische IP: z. B. 192.168.1.50");
-        EN.put("ctrl.target_ip.tt_desc", "Target address for Art-Net packets:\n\n• 127.0.0.1: Local loopback (QLC+, Resolume, GrandMA onPC)\n• 255.255.255.255: Network broadcast\n• Specific IP: e.g. 192.168.1.50");
+        DE.put("ctrl.target_ip.tt_desc", "Zieladresse der Art-Net Pakete:\n\n• 127.0.0.1: Lokaler Empfang (QLC+, Resolume, GrandMA onPC)\n• Mehrere IPs (kommagetrennt): z. B. 127.0.0.1, 192.168.1.50\n• 255.255.255.255: Netzwerk-Broadcast");
+        EN.put("ctrl.target_ip.tt_desc", "Target address for Art-Net packets:\n\n• 127.0.0.1: Local loopback (QLC+, Resolume, GrandMA onPC)\n• Multiple IPs (comma-separated): e.g. 127.0.0.1, 192.168.1.50\n• 255.255.255.255: Network broadcast");
 
         DE.put("ctrl.universe", "UNIVERSUM");
         EN.put("ctrl.universe", "UNIVERSE");

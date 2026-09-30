@@ -91,14 +91,14 @@ Visually and structurally, **sound2artnet** features the exact same dark Materia
 - **Fixture Editor**: Full customization of all channels (`PAN`, `PAN_FINE`, `TILT`, `TILT_FINE`, `PAN_TILT_SPEED`, `DIMMER`, `STROBE`, `RED`, `GREEN`, `BLUE`, `CYAN`, `MAGENTA`, `YELLOW`, `WHITE`, `AMBER`, `UV`, `COLOR_WHEEL`, `GOBO_WHEEL`, `PRISM`, `FOCUS`, `CONSTANT`, `UNUSED`).
 - **Safety Limits & Phase Offset**: Configurable Pan/Tilt limits (`Min`/`Max`), Pan/Tilt inversion, and phase offset (`0°–360°`) for symmetrical or wave-like group movements.
 
-### 5. Multi-Universe Art-Net 4 Output & DMX Live Visualizer
-- **Multi-Universe Art-Net 4 Sender**: Broadcasts standard-compliant `ArtDMX` packets (UDP port `6454`) to any target IP (unicast, broadcast, or `127.0.0.1`) across multiple target universes (e.g. `0, 1` or `0-3`) simultaneously, each with independent sequence counters (1..255) at a configurable frame rate (`10–44 FPS`).
+### 5. Multi-Universe & Multi-Target IP Art-Net 4 Output & DMX Live Visualizer
+- **Multi-Target IP & Multi-Universe Art-Net 4 Sender**: Broadcasts standard-compliant `ArtDMX` packets (UDP port `6454`) to one or multiple target IP addresses simultaneously (e.g. `127.0.0.1, 192.168.1.50` or loopback + network node) across multiple target universes (e.g. `0, 1` or `0-3`), each with independent sequence counters (1..255) at a configurable frame rate (`10–44 FPS`). Live IP changes immediately update the active UDP stream.
 - **Per-Fixture Universe Patching & Overflow Handling**: Assign fixtures to any universe (`0–15`). Quantity expansion in the fixture editor and QLC+ import dialog automatically overflows across universe boundaries when channels exceed 512.
 - **Multi-Universe Live Visualizer**: Select any active universe via a clean header dropdown (`[ Uni 0 ▼ ]`) to inspect live 512-channel output and fixture semantic roles (`PAN`, `TILT`, `DIM`, `STRB`, `R`, `G`, `B`, `C`, `M`, `Y`, etc.).
-- **Live Metrics**: Real-time readouts for audio RMS, peak, tempo (BPM), active speed tier, packets per second (including a live history chart), and total packets sent across all active universes.
+- **Live Metrics**: Real-time readouts for audio RMS, peak, tempo (BPM), active speed tier, packets per second (including a live history chart), and total packets sent across all active target IPs and universes.
 - **Adjustable Module Layout (Dragbar-Only Resizing)**: Smooth vertical SplitPane divider with a centered Material Design grabber pill (`52 x 4 px`). To prevent accidental resize clicks across the full screen width, resizing is exclusively allowed directly on the dragbar pill.
-- **Multi-Profile & Venue Presets**: Dedicated `Profile` tab for saving and switching multiple venue configurations (Target IP, Target Universes `0, 1`, FPS, Fixture Patches, and Engine Settings). Double-click or click `Laden` to activate instantly with live Art-Net target switching without restarting the stream.
-- **In-App Update & Global Settings Dialog**: Click on the title logo badge (`v1.9.0`) to inspect release notes, check for updates, or switch global settings (e.g., German/English language, autostart).
+- **Multi-Profile & Venue Presets**: Dedicated `Profile` tab for saving and switching multiple venue configurations (Multiple Target IPs `127.0.0.1, 192.168.1.50`, Target Universes `0, 1`, FPS, Fixture Patches, and Engine Settings). Double-click or click `Laden` to activate instantly with live Art-Net target switching without restarting the stream.
+- **In-App Update & Global Settings Dialog**: Click on the title logo badge (`v1.10.0`) to inspect release notes, check for updates, or switch global settings (e.g., German/English language, autostart).
 - **Automatic Persistence**: All settings, MIDI bindings, profiles, and patched fixtures are automatically saved to `config.json`.
 
 ---
@@ -171,11 +171,11 @@ mvn clean test
 ```bash
 mvn clean package
 ```
-The standalone fat JAR will be created at `target/sound2artnet-1.9.0-all.jar`.
+The standalone fat JAR will be created at `target/sound2artnet-1.10.0-all.jar`.
 
 ### Headless CLI Mode (No GUI)
 ```bash
-java -jar target/sound2artnet-1.9.0-all.jar --cli --ip 192.168.200.232 --universe 0,1 --fps 40
+java -jar target/sound2artnet-1.10.0-all.jar --cli --ip 127.0.0.1,192.168.200.232 --universe 0,1 --fps 40
 ```
 
 ---

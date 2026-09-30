@@ -232,6 +232,10 @@ public class ArtNetPreset {
     public String getTargetIp() { return targetIp; }
     public void setTargetIp(String targetIp) { this.targetIp = targetIp != null && !targetIp.isBlank() ? targetIp.trim() : "127.0.0.1"; }
 
+    public List<String> getTargetIps() {
+        return AppConfig.parseTargetIps(this.targetIp);
+    }
+
     public int getUniverse() { return universe; }
     public void setUniverse(int universe) {
         this.universe = Math.max(0, Math.min(15, universe));

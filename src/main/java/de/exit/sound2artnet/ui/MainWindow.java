@@ -704,10 +704,18 @@ public class MainWindow extends StackPane {
         lblBoxIp = boxIpInfo.titleLabel();
         helpIp = boxIpInfo.helpBadge();
         VBox boxIp = boxIpInfo.box();
-        boxIp.setMinWidth(125);
+        boxIp.setMinWidth(140);
         txtTargetIp = new TextField(config.getTargetIp() != null ? config.getTargetIp() : "127.0.0.1");
+        txtTargetIp.setPromptText("127.0.0.1, 192.168.1.50");
         txtTargetIp.setMaxWidth(Double.MAX_VALUE);
-        txtTargetIp.textProperty().addListener((obs, o, n) -> autoSaveConfig());
+        txtTargetIp.textProperty().addListener((obs, o, n) -> {
+            if (isRunning && n != null && !n.isBlank()) {
+                try {
+                    artNetSender.updateTarget(n.trim(), artNetSender.getUniverse());
+                } catch (Exception ignored) {}
+            }
+            autoSaveConfig();
+        });
         boxIp.getChildren().add(txtTargetIp);
 
         // 3. Universen
@@ -1242,7 +1250,7 @@ public class MainWindow extends StackPane {
 
         colPresetIp = new TableColumn<>(I18n.get("preset.col.ip"));
         colPresetIp.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getTargetIp()));
-        colPresetIp.setMinWidth(110);
+        colPresetIp.setMinWidth(135);
         colPresetIp.setStyle("-fx-alignment: CENTER;");
 
         colPresetUniverse = new TableColumn<>(I18n.get("preset.col.universe"));
@@ -1319,7 +1327,7 @@ public class MainWindow extends StackPane {
         }
         if (active != null) {
             lblActivePresetBanner.setText(String.format(I18n.get("preset.active_banner"), active.getName()) +
-                    "  •  " + active.getTargetIp() + " (Uni " + active.getUniverse() + ", " + active.getFps() + " FPS, " +
+                    "  •  " + active.getTargetIp() + " (Uni " + active.formatUniversesText() + ", " + active.getFps() + " FPS, " +
                     (active.getFixtures() != null ? active.getFixtures().size() : 0) + " Fixtures)");
         } else {
             lblActivePresetBanner.setText(I18n.get("preset.custom"));

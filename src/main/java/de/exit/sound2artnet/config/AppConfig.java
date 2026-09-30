@@ -54,6 +54,25 @@ public class AppConfig {
     public String getTargetIp() { return targetIp; }
     public void setTargetIp(String targetIp) { this.targetIp = targetIp; }
 
+    public List<String> getTargetIps() {
+        return parseTargetIps(this.targetIp);
+    }
+
+    public static List<String> parseTargetIps(String input) {
+        if (input == null || input.isBlank()) {
+            return List.of("127.0.0.1");
+        }
+        List<String> list = new ArrayList<>();
+        String[] parts = input.split("[,;\\s]+");
+        for (String p : parts) {
+            String trimmed = p.trim();
+            if (!trimmed.isEmpty() && !list.contains(trimmed)) {
+                list.add(trimmed);
+            }
+        }
+        return list.isEmpty() ? List.of("127.0.0.1") : list;
+    }
+
     public int getUniverse() { return universe; }
     public void setUniverse(int universe) {
         this.universe = Math.max(0, Math.min(15, universe));
