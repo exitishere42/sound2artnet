@@ -69,6 +69,10 @@ public class MainWindow extends StackPane {
     // Top Bar
     private LucideIcon chipIcon;
     private Label chipLabel;
+    private MaterialButton btnTopStrobe;
+    private HBox chipBlackout;
+    private LucideIcon chipBlackoutIcon;
+    private Label chipBlackoutLabel;
 
     // Metriken
     private Label lblInTitle;
@@ -126,6 +130,10 @@ public class MainWindow extends StackPane {
     private Label lblMidiBlackoutBindingBadge;
     private MaterialButton btnMidiBlackoutLearn;
     private MaterialButton btnMidiBlackoutClear;
+    private Label lblMidiStrobeBindingTitle;
+    private Label lblMidiStrobeBindingBadge;
+    private MaterialButton btnMidiStrobeLearn;
+    private MaterialButton btnMidiStrobeClear;
 
     // Presets Table & Controls
     private final ObservableList<ArtNetPreset> presetList = FXCollections.observableArrayList();
@@ -233,14 +241,20 @@ public class MainWindow extends StackPane {
 
         midiService.setBinding(config.getMidiBoundType(), config.getMidiBoundChannel(), config.getMidiBoundData1());
         midiService.setBlackoutBinding(config.getMidiBlackoutBoundType(), config.getMidiBlackoutBoundChannel(), config.getMidiBlackoutBoundData1());
+        midiService.setStrobeBinding(config.getMidiStrobeBoundType(), config.getMidiStrobeBoundChannel(), config.getMidiStrobeBoundData1());
         midiService.setOnBeatTrigger(() -> Platform.runLater(this::triggerManualBeat));
         midiService.setOnBeatHoldChange(held -> audioService.getAnalyzer().getBeatDetector().setManualBeatHeld(held));
         midiService.setOnBlackoutHoldChange(held -> {
             showEngine.setBlackout(held);
             Platform.runLater(() -> onBlackoutHoldChanged(held));
         });
+        midiService.setOnStrobeHoldChange(held -> {
+            showEngine.setManualStrobe(held);
+            Platform.runLater(() -> updateStrobeUi(held));
+        });
         midiService.setOnLearnComplete(() -> Platform.runLater(this::onMidiLearnCompleted));
         midiService.setOnBlackoutLearnComplete(() -> Platform.runLater(this::onMidiBlackoutLearnCompleted));
+        midiService.setOnStrobeLearnComplete(() -> Platform.runLater(this::onMidiStrobeLearnCompleted));
 
         I18n.setLanguage(config.getLanguage());
         I18n.addListener(lang -> Platform.runLater(this::updateAllLocalizedTexts));
@@ -377,7 +391,32 @@ public class MainWindow extends StackPane {
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        // Status Chip
+        // Strobo-Knopf (gedrückt halten oder klicken für manuellen Strobo-Blitz)
+        btnTopStrobe = new MaterialButton(I18n.get("btn.strobe"), "zap",
+                MaterialTheme.COLOR_SURFACE_4DP, Color.web("#FFD600"), 11, 10, 4, 11, true, null);
+        btnTopStrobe.setOnMousePressed(e -> setManualStrobe(true));
+        btnTopStrobe.setOnMouseReleased(e -> setManualStrobe(false));
+        MaterialTooltip.install(btnTopStrobe, () -> I18n.get("btn.strobe"), () -> I18n.get("tooltip.strobe"));
+
+        // Blackout-Status-Chip (neben dem Active-Chip)
+        chipBlackout = new HBox(6);
+        chipBlackout.setAlignment(Pos.CENTER);
+        chipBlackout.setPadding(new Insets(4, 10, 4, 10));
+        chipBlackout.setCursor(Cursor.HAND);
+        chipBlackout.setOnMouseClicked(e -> {
+            boolean next = !showEngine.isBlackout();
+            setBlackoutState(next);
+        });
+        MaterialTooltip.install(chipBlackout, () -> "Blackout", () -> I18n.get("tooltip.blackout"));
+
+        chipBlackoutIcon = new LucideIcon("power", 11, MaterialTheme.COLOR_TEXT_DISABLED);
+        chipBlackoutLabel = new Label(I18n.get("status.blackout"));
+        chipBlackoutLabel.setTextFill(MaterialTheme.COLOR_TEXT_DISABLED);
+        chipBlackoutLabel.setFont(Font.font(MaterialTheme.FONT_FAMILY, FontWeight.BOLD, 11));
+        chipBlackout.getChildren().addAll(chipBlackoutIcon, chipBlackoutLabel);
+        updateBlackoutChipVisual(showEngine.isBlackout());
+
+        // Status Chip (Aktiv / Bereit)
         HBox chip = new HBox(6);
         chip.setAlignment(Pos.CENTER);
         chip.setPadding(new Insets(4, 10, 4, 10));
@@ -389,7 +428,7 @@ public class MainWindow extends StackPane {
         chipLabel.setFont(Font.font(MaterialTheme.FONT_FAMILY, FontWeight.BOLD, 11));
         chip.getChildren().addAll(chipIcon, chipLabel);
 
-        bar.getChildren().addAll(logoBox, spacer, chip);
+        bar.getChildren().addAll(logoBox, spacer, btnTopStrobe, chipBlackout, chip);
         contentBox.getChildren().add(bar);
     }
 
@@ -1550,12 +1589,45 @@ public class MainWindow extends StackPane {
 
         blackoutBindRow.getChildren().addAll(lblMidiBlackoutBindingBadge, btnMidiBlackoutLearn, btnMidiBlackoutClear);
 
+        // 4. Strobo-Taste (MIDI Learn, aktiv solange gehalten)
+        lblMidiStrobeBindingTitle = new Label(I18n.get("midi.strobe_binding_title"));
+        lblMidiStrobeBindingTitle.setTextFill(MaterialTheme.COLOR_TEXT_MED);
+        lblMidiStrobeBindingTitle.setFont(Font.font("Segoe UI", FontWeight.BOLD, 10));
+
+        HBox strobeBindRow = new HBox(8);
+        strobeBindRow.setAlignment(Pos.CENTER_LEFT);
+
+        lblMidiStrobeBindingBadge = new Label(midiService.formatStrobeBindingText());
+        lblMidiStrobeBindingBadge.setFont(Font.font(MaterialTheme.FONT_FAMILY, FontWeight.BOLD, 11));
+        lblMidiStrobeBindingBadge.setTextFill(Color.web("#FFD600"));
+        lblMidiStrobeBindingBadge.setPadding(new Insets(4, 10, 4, 10));
+        lblMidiStrobeBindingBadge.setMaxWidth(Double.MAX_VALUE);
+        HBox.setHgrow(lblMidiStrobeBindingBadge, Priority.ALWAYS);
+        lblMidiStrobeBindingBadge.setStyle("-fx-background-color: " + MaterialTheme.HEX_SURFACE_1DP +
+                                             "; -fx-border-color: " + MaterialTheme.HEX_DIVIDER +
+                                             "; -fx-border-width: 1px; -fx-background-radius: 4px; -fx-border-radius: 4px;");
+
+        btnMidiStrobeLearn = new MaterialButton(I18n.get("midi.btn.learn"), "radio",
+                Color.web("#FFD600"), Color.web("#000000"), 11, 8, 4, 11, true, this::toggleMidiStrobeLearn);
+
+        btnMidiStrobeClear = new MaterialButton(I18n.get("midi.btn.clear_key"), "x",
+                MaterialTheme.COLOR_SURFACE_4DP, MaterialTheme.COLOR_TEXT_HIGH, 11, 8, 4, 11, false, () -> {
+            midiService.clearStrobeBinding();
+            updateMidiLearnButtonState();
+            lblMidiStrobeBindingBadge.setText(midiService.formatStrobeBindingText());
+            autoSaveConfig();
+        });
+
+        strobeBindRow.getChildren().addAll(lblMidiStrobeBindingBadge, btnMidiStrobeLearn, btnMidiStrobeClear);
+
         grid.add(lblMidiDeviceTitle, 0, 0);
         grid.add(devRow, 1, 0);
         grid.add(lblMidiBindingTitle, 0, 1);
         grid.add(bindRow, 1, 1);
         grid.add(lblMidiBlackoutBindingTitle, 0, 2);
         grid.add(blackoutBindRow, 1, 2);
+        grid.add(lblMidiStrobeBindingTitle, 0, 3);
+        grid.add(strobeBindRow, 1, 3);
 
         ColumnConstraints cc0 = new ColumnConstraints(160);
         ColumnConstraints cc1 = new ColumnConstraints(300, 400, Double.MAX_VALUE);
@@ -1576,6 +1648,11 @@ public class MainWindow extends StackPane {
         updateMidiLearnButtonState();
     }
 
+    private void toggleMidiStrobeLearn() {
+        midiService.setLearningStrobe(!midiService.isLearningStrobe());
+        updateMidiLearnButtonState();
+    }
+
     private void updateMidiLearnButtonState() {
         if (btnMidiLearn != null) {
             if (midiService.isLearning()) {
@@ -1589,6 +1666,13 @@ public class MainWindow extends StackPane {
                 btnMidiBlackoutLearn.updateColors(Color.web("#FFB74D"), Color.web("#000000"), "radio", I18n.get("midi.btn.learning"));
             } else {
                 btnMidiBlackoutLearn.updateColors(MaterialTheme.COLOR_ERROR, MaterialTheme.COLOR_ON_ERROR, "radio", I18n.get("midi.btn.learn"));
+            }
+        }
+        if (btnMidiStrobeLearn != null) {
+            if (midiService.isLearningStrobe()) {
+                btnMidiStrobeLearn.updateColors(Color.web("#FFB74D"), Color.web("#000000"), "radio", I18n.get("midi.btn.learning"));
+            } else {
+                btnMidiStrobeLearn.updateColors(Color.web("#FFD600"), Color.web("#000000"), "radio", I18n.get("midi.btn.learn"));
             }
         }
     }
@@ -1615,7 +1699,54 @@ public class MainWindow extends StackPane {
         autoSaveConfig();
     }
 
+    private void onMidiStrobeLearnCompleted() {
+        updateMidiLearnButtonState();
+        if (lblMidiStrobeBindingBadge != null) {
+            lblMidiStrobeBindingBadge.setText(midiService.formatStrobeBindingText());
+        }
+        if (statusLabel != null) {
+            statusLabel.setText(String.format(I18n.get("midi.status.strobe_learned"), midiService.formatStrobeBindingText()));
+        }
+        autoSaveConfig();
+    }
+
+    private void setManualStrobe(boolean active) {
+        showEngine.setManualStrobe(active);
+        updateStrobeUi(active);
+    }
+
+    private void updateStrobeUi(boolean active) {
+        if (btnTopStrobe != null) {
+            if (active) {
+                btnTopStrobe.updateColors(Color.web("#FFF59D"), Color.web("#000000"), "zap", I18n.get("btn.strobe"));
+            } else {
+                btnTopStrobe.updateColors(MaterialTheme.COLOR_SURFACE_4DP, Color.web("#FFD600"), "zap", I18n.get("btn.strobe"));
+            }
+        }
+    }
+
+    private void setBlackoutState(boolean active) {
+        showEngine.setBlackout(active);
+        onBlackoutHoldChanged(active);
+    }
+
+    private void updateBlackoutChipVisual(boolean active) {
+        if (chipBlackout == null) return;
+        if (active) {
+            chipBlackout.setStyle("-fx-background-color: rgba(207, 102, 121, 0.25); -fx-border-color: " + MaterialTheme.HEX_ERROR +
+                    "; -fx-border-width: 1px; -fx-background-radius: 4px; -fx-border-radius: 4px;");
+            if (chipBlackoutIcon != null) chipBlackoutIcon.setIcon("power", MaterialTheme.COLOR_ERROR);
+            if (chipBlackoutLabel != null) chipBlackoutLabel.setTextFill(MaterialTheme.COLOR_ERROR);
+        } else {
+            chipBlackout.setStyle("-fx-background-color: " + MaterialTheme.HEX_SURFACE_2DP + "; -fx-border-color: " + MaterialTheme.HEX_DIVIDER +
+                    "; -fx-border-width: 1px; -fx-background-radius: 4px; -fx-border-radius: 4px;");
+            if (chipBlackoutIcon != null) chipBlackoutIcon.setIcon("power", MaterialTheme.COLOR_TEXT_DISABLED);
+            if (chipBlackoutLabel != null) chipBlackoutLabel.setTextFill(MaterialTheme.COLOR_TEXT_DISABLED);
+        }
+    }
+
     private void onBlackoutHoldChanged(boolean active) {
+        updateBlackoutChipVisual(active);
         if (statusLabel != null) {
             statusLabel.setText(active ? I18n.get("midi.status.blackout_on") : I18n.get("midi.status.blackout_off"));
         }
@@ -1712,6 +1843,12 @@ public class MainWindow extends StackPane {
 
     private void updateAllLocalizedTexts() {
         // 1. Top Bar
+        if (btnTopStrobe != null) {
+            btnTopStrobe.setText(I18n.get("btn.strobe"));
+        }
+        if (chipBlackoutLabel != null) {
+            chipBlackoutLabel.setText(I18n.get("status.blackout"));
+        }
         if (chipLabel != null) {
             if (!isRunning) {
                 chipLabel.setText(I18n.get("status.ready"));
@@ -1839,9 +1976,12 @@ public class MainWindow extends StackPane {
         if (lblMidiBindingBadge != null) lblMidiBindingBadge.setText(midiService.formatBindingText());
         if (lblMidiBlackoutBindingTitle != null) lblMidiBlackoutBindingTitle.setText(I18n.get("midi.blackout_binding_title"));
         if (lblMidiBlackoutBindingBadge != null) lblMidiBlackoutBindingBadge.setText(midiService.formatBlackoutBindingText());
+        if (lblMidiStrobeBindingTitle != null) lblMidiStrobeBindingTitle.setText(I18n.get("midi.strobe_binding_title"));
+        if (lblMidiStrobeBindingBadge != null) lblMidiStrobeBindingBadge.setText(midiService.formatStrobeBindingText());
         updateMidiLearnButtonState();
         if (btnMidiAnyKey != null) btnMidiAnyKey.setText(I18n.get("midi.btn.any_key"));
         if (btnMidiBlackoutClear != null) btnMidiBlackoutClear.setText(I18n.get("midi.btn.clear_key"));
+        if (btnMidiStrobeClear != null) btnMidiStrobeClear.setText(I18n.get("midi.btn.clear_key"));
 
         // 9. Status Bar
         if (statusLabel != null) {
@@ -2338,6 +2478,9 @@ public class MainWindow extends StackPane {
         config.setMidiBlackoutBoundType(midiService.getBlackoutBoundType());
         config.setMidiBlackoutBoundChannel(midiService.getBlackoutBoundChannel());
         config.setMidiBlackoutBoundData1(midiService.getBlackoutBoundData1());
+        config.setMidiStrobeBoundType(midiService.getStrobeBoundType());
+        config.setMidiStrobeBoundChannel(midiService.getStrobeBoundChannel());
+        config.setMidiStrobeBoundData1(midiService.getStrobeBoundData1());
         config.setFixtures(new ArrayList<>(patchList));
         config.setPresets(new ArrayList<>(presetList));
         ConfigManager.saveConfig(config);

@@ -88,6 +88,7 @@ public class Sound2LightEngine {
     private boolean movementEnabled = true;
     private boolean lightEnabled = true;
     private boolean strobeEnabled = true;
+    private volatile boolean manualStrobe = false;
     private boolean goboEnabled = false;
     private volatile boolean blackout = false;
     private double alwaysOnIntensity = 1.0;
@@ -191,9 +192,11 @@ public class Sound2LightEngine {
         byte[] frame = new byte[512];
         boolean effectiveLight = lightEnabled && !blackout;
         Color activeColor = colorEngine.getCurrentColor();
-        boolean strobeActive = effectiveLight && strobeEnabled && colorEngine.isStrobeActive();
-        boolean strobeShutterOn = colorEngine.isStrobeShutterOn();
-        int strobeDmxVal = colorEngine.getStrobeDmxValue();
+        boolean manualStrobeActive = effectiveLight && manualStrobe;
+        boolean autoStrobeActive = effectiveLight && strobeEnabled && colorEngine.isStrobeActive();
+        boolean strobeActive = manualStrobeActive || autoStrobeActive;
+        boolean strobeShutterOn = manualStrobeActive ? (System.currentTimeMillis() % 60 < 30) : colorEngine.isStrobeShutterOn();
+        int strobeDmxVal = manualStrobeActive ? 240 : colorEngine.getStrobeDmxValue();
 
         int masterDimmerVal = 0;
         if (effectiveLight) {
@@ -382,6 +385,14 @@ public class Sound2LightEngine {
 
     public void setStrobeEnabled(boolean strobeEnabled) {
         this.strobeEnabled = strobeEnabled;
+    }
+
+    public boolean isManualStrobe() {
+        return manualStrobe;
+    }
+
+    public void setManualStrobe(boolean manualStrobe) {
+        this.manualStrobe = manualStrobe;
     }
 
     public boolean isGoboEnabled() {

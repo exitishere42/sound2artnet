@@ -156,4 +156,63 @@ public class MidiAndManualBeatTest {
         engine.tick();
         assertFalse(engine.isLastTickBeat(), "Sobald die MIDI-Taste losgelassen wird, muss der Beat sofort enden");
     }
+
+    @Test
+    public void testMidiBlackoutHoldAndMomentaryAction() {
+        MidiInputService midi = new MidiInputService();
+        java.util.concurrent.atomic.AtomicBoolean blackoutState = new java.util.concurrent.atomic.AtomicBoolean(false);
+        midi.setOnBlackoutHoldChange(blackoutState::set);
+
+        // Blackout auf Note 40 (E2) Ch 0 anlernen (Learn-Druck löst noch nicht aus)
+        midi.setLearningBlackout(true);
+        assertTrue(midi.isLearningBlackout());
+        midi.handleShortMessage(ShortMessage.NOTE_ON, 0, 40, 100);
+        assertFalse(midi.isLearningBlackout());
+        assertEquals("NOTE", midi.getBlackoutBoundType());
+        assertEquals(40, midi.getBlackoutBoundData1());
+
+        // Tastendruck nach dem Anlernen
+        midi.handleShortMessage(ShortMessage.NOTE_ON, 0, 40, 100);
+        assertTrue(blackoutState.get(), "Beim Drücken muss Blackout sofort aktiv werden");
+
+        // Loslassen
+        midi.handleShortMessage(ShortMessage.NOTE_OFF, 0, 40, 0);
+        assertFalse(blackoutState.get(), "Beim Loslassen muss Blackout sofort deaktiviert werden");
+    }
+
+    @Test
+    public void testMidiStrobeLearnAndEngineStrobeActivation() {
+        de.exit.sound2artnet.audio.AudioCaptureService audio = new de.exit.sound2artnet.audio.AudioCaptureService();
+        de.exit.sound2artnet.artnet.ArtNetSender sender = new de.exit.sound2artnet.artnet.ArtNetSender();
+        de.exit.sound2artnet.engine.Sound2LightEngine engine = new de.exit.sound2artnet.engine.Sound2LightEngine(audio, sender);
+
+        var profile = de.exit.sound2artnet.fixture.FixtureLibrary.getDefaultProfiles().get(0); // Dimmer, Strobe, Pan, Tilt, etc.
+        var patch = new de.exit.sound2artnet.fixture.FixturePatch("MH 1", 1, profile);
+        engine.setPatchedFixtures(java.util.List.of(patch));
+
+        MidiInputService midi = new MidiInputService();
+        midi.setOnStrobeHoldChange(engine::setManualStrobe);
+
+        // Strobe auf Note 42 Ch 0 anlernen (Learn-Druck löst noch nicht aus)
+        midi.setLearningStrobe(true);
+        assertTrue(midi.isLearningStrobe());
+        midi.handleShortMessage(ShortMessage.NOTE_ON, 0, 42, 127);
+        assertFalse(midi.isLearningStrobe());
+        assertEquals(42, midi.getStrobeBoundData1());
+
+        // Tastendruck nach dem Anlernen
+        midi.handleShortMessage(ShortMessage.NOTE_ON, 0, 42, 127);
+        assertTrue(engine.isManualStrobe(), "Beim Drücken muss Manual Strobe in der Engine aktiv sein");
+
+        // Tick ausführen: Strobe Kanal (Index 5 bei 9ch Spot) muss DMX 240 haben, Dimmer (Index 6) 255
+        engine.tick();
+        byte[] frame = engine.getCurrentDmxFrame();
+        assertEquals((byte) 255, frame[6], "Dimmer muss bei manuellem Strobe auf 255 voll offen sein");
+        assertEquals((byte) 240, frame[5], "Hardware-Strobe-Kanal muss bei manuellem Strobe auf 240 stehen");
+
+        // Taste loslassen
+        midi.handleShortMessage(ShortMessage.NOTE_OFF, 0, 42, 0);
+        assertFalse(engine.isManualStrobe(), "Nach Loslassen muss Manual Strobe deaktiviert sein");
+    }
 }
+

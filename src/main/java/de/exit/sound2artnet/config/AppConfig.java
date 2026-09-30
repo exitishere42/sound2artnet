@@ -196,6 +196,25 @@ public class AppConfig {
         this.midiBlackoutBoundData1 = midiBlackoutBoundData1;
     }
 
+    private String midiStrobeBoundType = "NONE";
+    private int midiStrobeBoundChannel = -1;
+    private int midiStrobeBoundData1 = -1;
+
+    public String getMidiStrobeBoundType() { return midiStrobeBoundType != null ? midiStrobeBoundType : "NONE"; }
+    public void setMidiStrobeBoundType(String midiStrobeBoundType) {
+        this.midiStrobeBoundType = midiStrobeBoundType != null ? midiStrobeBoundType : "NONE";
+    }
+
+    public int getMidiStrobeBoundChannel() { return midiStrobeBoundChannel; }
+    public void setMidiStrobeBoundChannel(int midiStrobeBoundChannel) {
+        this.midiStrobeBoundChannel = midiStrobeBoundChannel;
+    }
+
+    public int getMidiStrobeBoundData1() { return midiStrobeBoundData1; }
+    public void setMidiStrobeBoundData1(int midiStrobeBoundData1) {
+        this.midiStrobeBoundData1 = midiStrobeBoundData1;
+    }
+
     public boolean isAutostart() { return autostart; }
     public void setAutostart(boolean autostart) { this.autostart = autostart; }
 

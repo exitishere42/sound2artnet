@@ -71,21 +71,31 @@ public class MidiInputService {
     private volatile int blackoutBoundChannel = -1;     // -1 oder 0..15
     private volatile int blackoutBoundData1 = -1;       // -1 oder 0..127
 
+    // Filter / Binding für Strobo (-1 / "NONE" = Nicht zugewiesen)
+    private volatile String strobeBoundType = "NONE"; // "NONE", "NOTE", "CC"
+    private volatile int strobeBoundChannel = -1;     // -1 oder 0..15
+    private volatile int strobeBoundData1 = -1;       // -1 oder 0..127
+
     private volatile boolean learning = false;
     private volatile boolean learningBlackout = false;
+    private volatile boolean learningStrobe = false;
     private final boolean[] ccHighState = new boolean[128];
     private final boolean[] heldNotes = new boolean[16 * 128];
     private final boolean[] heldCcs = new boolean[16 * 128];
     private volatile boolean beatHeld = false;
     private volatile boolean blackoutHeld = false;
+    private volatile boolean strobeHeld = false;
 
     private Runnable onBeatTrigger;
     private Consumer<Boolean> onBeatHoldChange;
     private Runnable onBlackoutTrigger;
     private Consumer<Boolean> onBlackoutHoldChange;
+    private Runnable onStrobeTrigger;
+    private Consumer<Boolean> onStrobeHoldChange;
     private Consumer<MidiEventInfo> onMidiEvent;
     private Runnable onLearnComplete;
     private Runnable onBlackoutLearnComplete;
+    private Runnable onStrobeLearnComplete;
 
     private static boolean isLinux() {
         return System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("linux");
@@ -568,6 +578,33 @@ public class MidiInputService {
         return blackoutBoundData1;
     }
 
+    public void setStrobeBinding(String type, int channel, int data1) {
+        this.strobeBoundType = (type != null && !type.isBlank()) ? type : "NONE";
+        this.strobeBoundChannel = channel;
+        this.strobeBoundData1 = data1;
+        updateBeatHeldState();
+    }
+
+    public void clearStrobeBinding() {
+        this.strobeBoundType = "NONE";
+        this.strobeBoundChannel = -1;
+        this.strobeBoundData1 = -1;
+        this.learningStrobe = false;
+        updateBeatHeldState();
+    }
+
+    public String getStrobeBoundType() {
+        return strobeBoundType;
+    }
+
+    public int getStrobeBoundChannel() {
+        return strobeBoundChannel;
+    }
+
+    public int getStrobeBoundData1() {
+        return strobeBoundData1;
+    }
+
     public boolean isLearning() {
         return learning;
     }
@@ -576,6 +613,7 @@ public class MidiInputService {
         this.learning = learning;
         if (learning) {
             this.learningBlackout = false;
+            this.learningStrobe = false;
         }
     }
 
@@ -587,6 +625,19 @@ public class MidiInputService {
         this.learningBlackout = learningBlackout;
         if (learningBlackout) {
             this.learning = false;
+            this.learningStrobe = false;
+        }
+    }
+
+    public boolean isLearningStrobe() {
+        return learningStrobe;
+    }
+
+    public void setLearningStrobe(boolean learningStrobe) {
+        this.learningStrobe = learningStrobe;
+        if (learningStrobe) {
+            this.learning = false;
+            this.learningBlackout = false;
         }
     }
 
@@ -596,6 +647,10 @@ public class MidiInputService {
 
     public boolean isBlackoutHeld() {
         return blackoutHeld;
+    }
+
+    public boolean isStrobeHeld() {
+        return strobeHeld;
     }
 
     public void setOnBeatTrigger(Runnable onBeatTrigger) {
@@ -614,6 +669,14 @@ public class MidiInputService {
         this.onBlackoutHoldChange = onBlackoutHoldChange;
     }
 
+    public void setOnStrobeTrigger(Runnable onStrobeTrigger) {
+        this.onStrobeTrigger = onStrobeTrigger;
+    }
+
+    public void setOnStrobeHoldChange(Consumer<Boolean> onStrobeHoldChange) {
+        this.onStrobeHoldChange = onStrobeHoldChange;
+    }
+
     public void setOnMidiEvent(Consumer<MidiEventInfo> onMidiEvent) {
         this.onMidiEvent = onMidiEvent;
     }
@@ -624,6 +687,10 @@ public class MidiInputService {
 
     public void setOnBlackoutLearnComplete(Runnable onBlackoutLearnComplete) {
         this.onBlackoutLearnComplete = onBlackoutLearnComplete;
+    }
+
+    public void setOnStrobeLearnComplete(Runnable onStrobeLearnComplete) {
+        this.onStrobeLearnComplete = onStrobeLearnComplete;
     }
 
     public String formatBindingText() {
@@ -648,6 +715,17 @@ public class MidiInputService {
         return String.format("Note %d (%s)  ·  %s", blackoutBoundData1, formatNoteName(blackoutBoundData1), chStr);
     }
 
+    public String formatStrobeBindingText() {
+        if (strobeBoundData1 < 0 || strobeBoundType == null || "NONE".equalsIgnoreCase(strobeBoundType)) {
+            return I18n.get("midi.binding.none");
+        }
+        String chStr = (strobeBoundChannel >= 0) ? ("Ch " + (strobeBoundChannel + 1)) : "All Ch";
+        if ("CC".equalsIgnoreCase(strobeBoundType)) {
+            return String.format("CC %d  ·  %s", strobeBoundData1, chStr);
+        }
+        return String.format("Note %d (%s)  ·  %s", strobeBoundData1, formatNoteName(strobeBoundData1), chStr);
+    }
+
     public static String formatNoteName(int noteNumber) {
         if (noteNumber < 0 || noteNumber > 127) {
             return "?";
@@ -668,8 +746,8 @@ public class MidiInputService {
         int idx = ch * 128 + d1;
 
         if (command == ShortMessage.NOTE_ON && d2 > 0) {
-            boolean wasLearningBlackout = learningBlackout;
-            if (!wasLearningBlackout) {
+            boolean wasLearning = learningBlackout || learningStrobe;
+            if (!wasLearning) {
                 heldNotes[idx] = true;
             }
             processIncomingTrigger("NOTE", ch, d1, d2);
@@ -679,8 +757,8 @@ public class MidiInputService {
             updateBeatHeldState();
         } else if (command == ShortMessage.CONTROL_CHANGE) {
             if (d2 >= 64) {
-                boolean wasLearningBlackout = learningBlackout;
-                if (!wasLearningBlackout) {
+                boolean wasLearning = learningBlackout || learningStrobe;
+                if (!wasLearning) {
                     heldCcs[idx] = true;
                 }
                 if (!ccHighState[d1]) {
@@ -712,17 +790,26 @@ public class MidiInputService {
                 onBlackoutHoldChange.accept(false);
             }
         }
+        if (strobeHeld) {
+            strobeHeld = false;
+            if (onStrobeHoldChange != null) {
+                onStrobeHoldChange.accept(false);
+            }
+        }
     }
 
     private void updateBeatHeldState() {
         boolean anyMatchingHeld = false;
         boolean anyBlackoutHeld = false;
+        boolean anyStrobeHeld = false;
         for (int ch = 0; ch < 16; ch++) {
             for (int d1 = 0; d1 < 128; d1++) {
                 int idx = ch * 128 + d1;
                 if (heldNotes[idx]) {
                     if (matchesBlackoutBinding("NOTE", ch, d1)) {
                         anyBlackoutHeld = true;
+                    } else if (matchesStrobeBinding("NOTE", ch, d1)) {
+                        anyStrobeHeld = true;
                     } else if (matchesBinding("NOTE", ch, d1)) {
                         anyMatchingHeld = true;
                     }
@@ -730,6 +817,8 @@ public class MidiInputService {
                 if (heldCcs[idx]) {
                     if (matchesBlackoutBinding("CC", ch, d1)) {
                         anyBlackoutHeld = true;
+                    } else if (matchesStrobeBinding("CC", ch, d1)) {
+                        anyStrobeHeld = true;
                     } else if (matchesBinding("CC", ch, d1)) {
                         anyMatchingHeld = true;
                     }
@@ -748,6 +837,12 @@ public class MidiInputService {
                 onBlackoutHoldChange.accept(anyBlackoutHeld);
             }
         }
+        if (this.strobeHeld != anyStrobeHeld) {
+            this.strobeHeld = anyStrobeHeld;
+            if (onStrobeHoldChange != null) {
+                onStrobeHoldChange.accept(anyStrobeHeld);
+            }
+        }
     }
 
     private void processIncomingTrigger(String type, int channel, int data1, int data2) {
@@ -758,6 +853,20 @@ public class MidiInputService {
             this.learningBlackout = false;
             if (onBlackoutLearnComplete != null) {
                 onBlackoutLearnComplete.run();
+            }
+            if (onMidiEvent != null) {
+                onMidiEvent.accept(new MidiEventInfo(type, channel, data1, data2, true));
+            }
+            return;
+        }
+
+        if (learningStrobe) {
+            this.strobeBoundType = type;
+            this.strobeBoundChannel = channel;
+            this.strobeBoundData1 = data1;
+            this.learningStrobe = false;
+            if (onStrobeLearnComplete != null) {
+                onStrobeLearnComplete.run();
             }
             if (onMidiEvent != null) {
                 onMidiEvent.accept(new MidiEventInfo(type, channel, data1, data2, true));
@@ -778,6 +887,16 @@ public class MidiInputService {
         if (matchesBlackoutBinding(type, channel, data1)) {
             if (onBlackoutTrigger != null) {
                 onBlackoutTrigger.run();
+            }
+            if (onMidiEvent != null) {
+                onMidiEvent.accept(new MidiEventInfo(type, channel, data1, data2, true));
+            }
+            return;
+        }
+
+        if (matchesStrobeBinding(type, channel, data1)) {
+            if (onStrobeTrigger != null) {
+                onStrobeTrigger.run();
             }
             if (onMidiEvent != null) {
                 onMidiEvent.accept(new MidiEventInfo(type, channel, data1, data2, true));
@@ -807,8 +926,21 @@ public class MidiInputService {
         return blackoutBoundData1 == data1;
     }
 
+    private boolean matchesStrobeBinding(String type, int channel, int data1) {
+        if (strobeBoundData1 < 0 || strobeBoundType == null || "NONE".equalsIgnoreCase(strobeBoundType)) {
+            return false;
+        }
+        if (!strobeBoundType.equalsIgnoreCase(type)) {
+            return false;
+        }
+        if (strobeBoundChannel >= 0 && strobeBoundChannel != channel) {
+            return false;
+        }
+        return strobeBoundData1 == data1;
+    }
+
     private boolean matchesBinding(String type, int channel, int data1) {
-        if (matchesBlackoutBinding(type, channel, data1)) {
+        if (matchesBlackoutBinding(type, channel, data1) || matchesStrobeBinding(type, channel, data1)) {
             return false;
         }
         if (boundData1 < 0 || "ANY".equalsIgnoreCase(boundType)) {
