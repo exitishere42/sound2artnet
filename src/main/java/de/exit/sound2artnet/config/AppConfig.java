@@ -17,6 +17,7 @@ import java.util.List;
 public class AppConfig {
     private String targetIp = "127.0.0.1";
     private int universe = 0;
+    private List<Integer> targetUniverses = new ArrayList<>(List.of(0));
     private int fps = 40;
     private String audioDevice = "PC-Sound";
     private double gain = 1.0;
@@ -54,7 +55,38 @@ public class AppConfig {
     public void setTargetIp(String targetIp) { this.targetIp = targetIp; }
 
     public int getUniverse() { return universe; }
-    public void setUniverse(int universe) { this.universe = universe; }
+    public void setUniverse(int universe) {
+        this.universe = Math.max(0, Math.min(15, universe));
+        if (this.targetUniverses == null || this.targetUniverses.isEmpty() || (this.targetUniverses.size() == 1 && this.targetUniverses.contains(0))) {
+            this.targetUniverses = new ArrayList<>(List.of(this.universe));
+        } else if (!this.targetUniverses.contains(this.universe)) {
+            this.targetUniverses.add(0, this.universe);
+        }
+    }
+
+    public List<Integer> getTargetUniverses() {
+        if (targetUniverses == null || targetUniverses.isEmpty()) {
+            return List.of(universe);
+        }
+        return targetUniverses;
+    }
+
+    public void setTargetUniverses(List<Integer> targetUniverses) {
+        if (targetUniverses != null && !targetUniverses.isEmpty()) {
+            this.targetUniverses = new ArrayList<>(targetUniverses.stream().map(u -> Math.max(0, Math.min(15, u))).distinct().toList());
+            if (!this.targetUniverses.contains(this.universe)) {
+                this.universe = this.targetUniverses.get(0);
+            }
+        } else {
+            this.targetUniverses = new ArrayList<>(List.of(0));
+            this.universe = 0;
+        }
+    }
+
+    public String formatUniversesText() {
+        List<Integer> list = getTargetUniverses();
+        return list.stream().map(String::valueOf).collect(java.util.stream.Collectors.joining(", "));
+    }
 
     public int getFps() { return fps; }
     public void setFps(int fps) { this.fps = fps; }
@@ -148,6 +180,7 @@ public class AppConfig {
                     "Standard-Setup",
                     this.targetIp != null ? this.targetIp : "127.0.0.1",
                     this.universe,
+                    this.targetUniverses,
                     this.fps,
                     this.fixtures != null ? new ArrayList<>(this.fixtures) : new ArrayList<>(),
                     this.movementPattern,

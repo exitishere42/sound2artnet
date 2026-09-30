@@ -39,6 +39,7 @@ public class FixtureEditorDialog extends Stage {
 
     private TextField txtName;
     private Spinner<Integer> spQuantity;
+    private Spinner<Integer> spUniverse;
     private Spinner<Integer> spStartAddr;
     private ComboBox<FixtureProfile> cbPresets;
     private CheckBox chkInvertPan;
@@ -53,13 +54,21 @@ public class FixtureEditorDialog extends Stage {
     private TableView<ChannelMapping> tableChannels;
 
     public FixtureEditorDialog(Stage owner, FixturePatch existingPatch, Consumer<FixturePatch> onSave) {
-        this(owner, existingPatch, 1, onSave);
+        this(owner, existingPatch, existingPatch != null ? existingPatch.getUniverse() : 0, existingPatch != null ? existingPatch.getStartAddress() : 1, onSave);
     }
 
     public FixtureEditorDialog(Stage owner, FixturePatch existingPatch, int suggestedStartAddr, Consumer<FixturePatch> onSave) {
+        this(owner, existingPatch, existingPatch != null ? existingPatch.getUniverse() : 0, suggestedStartAddr, onSave);
+    }
+
+    public FixtureEditorDialog(Stage owner, FixturePatch existingPatch, int suggestedUniverse, int suggestedStartAddr, Consumer<FixturePatch> onSave) {
         this.isEditMode = (existingPatch != null);
         int startAddr = Math.max(1, Math.min(512, suggestedStartAddr));
+        int uni = Math.max(0, Math.min(15, suggestedUniverse));
         this.patch = isEditMode ? existingPatch : new FixturePatch(I18n.get("editor.default_name"), startAddr, FixtureLibrary.createGeneric9chSpot());
+        if (!isEditMode) {
+            this.patch.setUniverse(uni);
+        }
         this.onSave = onSave;
 
         initOwner(owner);
@@ -115,6 +124,16 @@ public class FixtureEditorDialog extends Stage {
             row.getChildren().add(boxQty);
         }
 
+        VBox boxUni = new VBox(4);
+        boxUni.setMinWidth(80);
+        boxUni.setMaxWidth(90);
+        Label lblUni = new Label(I18n.get("editor.universe"));
+        lblUni.setTextFill(MaterialTheme.COLOR_TEXT_MED);
+        lblUni.setFont(Font.font("Segoe UI", FontWeight.BOLD, 10));
+        spUniverse = new Spinner<>(0, 15, patch.getUniverse());
+        spUniverse.setEditable(true);
+        boxUni.getChildren().addAll(lblUni, spUniverse);
+
         VBox boxAddr = new VBox(4);
         boxAddr.setMinWidth(110);
         Label lblAddr = new Label(I18n.get("editor.dmx_start"));
@@ -124,7 +143,7 @@ public class FixtureEditorDialog extends Stage {
         spStartAddr.setEditable(true);
         boxAddr.getChildren().addAll(lblAddr, spStartAddr);
 
-        row.getChildren().add(boxAddr);
+        row.getChildren().addAll(boxUni, boxAddr);
         root.getChildren().add(row);
     }
 
@@ -395,6 +414,7 @@ public class FixtureEditorDialog extends Stage {
     private void handleSave() {
         String baseName = txtName.getText().trim().isEmpty() ? I18n.get("editor.default_name") : txtName.getText().trim();
         int baseStartAddr = readSpinnerValue(spStartAddr, 1);
+        int baseUniverse = readSpinnerValue(spUniverse, patch.getUniverse());
         int quantity = isEditMode ? 1 : readSpinnerValue(spQuantity, 1);
 
         List<ChannelMapping> updatedChannels = new ArrayList<>(channelData);
@@ -410,15 +430,22 @@ public class FixtureEditorDialog extends Stage {
         );
 
         int chCount = Math.max(1, updatedChannels.size());
+        int currentUni = baseUniverse;
+        int currentAddr = baseStartAddr;
+
         for (int i = 0; i < quantity; i++) {
-            int addr = baseStartAddr + (i * chCount);
-            if (addr > 512) {
-                break;
+            if (currentAddr + chCount - 1 > 512) {
+                currentUni++;
+                currentAddr = 1;
+                if (currentUni > 15) {
+                    break;
+                }
             }
             String instanceName = (quantity > 1) ? (baseName + " " + (i + 1)) : baseName;
-            FixturePatch target = (i == 0) ? patch : new FixturePatch(instanceName, addr, prof.copy());
+            FixturePatch target = (i == 0) ? patch : new FixturePatch(instanceName, currentAddr, prof.copy());
             target.setName(instanceName);
-            target.setStartAddress(addr);
+            target.setUniverse(currentUni);
+            target.setStartAddress(currentAddr);
             target.setInvertPan(chkInvertPan.isSelected());
             target.setInvertTilt(chkInvertTilt.isSelected());
             target.setPanMin((int) Math.round(slPanMin.getValue()));
@@ -431,6 +458,7 @@ public class FixtureEditorDialog extends Stage {
             if (onSave != null) {
                 onSave.accept(target);
             }
+            currentAddr += chCount;
         }
         close();
     }

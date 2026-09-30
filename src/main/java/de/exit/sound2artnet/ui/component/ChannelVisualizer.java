@@ -11,7 +11,9 @@ import javafx.scene.Cursor;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
+import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.ListCell;
 import javafx.scene.control.ScrollBar;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
@@ -23,8 +25,11 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.TextAlignment;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
+import java.util.TreeSet;
 
 /**
  * 512-Kanal DMX-Visualizer mit 32 sichtbaren Kanälen im Viewport,
@@ -46,6 +51,8 @@ public class ChannelVisualizer extends VBox {
     private int hoveredChannel = -1;
 
     private final Label lblTitle;
+    private final ComboBox<Integer> cbUniverse;
+    private int selectedUniverse = 0;
     private final Label lblBereich;
 
     public ChannelVisualizer() {
@@ -65,6 +72,32 @@ public class ChannelVisualizer extends VBox {
         lblTitle = new Label(de.exit.sound2artnet.util.I18n.get("visualizer.title"));
         lblTitle.setTextFill(MaterialTheme.COLOR_TEXT_MED);
         lblTitle.setFont(Font.font("Segoe UI", FontWeight.BOLD, 11));
+
+        cbUniverse = new ComboBox<>();
+        cbUniverse.getItems().add(0);
+        cbUniverse.setValue(0);
+        cbUniverse.setPrefWidth(90);
+        cbUniverse.setStyle("-fx-background-color: " + MaterialTheme.HEX_SURFACE_2DP + "; -fx-font-size: 11px;");
+        cbUniverse.setCellFactory(lv -> new ListCell<>() {
+            @Override
+            protected void updateItem(Integer item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? "" : "Uni " + item);
+            }
+        });
+        cbUniverse.setButtonCell(new ListCell<>() {
+            @Override
+            protected void updateItem(Integer item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? "" : "Uni " + item);
+            }
+        });
+        cbUniverse.setOnAction(e -> {
+            if (cbUniverse.getValue() != null) {
+                selectedUniverse = cbUniverse.getValue();
+                render();
+            }
+        });
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
@@ -95,7 +128,7 @@ public class ChannelVisualizer extends VBox {
             jumpBox.getChildren().add(btnJump);
         }
 
-        header.getChildren().addAll(iconSliders, lblTitle, spacer, jumpBox);
+        header.getChildren().addAll(iconSliders, lblTitle, cbUniverse, spacer, jumpBox);
 
         // Canvas & Entkoppelter Container
         canvas = new Canvas(800, 150);
@@ -258,6 +291,36 @@ public class ChannelVisualizer extends VBox {
         }
     }
 
+    public int getSelectedUniverse() {
+        return selectedUniverse;
+    }
+
+    public void setSelectedUniverse(int universe) {
+        this.selectedUniverse = universe;
+        if (!cbUniverse.getItems().contains(universe)) {
+            cbUniverse.getItems().add(universe);
+        }
+        cbUniverse.setValue(universe);
+        render();
+    }
+
+    public void setAvailableUniverses(Collection<Integer> universes) {
+        if (universes == null || universes.isEmpty()) {
+            universes = List.of(0);
+        }
+        List<Integer> sorted = new ArrayList<>(new TreeSet<>(universes));
+        if (!sorted.equals(new ArrayList<>(cbUniverse.getItems()))) {
+            Integer cur = cbUniverse.getValue();
+            cbUniverse.getItems().setAll(sorted);
+            if (cur != null && sorted.contains(cur)) {
+                cbUniverse.setValue(cur);
+            } else {
+                cbUniverse.setValue(sorted.get(0));
+                selectedUniverse = sorted.get(0);
+            }
+        }
+    }
+
     public void updateLocalizedTexts() {
         lblTitle.setText(de.exit.sound2artnet.util.I18n.get("visualizer.title"));
         lblBereich.setText(de.exit.sound2artnet.util.I18n.get("visualizer.range"));
@@ -266,7 +329,7 @@ public class ChannelVisualizer extends VBox {
 
     private String getChannelRoleTag(int dmxAddr) {
         for (FixturePatch patch : currentPatches) {
-            if (!patch.isEnabled() || patch.getProfile() == null) continue;
+            if (!patch.isEnabled() || patch.getProfile() == null || patch.getUniverse() != selectedUniverse) continue;
             int start = patch.getStartAddress();
             int end = patch.getEndAddress();
             if (dmxAddr >= start && dmxAddr <= end) {

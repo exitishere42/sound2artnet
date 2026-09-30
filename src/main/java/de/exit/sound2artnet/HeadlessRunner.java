@@ -24,7 +24,10 @@ public class HeadlessRunner {
             if (arg.equals("--ip") && i + 1 < args.length) {
                 config.setTargetIp(args[++i]);
             } else if (arg.equals("--universe") && i + 1 < args.length) {
-                config.setUniverse(Integer.parseInt(args[++i]));
+                String val = args[++i];
+                var unis = de.exit.sound2artnet.ui.MainWindow.parseUniverses(val);
+                config.setTargetUniverses(unis);
+                config.setUniverse(unis.isEmpty() ? 0 : unis.get(0));
             } else if (arg.equals("--fps") && i + 1 < args.length) {
                 config.setFps(Integer.parseInt(args[++i]));
             }
@@ -34,7 +37,7 @@ public class HeadlessRunner {
         System.out.println("     sound2artnet - Sound-to-ArtNet Controller (Headless CLI)");
         System.out.println("==================================================================");
         System.out.println("  Art-Net Ziel:   " + config.getTargetIp() + ":" + ArtNetSender.DEFAULT_PORT);
-        System.out.println("  Universum:      " + config.getUniverse());
+        System.out.println("  Universen:      " + config.formatUniversesText());
         System.out.println("  Ziel-FPS:       " + config.getFps() + " Hz");
         System.out.println("  Bewegung:       " + config.getMovementPattern());
         System.out.println("  Patched Fixt.:  " + (config.getFixtures() != null ? config.getFixtures().size() : 0));
@@ -47,6 +50,7 @@ public class HeadlessRunner {
         if (config.getFixtures() != null) {
             engine.setPatchedFixtures(config.getFixtures());
         }
+        engine.setTargetUniverses(config.getTargetUniverses());
         engine.setMovementPattern(config.getMovementPattern());
         engine.setDimmerMode(config.getDimmerMode());
         engine.getColorEngine().setPalette(config.getColorPalette());

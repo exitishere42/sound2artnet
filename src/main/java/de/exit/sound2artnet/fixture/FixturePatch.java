@@ -14,6 +14,7 @@ import java.util.UUID;
 public class FixturePatch {
     private String id;
     private String name;
+    private int universe = 0; // 0-15
     private int startAddress; // 1-512
     private FixtureProfile profile;
 
@@ -35,6 +36,7 @@ public class FixturePatch {
     public FixturePatch(
             @JsonProperty("id") String id,
             @JsonProperty("name") String name,
+            @JsonProperty("universe") Integer universe,
             @JsonProperty("startAddress") int startAddress,
             @JsonProperty("profile") FixtureProfile profile,
             @JsonProperty("invertPan") boolean invertPan,
@@ -47,6 +49,7 @@ public class FixturePatch {
             @JsonProperty("enabled") boolean enabled) {
         this.id = id != null ? id : UUID.randomUUID().toString();
         this.name = name != null ? name : "Fixture";
+        this.universe = universe != null ? Math.max(0, Math.min(15, universe)) : 0;
         this.startAddress = Math.max(1, Math.min(512, startAddress));
         this.profile = profile != null ? profile : new FixtureProfile();
         this.invertPan = invertPan;
@@ -59,8 +62,19 @@ public class FixturePatch {
         this.enabled = enabled;
     }
 
+    public FixturePatch(
+            String id, String name, int startAddress, FixtureProfile profile,
+            boolean invertPan, boolean invertTilt, int panMin, int panMax,
+            int tiltMin, int tiltMax, double phaseOffset, boolean enabled) {
+        this(id, name, 0, startAddress, profile, invertPan, invertTilt, panMin, panMax, tiltMin, tiltMax, phaseOffset, enabled);
+    }
+
+    public FixturePatch(String name, int universe, int startAddress, FixtureProfile profile) {
+        this(UUID.randomUUID().toString(), name, universe, startAddress, profile, false, false, 0, 255, 0, 255, 0.0, true);
+    }
+
     public FixturePatch(String name, int startAddress, FixtureProfile profile) {
-        this(UUID.randomUUID().toString(), name, startAddress, profile, false, false, 0, 255, 0, 255, 0.0, true);
+        this(UUID.randomUUID().toString(), name, 0, startAddress, profile, false, false, 0, 255, 0, 255, 0.0, true);
     }
 
     @JsonIgnore
@@ -134,6 +148,9 @@ public class FixturePatch {
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
 
+    public int getUniverse() { return universe; }
+    public void setUniverse(int universe) { this.universe = Math.max(0, Math.min(15, universe)); }
+
     public int getStartAddress() { return startAddress; }
     public void setStartAddress(int startAddress) { this.startAddress = Math.max(1, Math.min(512, startAddress)); }
 
@@ -168,6 +185,7 @@ public class FixturePatch {
         return new FixturePatch(
                 this.id,
                 this.name,
+                this.universe,
                 this.startAddress,
                 this.profile,
                 this.invertPan,
@@ -183,7 +201,7 @@ public class FixturePatch {
 
     @Override
     public String toString() {
-        return name + " (DMX " + startAddress + "-" + getEndAddress() + ")";
+        return name + " (Uni " + universe + " | DMX " + startAddress + "-" + getEndAddress() + ")";
     }
 }
 

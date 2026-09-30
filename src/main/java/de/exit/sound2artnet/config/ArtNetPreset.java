@@ -11,8 +11,10 @@ import de.exit.sound2artnet.fixture.FixturePatch;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * Modelliert ein gespeichertes Art-Net Setup / Profil (Preset) für verschiedene Venues oder Shows.
@@ -26,6 +28,7 @@ public class ArtNetPreset {
     private String description;
     private String targetIp;
     private int universe;
+    private List<Integer> targetUniverses;
     private int fps;
     private List<FixturePatch> fixtures;
 
@@ -51,6 +54,7 @@ public class ArtNetPreset {
         this.description = "";
         this.targetIp = "127.0.0.1";
         this.universe = 0;
+        this.targetUniverses = new ArrayList<>(List.of(0));
         this.fps = 40;
         this.fixtures = new ArrayList<>();
         this.movementPattern = MovementPattern.AUTO_BPM;
@@ -75,6 +79,7 @@ public class ArtNetPreset {
             @JsonProperty("description") String description,
             @JsonProperty("targetIp") String targetIp,
             @JsonProperty("universe") int universe,
+            @JsonProperty("targetUniverses") List<Integer> targetUniverses,
             @JsonProperty("fps") int fps,
             @JsonProperty("fixtures") List<FixturePatch> fixtures,
             @JsonProperty("movementPattern") MovementPattern movementPattern,
@@ -95,6 +100,14 @@ public class ArtNetPreset {
         this.description = description != null ? description.trim() : "";
         this.targetIp = targetIp != null && !targetIp.isBlank() ? targetIp.trim() : "127.0.0.1";
         this.universe = Math.max(0, Math.min(15, universe));
+        if (targetUniverses != null && !targetUniverses.isEmpty()) {
+            this.targetUniverses = new ArrayList<>(targetUniverses.stream().map(u -> Math.max(0, Math.min(15, u))).distinct().toList());
+            if (!this.targetUniverses.contains(this.universe)) {
+                this.targetUniverses.add(0, this.universe);
+            }
+        } else {
+            this.targetUniverses = new ArrayList<>(List.of(this.universe));
+        }
         this.fps = fps > 0 ? fps : 40;
         this.fixtures = fixtures != null ? fixtures : new ArrayList<>();
         this.movementPattern = movementPattern != null ? movementPattern : MovementPattern.AUTO_BPM;
@@ -127,11 +140,64 @@ public class ArtNetPreset {
             Double alwaysOnIntensity,
             Double audioLevelMax,
             ColorEngine.Palette colorPalette,
+            ColorEngine.GoboMode goboMode,
+            Boolean movementEnabled,
+            Boolean lightEnabled,
+            Boolean strobeEnabled,
+            Boolean goboEnabled,
+            String lastModified,
+            List<Integer> targetUniverses) {
+        this(id, name, description, targetIp, universe, targetUniverses, fps, fixtures, movementPattern, movementSpeed, movementSize,
+                dimmerMode, alwaysOnIntensity, audioLevelMax, colorPalette, goboMode,
+                movementEnabled, lightEnabled, strobeEnabled, goboEnabled, lastModified);
+    }
+
+    public ArtNetPreset(
+            String id,
+            String name,
+            String description,
+            String targetIp,
+            int universe,
+            int fps,
+            List<FixturePatch> fixtures,
+            MovementPattern movementPattern,
+            double movementSpeed,
+            double movementSize,
+            Sound2LightEngine.DimmerMode dimmerMode,
+            Double alwaysOnIntensity,
+            Double audioLevelMax,
+            ColorEngine.Palette colorPalette,
+            ColorEngine.GoboMode goboMode,
+            Boolean movementEnabled,
+            Boolean lightEnabled,
+            Boolean strobeEnabled,
+            Boolean goboEnabled,
+            String lastModified) {
+        this(id, name, description, targetIp, universe, List.of(universe), fps, fixtures, movementPattern, movementSpeed, movementSize,
+                dimmerMode, alwaysOnIntensity, audioLevelMax, colorPalette, goboMode,
+                movementEnabled, lightEnabled, strobeEnabled, goboEnabled, lastModified);
+    }
+
+    public ArtNetPreset(
+            String id,
+            String name,
+            String description,
+            String targetIp,
+            int universe,
+            int fps,
+            List<FixturePatch> fixtures,
+            MovementPattern movementPattern,
+            double movementSpeed,
+            double movementSize,
+            Sound2LightEngine.DimmerMode dimmerMode,
+            Double alwaysOnIntensity,
+            Double audioLevelMax,
+            ColorEngine.Palette colorPalette,
             Boolean movementEnabled,
             Boolean lightEnabled,
             Boolean strobeEnabled,
             String lastModified) {
-        this(id, name, description, targetIp, universe, fps, fixtures, movementPattern, movementSpeed, movementSize,
+        this(id, name, description, targetIp, universe, List.of(universe), fps, fixtures, movementPattern, movementSpeed, movementSize,
                 dimmerMode, alwaysOnIntensity, audioLevelMax, colorPalette, ColorEngine.GoboMode.AUTO_BEAT,
                 movementEnabled, lightEnabled, strobeEnabled, false, lastModified);
     }
@@ -167,7 +233,38 @@ public class ArtNetPreset {
     public void setTargetIp(String targetIp) { this.targetIp = targetIp != null && !targetIp.isBlank() ? targetIp.trim() : "127.0.0.1"; }
 
     public int getUniverse() { return universe; }
-    public void setUniverse(int universe) { this.universe = Math.max(0, Math.min(15, universe)); }
+    public void setUniverse(int universe) {
+        this.universe = Math.max(0, Math.min(15, universe));
+        if (this.targetUniverses == null || this.targetUniverses.isEmpty()) {
+            this.targetUniverses = new ArrayList<>(List.of(this.universe));
+        } else if (!this.targetUniverses.contains(this.universe)) {
+            this.targetUniverses.add(0, this.universe);
+        }
+    }
+
+    public List<Integer> getTargetUniverses() {
+        if (targetUniverses == null || targetUniverses.isEmpty()) {
+            return List.of(universe);
+        }
+        return Collections.unmodifiableList(targetUniverses);
+    }
+
+    public void setTargetUniverses(List<Integer> list) {
+        if (list == null || list.isEmpty()) {
+            this.targetUniverses = new ArrayList<>(List.of(0));
+            this.universe = 0;
+        } else {
+            this.targetUniverses = new ArrayList<>(list.stream().map(u -> Math.max(0, Math.min(15, u))).distinct().toList());
+            if (!this.targetUniverses.contains(this.universe)) {
+                this.universe = this.targetUniverses.get(0);
+            }
+        }
+    }
+
+    public String formatUniversesText() {
+        List<Integer> list = getTargetUniverses();
+        return list.stream().map(String::valueOf).collect(Collectors.joining(", "));
+    }
 
     public int getFps() { return fps; }
     public void setFps(int fps) { this.fps = fps > 0 ? fps : 40; }
@@ -216,6 +313,6 @@ public class ArtNetPreset {
 
     @Override
     public String toString() {
-        return name + " (" + targetIp + ", Uni " + universe + ")";
+        return name + " (" + targetIp + ", Uni " + formatUniversesText() + ")";
     }
 }

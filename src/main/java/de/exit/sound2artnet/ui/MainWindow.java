@@ -49,6 +49,8 @@ import javafx.util.Duration;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -104,7 +106,7 @@ public class MainWindow extends StackPane {
     private TextField txtTargetIp;
     private Label lblBoxUni;
     private HelpBadge helpUni;
-    private Spinner<Integer> spUniverse;
+    private TextField txtUniverses;
     private Label lblBoxFps;
     private HelpBadge helpFps;
     private Spinner<Integer> spFps;
@@ -162,6 +164,7 @@ public class MainWindow extends StackPane {
     private TableColumn<FixturePatch, Boolean> colActive;
     private TableColumn<FixturePatch, String> colName;
     private TableColumn<FixturePatch, String> colProfile;
+    private TableColumn<FixturePatch, String> colUniverse;
     private TableColumn<FixturePatch, String> colDmx;
     private TableColumn<FixturePatch, String> colLimits;
     private TableColumn<FixturePatch, String> colPhase;
@@ -219,6 +222,7 @@ public class MainWindow extends StackPane {
             patchList.addAll(config.getFixtures());
             showEngine.setPatchedFixtures(new ArrayList<>(config.getFixtures()));
         }
+        showEngine.setTargetUniverses(config.getTargetUniverses());
 
         // Profile / Presets laden
         config.ensureDefaultPreset();
@@ -706,17 +710,21 @@ public class MainWindow extends StackPane {
         txtTargetIp.textProperty().addListener((obs, o, n) -> autoSaveConfig());
         boxIp.getChildren().add(txtTargetIp);
 
-        // 3. Universum
-        ControlBox boxUniInfo = createControlBox("ctrl.universe", "ctrl.universe.tt_title", "ctrl.universe.tt_desc");
+        // 3. Universen
+        ControlBox boxUniInfo = createControlBox("ctrl.universes", "ctrl.universes.tt_title", "ctrl.universes.tt_desc");
         lblBoxUni = boxUniInfo.titleLabel();
         helpUni = boxUniInfo.helpBadge();
         VBox boxUni = boxUniInfo.box();
-        boxUni.setMinWidth(95);
-        spUniverse = new Spinner<>(0, 15, config.getUniverse());
-        spUniverse.setEditable(true);
-        spUniverse.setMaxWidth(Double.MAX_VALUE);
-        spUniverse.valueProperty().addListener((obs, o, n) -> autoSaveConfig());
-        boxUni.getChildren().add(spUniverse);
+        boxUni.setMinWidth(100);
+        txtUniverses = new TextField(config.formatUniversesText());
+        txtUniverses.setPromptText("0, 1");
+        txtUniverses.setMaxWidth(Double.MAX_VALUE);
+        txtUniverses.textProperty().addListener((obs, o, n) -> {
+            List<Integer> parsed = parseUniverses(n);
+            showEngine.setTargetUniverses(parsed);
+            autoSaveConfig();
+        });
+        boxUni.getChildren().add(txtUniverses);
 
         // 4. Ziel-FPS
         ControlBox boxFpsInfo = createControlBox("ctrl.fps", "ctrl.fps.tt_title", "ctrl.fps.tt_desc");
@@ -834,6 +842,11 @@ public class MainWindow extends StackPane {
         colProfile.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getProfile() != null ? data.getValue().getProfile().getName() : ""));
         colProfile.setMinWidth(150);
 
+        colUniverse = new TableColumn<>(I18n.get("patch.col.universe"));
+        colUniverse.setCellValueFactory(data -> new SimpleStringProperty(String.valueOf(data.getValue().getUniverse())));
+        colUniverse.setMaxWidth(75);
+        colUniverse.setStyle("-fx-alignment: CENTER; -fx-font-weight: bold;");
+
         colDmx = new TableColumn<>(I18n.get("patch.col.dmx"));
         colDmx.setCellValueFactory(data -> new SimpleStringProperty("DMX " + data.getValue().getStartAddress() + " - " + data.getValue().getEndAddress()));
         colDmx.setMaxWidth(120);
@@ -854,7 +867,7 @@ public class MainWindow extends StackPane {
         colPhase.setMaxWidth(100);
         colPhase.setStyle("-fx-alignment: CENTER;");
 
-        tablePatches.getColumns().addAll(colActive, colName, colProfile, colDmx, colLimits, colPhase);
+        tablePatches.getColumns().addAll(colActive, colName, colProfile, colUniverse, colDmx, colLimits, colPhase);
 
         // Action Buttons Row
         HBox btnRow = new HBox(8);
@@ -1233,7 +1246,7 @@ public class MainWindow extends StackPane {
         colPresetIp.setStyle("-fx-alignment: CENTER;");
 
         colPresetUniverse = new TableColumn<>(I18n.get("preset.col.universe"));
-        colPresetUniverse.setCellValueFactory(data -> new SimpleStringProperty(String.valueOf(data.getValue().getUniverse())));
+        colPresetUniverse.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().formatUniversesText()));
         colPresetUniverse.setMaxWidth(90);
         colPresetUniverse.setStyle("-fx-alignment: CENTER;");
 
@@ -1317,11 +1330,12 @@ public class MainWindow extends StackPane {
         if (preset == null) return;
 
         txtTargetIp.setText(preset.getTargetIp());
-        spUniverse.getValueFactory().setValue(preset.getUniverse());
+        txtUniverses.setText(preset.formatUniversesText());
         spFps.getValueFactory().setValue(preset.getFps());
 
         patchList.setAll(preset.copyFixtures());
         showEngine.setPatchedFixtures(new ArrayList<>(patchList));
+        showEngine.setTargetUniverses(preset.getTargetUniverses());
 
         if (preset.getMovementPattern() != null) {
             cbPattern.setValue(preset.getMovementPattern());
@@ -1395,7 +1409,9 @@ public class MainWindow extends StackPane {
         if (sel == null) return;
 
         sel.setTargetIp(txtTargetIp.getText().trim());
-        sel.setUniverse(spUniverse.getValue());
+        List<Integer> parsed = parseUniverses(txtUniverses.getText());
+        sel.setTargetUniverses(parsed);
+        sel.setUniverse(parsed.isEmpty() ? 0 : parsed.get(0));
         sel.setFps(spFps.getValue());
         sel.setFixtures(new ArrayList<>(patchList.stream().map(FixturePatch::copy).toList()));
         sel.setMovementPattern(cbPattern.getValue());
@@ -1468,7 +1484,7 @@ public class MainWindow extends StackPane {
         lblPrevTitle.setTextFill(MaterialTheme.COLOR_TEXT_MED);
 
         Label lblPrevValues = new Label("• " + I18n.get("ctrl.target_ip") + ": " + txtTargetIp.getText().trim() + "\n" +
-                                        "• " + I18n.get("ctrl.universe") + ": " + spUniverse.getValue() + "\n" +
+                                        "• " + I18n.get("ctrl.universes") + ": " + txtUniverses.getText().trim() + "\n" +
                                         "• " + I18n.get("ctrl.fps") + ": " + spFps.getValue() + " FPS\n" +
                                         "• " + I18n.get("tab.fixtures") + ": " + patchList.size() + " Fixtures");
         lblPrevValues.setFont(Font.font(MaterialTheme.FONT_FAMILY, 11));
@@ -1486,12 +1502,14 @@ public class MainWindow extends StackPane {
             String name = txtName.getText().trim();
             if (name.isEmpty()) name = "Preset " + (presetList.size() + 1);
 
+            List<Integer> currentUniverses = parseUniverses(txtUniverses.getText());
+            int primaryUni = currentUniverses.isEmpty() ? 0 : currentUniverses.get(0);
             ArtNetPreset newPreset = new ArtNetPreset(
                     null,
                     name,
                     txtDesc.getText().trim(),
                     txtTargetIp.getText().trim(),
-                    spUniverse.getValue(),
+                    primaryUni,
                     spFps.getValue(),
                     new ArrayList<>(patchList.stream().map(FixturePatch::copy).toList()),
                     cbPattern.getValue(),
@@ -1506,7 +1524,8 @@ public class MainWindow extends StackPane {
                     chkLightEnabled != null && chkLightEnabled.isSelected(),
                     chkStrobeEnabled != null && chkStrobeEnabled.isSelected(),
                     chkGoboEnabled != null && chkGoboEnabled.isSelected(),
-                    null
+                    null,
+                    currentUniverses
             );
 
             presetList.add(newPreset);
@@ -1998,6 +2017,7 @@ public class MainWindow extends StackPane {
         if (colActive != null) colActive.setText(I18n.get("patch.col.active"));
         if (colName != null) colName.setText(I18n.get("patch.col.name"));
         if (colProfile != null) colProfile.setText(I18n.get("patch.col.profile"));
+        if (colUniverse != null) colUniverse.setText(I18n.get("patch.col.universe"));
         if (colDmx != null) colDmx.setText(I18n.get("patch.col.dmx"));
         if (colLimits != null) colLimits.setText(I18n.get("patch.col.limits"));
         if (colPhase != null) colPhase.setText(I18n.get("patch.col.phase"));
@@ -2097,7 +2117,7 @@ public class MainWindow extends StackPane {
         if (statusLabel != null) {
             if (isRunning) {
                 String ip = txtTargetIp != null ? txtTargetIp.getText().trim() : "127.0.0.1";
-                int universe = spUniverse != null ? spUniverse.getValue() : 0;
+                String universe = txtUniverses != null ? txtUniverses.getText().trim() : "0";
                 statusLabel.setText(I18n.get("statusbar.active", ip, universe, audioService.getCurrentDeviceName()));
             } else {
                 statusLabel.setText(I18n.get("statusbar.ready"));
@@ -2108,7 +2128,8 @@ public class MainWindow extends StackPane {
     public void tick() {
         if (isRunning) {
             showEngine.tick();
-            byte[] dmx = showEngine.getCurrentDmxFrame();
+            visualizer.setAvailableUniverses(showEngine.getActiveUniverses());
+            byte[] dmx = showEngine.getCurrentDmxFrame(visualizer.getSelectedUniverse());
             visualizer.updateChannels(dmx, patchList);
 
             var analyzer = audioService.getAnalyzer();
@@ -2158,8 +2179,10 @@ public class MainWindow extends StackPane {
     public synchronized void startService() {
         try {
             String ip = txtTargetIp.getText().trim();
-            int universe = spUniverse.getValue();
-            artNetSender.start(ip, universe);
+            List<Integer> parsed = parseUniverses(txtUniverses.getText());
+            showEngine.setTargetUniverses(parsed);
+            int primaryUni = parsed.isEmpty() ? 0 : parsed.get(0);
+            artNetSender.start(ip, primaryUni);
 
             AudioDeviceInfo dev = cbAudioDevice.getValue();
             audioService.start(dev);
@@ -2169,7 +2192,7 @@ public class MainWindow extends StackPane {
             chipIcon.setIcon("circle", MaterialTheme.COLOR_PRIMARY);
             chipLabel.setText(I18n.get("status.active"));
             chipLabel.setTextFill(MaterialTheme.COLOR_PRIMARY);
-            statusLabel.setText(I18n.get("statusbar.active", ip, universe, audioService.getCurrentDeviceName()));
+            statusLabel.setText(I18n.get("statusbar.active", ip, txtUniverses.getText().trim(), audioService.getCurrentDeviceName()));
 
             saveStateToConfig();
         } catch (Exception e) {
@@ -2217,11 +2240,21 @@ public class MainWindow extends StackPane {
     }
 
     private void openNewFixtureDialog() {
+        int maxUni = 0;
         int nextAddr = 1;
         for (FixturePatch p : patchList) {
-            nextAddr = Math.max(nextAddr, p.getEndAddress() + 1);
+            if (p.getUniverse() > maxUni) {
+                maxUni = p.getUniverse();
+                nextAddr = p.getEndAddress() + 1;
+            } else if (p.getUniverse() == maxUni) {
+                nextAddr = Math.max(nextAddr, p.getEndAddress() + 1);
+            }
         }
-        FixtureEditorDialog dlg = new FixtureEditorDialog((Stage) getScene().getWindow(), null, nextAddr, newPatch -> {
+        if (nextAddr > 512 && maxUni < 15) {
+            maxUni++;
+            nextAddr = 1;
+        }
+        FixtureEditorDialog dlg = new FixtureEditorDialog((Stage) getScene().getWindow(), null, maxUni, nextAddr, newPatch -> {
             patchList.add(newPatch);
             showEngine.setPatchedFixtures(new ArrayList<>(patchList));
             saveStateToConfig();
@@ -2232,7 +2265,7 @@ public class MainWindow extends StackPane {
     private void openEditFixtureDialog() {
         FixturePatch sel = tablePatches.getSelectionModel().getSelectedItem();
         if (sel == null) return;
-        FixtureEditorDialog dlg = new FixtureEditorDialog((Stage) getScene().getWindow(), sel, updatedPatch -> {
+        FixtureEditorDialog dlg = new FixtureEditorDialog((Stage) getScene().getWindow(), sel, sel.getUniverse(), sel.getStartAddress(), updatedPatch -> {
             tablePatches.refresh();
             showEngine.setPatchedFixtures(new ArrayList<>(patchList));
             saveStateToConfig();
@@ -2267,11 +2300,21 @@ public class MainWindow extends StackPane {
         if (file != null) {
             try {
                 var def = de.exit.sound2artnet.fixture.qlc.QlcFixtureParser.parse(file);
+                int maxUni = 0;
                 int nextAddr = 1;
                 for (FixturePatch p : patchList) {
-                    nextAddr = Math.max(nextAddr, p.getEndAddress() + 1);
+                    if (p.getUniverse() > maxUni) {
+                        maxUni = p.getUniverse();
+                        nextAddr = p.getEndAddress() + 1;
+                    } else if (p.getUniverse() == maxUni) {
+                        nextAddr = Math.max(nextAddr, p.getEndAddress() + 1);
+                    }
                 }
-                openQlcImportModal(def, nextAddr);
+                if (nextAddr > 512 && maxUni < 15) {
+                    maxUni++;
+                    nextAddr = 1;
+                }
+                openQlcImportModal(def, maxUni, nextAddr);
             } catch (Exception e) {
                 LOGGER.log(Level.SEVERE, "Fehler beim Parsen der QLC+ Datei: " + e.getMessage(), e);
                 statusLabel.setText(I18n.get("statusbar.qlc_error", e.getMessage()));
@@ -2279,7 +2322,7 @@ public class MainWindow extends StackPane {
         }
     }
 
-    private void openQlcImportModal(de.exit.sound2artnet.fixture.qlc.QlcFixtureDefinition def, int suggestedStartAddr) {
+    private void openQlcImportModal(de.exit.sound2artnet.fixture.qlc.QlcFixtureDefinition def, int suggestedUniverse, int suggestedStartAddr) {
         VBox card = new VBox(12);
         card.setPadding(new Insets(16, 20, 16, 20));
         card.setStyle("-fx-background-color: " + MaterialTheme.HEX_SURFACE_1DP +
@@ -2352,6 +2395,17 @@ public class MainWindow extends StackPane {
         spQuantity.setMaxWidth(Double.MAX_VALUE);
         boxQty.getChildren().addAll(lblQty, spQuantity);
 
+        VBox boxUni = new VBox(4);
+        boxUni.setMinWidth(75);
+        boxUni.setMaxWidth(85);
+        Label lblUni = new Label(I18n.get("qlc.universe"));
+        lblUni.setTextFill(MaterialTheme.COLOR_TEXT_MED);
+        lblUni.setFont(Font.font(MaterialTheme.FONT_FAMILY, FontWeight.BOLD, 10));
+        Spinner<Integer> spUniverse = new Spinner<>(0, 15, Math.max(0, Math.min(15, suggestedUniverse)));
+        spUniverse.setEditable(true);
+        spUniverse.setMaxWidth(Double.MAX_VALUE);
+        boxUni.getChildren().addAll(lblUni, spUniverse);
+
         VBox boxDmx = new VBox(4);
         boxDmx.setMinWidth(100);
         boxDmx.setMaxWidth(110);
@@ -2363,7 +2417,7 @@ public class MainWindow extends StackPane {
         spStartAddr.setMaxWidth(Double.MAX_VALUE);
         boxDmx.getChildren().addAll(lblDmx, spStartAddr);
 
-        rowInputs.getChildren().addAll(boxName, boxQty, boxDmx);
+        rowInputs.getChildren().addAll(boxName, boxQty, boxUni, boxDmx);
 
         // Modus-Auswahl
         HBox rowMode = new HBox(8);
@@ -2448,14 +2502,16 @@ public class MainWindow extends StackPane {
                 }
                 int chCount = selectedMode.getChannelCount();
                 int qty = spQuantity.getValue();
+                int uni = spUniverse.getValue();
                 int start = spStartAddr.getValue();
                 int end = Math.min(512, start + (qty * chCount) - 1);
-                lblSummary.setText(String.format("%dx %s (%d Kanäle) -> DMX %d - %d", qty, txtName.getText().trim(), chCount, start, end));
+                lblSummary.setText(String.format("%dx %s (%d Kanäle) -> Uni %d, DMX %d - %d", qty, txtName.getText().trim(), chCount, uni, start, end));
             }
         };
 
         cbMode.setOnAction(e -> updateTableAndSummary.run());
         spQuantity.valueProperty().addListener((obs, o, n) -> updateTableAndSummary.run());
+        spUniverse.valueProperty().addListener((obs, o, n) -> updateTableAndSummary.run());
         spStartAddr.valueProperty().addListener((obs, o, n) -> updateTableAndSummary.run());
         txtName.textProperty().addListener((obs, o, n) -> updateTableAndSummary.run());
 
@@ -2479,6 +2535,7 @@ public class MainWindow extends StackPane {
             }
             String baseName = txtName.getText().trim().isEmpty() ? def.getModel() : txtName.getText().trim();
             int baseStartAddr = spStartAddr.getValue();
+            int baseUniverse = spUniverse.getValue();
             int quantity = spQuantity.getValue();
 
             List<ChannelMapping> mappings = new ArrayList<>();
@@ -2498,12 +2555,18 @@ public class MainWindow extends StackPane {
             );
 
             int chCount = Math.max(1, mappings.size());
+            int currentUni = baseUniverse;
+            int currentAddr = baseStartAddr;
             FixturePatch lastAdded = null;
             for (int i = 0; i < quantity; i++) {
-                int addr = baseStartAddr + (i * chCount);
-                if (addr > 512) break;
+                if (currentAddr + chCount - 1 > 512) {
+                    currentUni++;
+                    currentAddr = 1;
+                    if (currentUni > 15) break;
+                }
                 String instanceName = (quantity > 1) ? (baseName + " " + (i + 1)) : baseName;
-                FixturePatch patch = new FixturePatch(instanceName, addr, prof.copy());
+                FixturePatch patch = new FixturePatch(instanceName, currentAddr, prof.copy());
+                patch.setUniverse(currentUni);
 
                 if (def.getPanMax() > 0) {
                     patch.setPanMax(255);
@@ -2522,6 +2585,7 @@ public class MainWindow extends StackPane {
 
                 patchList.add(patch);
                 lastAdded = patch;
+                currentAddr += chCount;
             }
 
             showEngine.setPatchedFixtures(new ArrayList<>(patchList));
@@ -2546,7 +2610,9 @@ public class MainWindow extends StackPane {
             config.setAudioDevice(cbAudioDevice.getValue().name());
         }
         config.setTargetIp(txtTargetIp.getText().trim());
-        config.setUniverse(spUniverse.getValue());
+        List<Integer> parsed = parseUniverses(txtUniverses != null ? txtUniverses.getText() : "0");
+        config.setTargetUniverses(parsed);
+        config.setUniverse(parsed.isEmpty() ? 0 : parsed.get(0));
         config.setFps(spFps.getValue());
         config.setGain(slGain.getValue());
         config.setAgc(chkAgc.isSelected());
@@ -2594,6 +2660,43 @@ public class MainWindow extends StackPane {
         config.setFixtures(new ArrayList<>(patchList));
         config.setPresets(new ArrayList<>(presetList));
         ConfigManager.saveConfig(config);
+    }
+
+    public static List<Integer> parseUniverses(String text) {
+        Set<Integer> set = new TreeSet<>();
+        if (text == null || text.isBlank()) {
+            set.add(0);
+            return new ArrayList<>(set);
+        }
+        String[] tokens = text.split("[,;\\s]+");
+        for (String token : tokens) {
+            if (token.isBlank()) continue;
+            if (token.contains("-")) {
+                String[] range = token.split("-");
+                if (range.length == 2) {
+                    try {
+                        int start = Math.max(0, Math.min(15, Integer.parseInt(range[0].trim())));
+                        int end = Math.max(0, Math.min(15, Integer.parseInt(range[1].trim())));
+                        int min = Math.min(start, end);
+                        int max = Math.max(start, end);
+                        for (int u = min; u <= max; u++) {
+                            set.add(u);
+                        }
+                    } catch (NumberFormatException ignored) {}
+                }
+            } else {
+                try {
+                    int u = Integer.parseInt(token.trim());
+                    if (u >= 0 && u <= 15) {
+                        set.add(u);
+                    }
+                } catch (NumberFormatException ignored) {}
+            }
+        }
+        if (set.isEmpty()) {
+            set.add(0);
+        }
+        return new ArrayList<>(set);
     }
 
     public AppConfig getConfig() {

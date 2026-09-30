@@ -200,6 +200,13 @@ public class I18n {
         DE.put("ctrl.universe.tt_desc", "Das Art-Net SubUni/Universum (0 - 15):\n\n• 0: Erstes Standard-Universum\n• Muss mit der Zielsoftware / dem DMX-Node übereinstimmen");
         EN.put("ctrl.universe.tt_desc", "The Art-Net SubUni/Universe (0 - 15):\n\n• 0: First default universe\n• Must match target software or DMX node");
 
+        DE.put("ctrl.universes", "UNIVERSEN");
+        EN.put("ctrl.universes", "UNIVERSES");
+        DE.put("ctrl.universes.tt_title", "Art-Net Ziel-Universen");
+        EN.put("ctrl.universes.tt_title", "Art-Net Target Universes");
+        DE.put("ctrl.universes.tt_desc", "Kommagetrennte Liste oder Bereiche aktiver Art-Net Universen (0 - 15):\n\n• z. B. '0' für Standard\n• z. B. '0, 1' oder '0-3' für Multi-Universum Setups\n• Jedes Universum sendet 512 DMX-Kanäle");
+        EN.put("ctrl.universes.tt_desc", "Comma-separated list or ranges of active Art-Net universes (0 - 15):\n\n• e.g. '0' for default\n• e.g. '0, 1' or '0-3' for multi-universe setups\n• Each universe transmits 512 DMX channels");
+
         DE.put("ctrl.fps", "FPS");
         EN.put("ctrl.fps", "FPS");
         DE.put("ctrl.fps.tt_title", "Art-Net Bildrate (Hz)");
@@ -228,6 +235,8 @@ public class I18n {
         EN.put("patch.col.name", "Fixture Name");
         DE.put("patch.col.profile", "Profil / Modell");
         EN.put("patch.col.profile", "Profile / Model");
+        DE.put("patch.col.universe", "Universum");
+        EN.put("patch.col.universe", "Universe");
         DE.put("patch.col.dmx", "DMX Adressen");
         EN.put("patch.col.dmx", "DMX Addresses");
         DE.put("patch.col.limits", "Pan/Tilt Invert & Limits");
@@ -413,8 +422,8 @@ public class I18n {
         // --- Statusleiste ---
         DE.put("statusbar.ready", "Bereit. Klicken Sie auf Start um Audio-Erfassung und Art-Net zu aktivieren.");
         EN.put("statusbar.ready", "Ready. Click Start to activate audio capture and Art-Net transmission.");
-        DE.put("statusbar.active", "Aktiv: Sende Art-Net an %s (Univ: %d) | Audio: %s");
-        EN.put("statusbar.active", "Active: Sending Art-Net to %s (Univ: %d) | Audio: %s");
+        DE.put("statusbar.active", "Aktiv: Sende Art-Net an %s (Univ: %s) | Audio: %s");
+        EN.put("statusbar.active", "Active: Sending Art-Net to %s (Univ: %s) | Audio: %s");
         DE.put("statusbar.stopped", "Gestoppt. Klicken Sie auf Start um die Übertragung fortzusetzen.");
         EN.put("statusbar.stopped", "Stopped. Click Start to resume transmission.");
         DE.put("statusbar.error_start", "Fehler beim Starten: %s");
@@ -433,6 +442,8 @@ public class I18n {
         EN.put("editor.name", "DEVICE NAME");
         DE.put("editor.quantity", "ANZAHL");
         EN.put("editor.quantity", "QUANTITY");
+        DE.put("editor.universe", "UNIVERSUM");
+        EN.put("editor.universe", "UNIVERSE");
         DE.put("editor.dmx_start", "DMX START");
         EN.put("editor.dmx_start", "DMX START");
         DE.put("editor.preset_bar", "PROFIL-VORLAGE:");
@@ -491,6 +502,8 @@ public class I18n {
         EN.put("qlc.name", "FIXTURE NAME");
         DE.put("qlc.quantity", "ANZAHL");
         EN.put("qlc.quantity", "QUANTITY");
+        DE.put("qlc.universe", "UNIVERSUM");
+        EN.put("qlc.universe", "UNIVERSE");
         DE.put("qlc.start_addr", "START-ADRESSE");
         EN.put("qlc.start_addr", "START ADDRESS");
         DE.put("qlc.mode", "DMX MODUS:");

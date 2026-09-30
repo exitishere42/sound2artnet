@@ -35,6 +35,7 @@ public class QlcImportDialog extends Stage {
 
     private TextField txtName;
     private Spinner<Integer> spQuantity;
+    private Spinner<Integer> spUniverse;
     private Spinner<Integer> spStartAddr;
     private ComboBox<QlcFixtureDefinition.QlcMode> cbMode;
     private TableView<ChannelPreviewRow> tableChannels;
@@ -62,6 +63,10 @@ public class QlcImportDialog extends Stage {
     }
 
     public QlcImportDialog(Stage owner, QlcFixtureDefinition definition, int suggestedStartAddr, Consumer<FixturePatch> onImport) {
+        this(owner, definition, 0, suggestedStartAddr, onImport);
+    }
+
+    public QlcImportDialog(Stage owner, QlcFixtureDefinition definition, int suggestedUniverse, int suggestedStartAddr, Consumer<FixturePatch> onImport) {
         this.definition = definition;
         this.onImport = onImport;
 
@@ -73,7 +78,7 @@ public class QlcImportDialog extends Stage {
         root.setPadding(new Insets(16));
         root.setStyle("-fx-background-color: " + MaterialTheme.HEX_BG + ";");
 
-        buildHeader(root, suggestedStartAddr);
+        buildHeader(root, suggestedUniverse, suggestedStartAddr);
         buildModeSelector(root);
         buildChannelTable(root);
         buildButtonBar(root);
@@ -91,7 +96,7 @@ public class QlcImportDialog extends Stage {
         setScene(scene);
     }
 
-    private void buildHeader(VBox root, int suggestedStartAddr) {
+    private void buildHeader(VBox root, int suggestedUniverse, int suggestedStartAddr) {
         VBox boxMeta = new VBox(4);
         boxMeta.setPadding(new Insets(8, 12, 8, 12));
         boxMeta.setStyle("-fx-background-color: " + MaterialTheme.HEX_SURFACE_1DP + "; -fx-border-color: " + MaterialTheme.HEX_DIVIDER + "; -fx-border-width: 1px; -fx-background-radius: 4px;");
@@ -135,6 +140,16 @@ public class QlcImportDialog extends Stage {
         spQuantity.setMaxWidth(Double.MAX_VALUE);
         boxQty.getChildren().addAll(lblQty, spQuantity);
 
+        VBox boxUni = new VBox(4);
+        boxUni.setMinWidth(80);
+        boxUni.setMaxWidth(90);
+        Label lblUni = new Label(I18n.get("qlc.universe"));
+        lblUni.setTextFill(MaterialTheme.COLOR_TEXT_MED);
+        lblUni.setFont(Font.font("Segoe UI", FontWeight.BOLD, 10));
+        spUniverse = new Spinner<>(0, 15, Math.max(0, Math.min(15, suggestedUniverse)));
+        spUniverse.setEditable(true);
+        boxUni.getChildren().addAll(lblUni, spUniverse);
+
         VBox boxDmx = new VBox(4);
         boxDmx.setMinWidth(110);
         Label lblDmx = new Label(I18n.get("qlc.start_addr"));
@@ -144,7 +159,7 @@ public class QlcImportDialog extends Stage {
         spStartAddr.setEditable(true);
         boxDmx.getChildren().addAll(lblDmx, spStartAddr);
 
-        rowInputs.getChildren().addAll(boxName, boxQty, boxDmx);
+        rowInputs.getChildren().addAll(boxName, boxQty, boxUni, boxDmx);
         root.getChildren().addAll(boxMeta, rowInputs);
     }
 
@@ -257,6 +272,7 @@ public class QlcImportDialog extends Stage {
     private void handleImport() {
         String baseName = txtName.getText().trim().isEmpty() ? definition.getModel() : txtName.getText().trim();
         int baseStartAddr = spStartAddr.getValue();
+        int baseUniverse = spUniverse.getValue();
         int quantity = spQuantity.getValue();
 
         List<ChannelMapping> mappings = new ArrayList<>();
@@ -272,11 +288,18 @@ public class QlcImportDialog extends Stage {
         );
 
         int chCount = Math.max(1, mappings.size());
+        int currentUni = baseUniverse;
+        int currentAddr = baseStartAddr;
+
         for (int i = 0; i < quantity; i++) {
-            int addr = baseStartAddr + (i * chCount);
-            if (addr > 512) break;
+            if (currentAddr + chCount - 1 > 512) {
+                currentUni++;
+                currentAddr = 1;
+                if (currentUni > 15) break;
+            }
             String instanceName = (quantity > 1) ? (baseName + " " + (i + 1)) : baseName;
-            FixturePatch patch = new FixturePatch(instanceName, addr, prof.copy());
+            FixturePatch patch = new FixturePatch(instanceName, currentAddr, prof.copy());
+            patch.setUniverse(currentUni);
 
             if (definition.getPanMax() > 0) {
                 patch.setPanMax(255);
@@ -296,6 +319,7 @@ public class QlcImportDialog extends Stage {
             if (onImport != null) {
                 onImport.accept(patch);
             }
+            currentAddr += chCount;
         }
 
         close();

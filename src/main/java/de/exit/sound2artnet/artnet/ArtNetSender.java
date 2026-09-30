@@ -20,6 +20,7 @@ public class ArtNetSender {
     private int subnet = 0;
     private int net = 0;
     private int sequenceCounter = 1;
+    private final int[] sequenceCounters = new int[16];
 
     private final AtomicLong totalPacketsSent = new AtomicLong(0);
     private long lastMetricTime = System.currentTimeMillis();
@@ -42,6 +43,7 @@ public class ArtNetSender {
         this.socket.setBroadcast(true);
         this.isRunning = true;
         this.sequenceCounter = 1;
+        java.util.Arrays.fill(this.sequenceCounters, 0);
         this.totalPacketsSent.set(0);
         this.packetsInCurrentWindow = 0;
         this.lastMetricTime = System.currentTimeMillis();
@@ -63,15 +65,16 @@ public class ArtNetSender {
     }
 
     /**
-     * Sendet einen 512-Byte DMX-Frame.
+     * Sendet einen 512-Byte DMX-Frame für ein beliebiges Universum (0-15).
      */
-    public synchronized void sendDmx(byte[] dmxData) {
+    public synchronized void sendDmx(int universe, byte[] dmxData) {
         if (!isRunning || socket == null || socket.isClosed()) {
             return;
         }
 
-        byte[] packetBytes = ArtNetPacket.buildDmxPacket(sequenceCounter, 0, net, subnet, universe, dmxData);
-        sequenceCounter = (sequenceCounter % 255) + 1;
+        int u = Math.max(0, Math.min(15, universe));
+        int seq = sequenceCounters[u] = (sequenceCounters[u] % 255) + 1;
+        byte[] packetBytes = ArtNetPacket.buildDmxPacket(seq, 0, net, subnet, u, dmxData);
 
         try {
             DatagramPacket datagram = new DatagramPacket(packetBytes, packetBytes.length, targetAddress, targetPort);
@@ -79,10 +82,17 @@ public class ArtNetSender {
             totalPacketsSent.incrementAndGet();
             packetsInCurrentWindow++;
         } catch (IOException e) {
-            LOGGER.log(Level.WARNING, "Fehler beim Senden des Art-Net Pakets: " + e.getMessage(), e);
+            LOGGER.log(Level.WARNING, "Fehler beim Senden des Art-Net Pakets für Universum " + u + ": " + e.getMessage(), e);
         }
 
         updateMetrics();
+    }
+
+    /**
+     * Sendet einen 512-Byte DMX-Frame an das Standard-Universum.
+     */
+    public synchronized void sendDmx(byte[] dmxData) {
+        sendDmx(this.universe, dmxData);
     }
 
     private void updateMetrics() {

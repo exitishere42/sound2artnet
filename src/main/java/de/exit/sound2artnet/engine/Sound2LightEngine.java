@@ -8,10 +8,10 @@ import de.exit.sound2artnet.fixture.FixturePatch;
 import de.exit.sound2artnet.util.I18n;
 import javafx.scene.paint.Color;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.logging.Logger;
 
 /**
@@ -82,6 +82,8 @@ public class Sound2LightEngine {
 
     private final List<FixturePatch> patchedFixtures = new CopyOnWriteArrayList<>();
     private final byte[] currentDmxFrame = new byte[512];
+    private final ConcurrentHashMap<Integer, byte[]> dmxFrames = new ConcurrentHashMap<>();
+    private final Set<Integer> targetUniverses = new CopyOnWriteArraySet<>(List.of(0));
 
     private MovementPattern movementPattern = MovementPattern.CIRCLE;
     private DimmerMode dimmerMode = DimmerMode.AUDIO_LEVEL;
@@ -188,8 +190,13 @@ public class Sound2LightEngine {
             colorEngine.update(isBeat, isBeatHeld, treble, currentBpm, currentSpeedTier, strobeEnabled, deltaSeconds);
         }
 
-        // 4. DMX512 Frame generieren
-        byte[] frame = new byte[512];
+        // 4. DMX512 Frames pro Universum generieren
+        Set<Integer> activeUnis = getActiveUniverses();
+        Map<Integer, byte[]> framesByUni = new LinkedHashMap<>();
+        for (int u : activeUnis) {
+            framesByUni.put(u, new byte[512]);
+        }
+
         boolean effectiveLight = lightEnabled && !blackout;
         Color activeColor = colorEngine.getCurrentColor();
         boolean manualStrobeActive = effectiveLight && manualStrobe;
@@ -219,6 +226,9 @@ public class Sound2LightEngine {
             if (!patch.isEnabled() || patch.getProfile() == null) {
                 continue;
             }
+
+            int uni = patch.getUniverse();
+            byte[] frame = framesByUni.computeIfAbsent(uni, k -> new byte[512]);
 
             int startAddr = patch.getStartAddress(); // 1-basiert
             var profile = patch.getProfile();
@@ -315,17 +325,65 @@ public class Sound2LightEngine {
             }
         }
 
-        // Aktuellen Frame zwischenspeichern
-        System.arraycopy(frame, 0, currentDmxFrame, 0, 512);
-
-        // 5. Per Art-Net aussenden
-        if (artNetSender != null && artNetSender.isRunning()) {
-            artNetSender.sendDmx(frame);
+        // Frames zwischenspeichern & per Art-Net aussenden
+        for (Map.Entry<Integer, byte[]> entry : framesByUni.entrySet()) {
+            int u = entry.getKey();
+            byte[] f = entry.getValue();
+            dmxFrames.put(u, f);
+            if (artNetSender != null && artNetSender.isRunning()) {
+                artNetSender.sendDmx(u, f);
+            }
         }
+
+        // Aktuellen Basis-Frame (erstes aktives Universum) zwischenspeichern für Legacy-Abrufe
+        int baseUni = activeUnis.iterator().next();
+        byte[] baseFrame = dmxFrames.getOrDefault(baseUni, new byte[512]);
+        System.arraycopy(baseFrame, 0, currentDmxFrame, 0, 512);
+    }
+
+    public synchronized byte[] getCurrentDmxFrame(int universe) {
+        byte[] f = dmxFrames.get(universe);
+        if (f == null) return new byte[512];
+        return Arrays.copyOf(f, f.length);
     }
 
     public synchronized byte[] getCurrentDmxFrame() {
-        return Arrays.copyOf(currentDmxFrame, currentDmxFrame.length);
+        int baseUni = targetUniverses.isEmpty() ? 0 : targetUniverses.iterator().next();
+        return getCurrentDmxFrame(baseUni);
+    }
+
+    public void setTargetUniverses(Collection<Integer> universes) {
+        targetUniverses.clear();
+        if (universes != null && !universes.isEmpty()) {
+            for (int u : universes) {
+                targetUniverses.add(Math.max(0, Math.min(15, u)));
+            }
+        } else {
+            targetUniverses.add(0);
+        }
+    }
+
+    public Set<Integer> getTargetUniverses() {
+        return Collections.unmodifiableSet(targetUniverses);
+    }
+
+    public Set<Integer> getActiveUniverses() {
+        Set<Integer> set = new TreeSet<>(targetUniverses);
+        if (set.isEmpty()) {
+            set.add(0);
+        }
+        for (FixturePatch patch : patchedFixtures) {
+            if (patch.isEnabled()) {
+                set.add(patch.getUniverse());
+            }
+        }
+        return set;
+    }
+
+    public List<FixturePatch> getPatchedFixturesForUniverse(int universe) {
+        return patchedFixtures.stream()
+                .filter(p -> p.getUniverse() == universe)
+                .toList();
     }
 
     public List<FixturePatch> getPatchedFixtures() {
