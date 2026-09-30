@@ -137,15 +137,30 @@
     -fx-background-color: #00E5FF;
 }
 
-/* Split Pane */
+/* SplitPane & Drag Handle Pills */
 .split-pane {
     -fx-background-color: transparent;
     -fx-box-border: transparent;
     -fx-padding: 0;
 }
-.split-pane > .split-pane-divider {
+.split-pane:vertical > .split-pane-divider {
     -fx-background-color: transparent;
-    -fx-padding: 0 0 0 0;
+    -fx-padding: 6px 0 6px 0;
+    -fx-cursor: default;
+    -fx-border-color: transparent;
+}
+.split-pane:vertical > .split-pane-divider > .vertical-grabber,
+.split-pane:vertical > .split-pane-divider > .grabber,
+.split-pane-divider .vertical-grabber,
+.split-pane-divider .grabber {
+    -fx-pref-width: 52px;
+    -fx-pref-height: 4px;
+    -fx-min-width: 52px;
+    -fx-min-height: 4px;
+    -fx-max-width: 52px;
+    -fx-max-height: 4px;
+    -fx-background-color: #8E8E8E;
+    -fx-background-radius: 2px;
 }
 
 /* Tab Pane */
