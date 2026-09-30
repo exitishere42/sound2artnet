@@ -668,7 +668,10 @@ public class MidiInputService {
         int idx = ch * 128 + d1;
 
         if (command == ShortMessage.NOTE_ON && d2 > 0) {
-            heldNotes[idx] = true;
+            boolean wasLearningBlackout = learningBlackout;
+            if (!wasLearningBlackout) {
+                heldNotes[idx] = true;
+            }
             processIncomingTrigger("NOTE", ch, d1, d2);
             updateBeatHeldState();
         } else if (command == ShortMessage.NOTE_OFF || (command == ShortMessage.NOTE_ON && d2 == 0)) {
@@ -676,7 +679,10 @@ public class MidiInputService {
             updateBeatHeldState();
         } else if (command == ShortMessage.CONTROL_CHANGE) {
             if (d2 >= 64) {
-                heldCcs[idx] = true;
+                boolean wasLearningBlackout = learningBlackout;
+                if (!wasLearningBlackout) {
+                    heldCcs[idx] = true;
+                }
                 if (!ccHighState[d1]) {
                     ccHighState[d1] = true;
                     processIncomingTrigger("CC", ch, d1, d2);

@@ -65,7 +65,6 @@ public class MainWindow extends StackPane {
     private final ArtNetSender artNetSender = new ArtNetSender();
     private final Sound2LightEngine showEngine;
     private final PauseTransition saveDebounce = new PauseTransition(Duration.millis(150));
-    private final PauseTransition midiFlashReset = new PauseTransition(Duration.millis(120));
 
     // Top Bar
     private LucideIcon chipIcon;
@@ -116,9 +115,6 @@ public class MainWindow extends StackPane {
     private Tab tabMidi;
 
     // MIDI Tab Controls
-    private LucideIcon iconMidiBanner;
-    private Label lblMidiBanner;
-    private MaterialButton btnMidiActivateManual;
     private Label lblMidiDeviceTitle;
     private ComboBox<MidiDeviceInfo> cbMidiDevice;
     private MaterialButton btnScanMidi;
@@ -130,17 +126,6 @@ public class MainWindow extends StackPane {
     private Label lblMidiBlackoutBindingBadge;
     private MaterialButton btnMidiBlackoutLearn;
     private MaterialButton btnMidiBlackoutClear;
-    private Label lblMidiMonitorTitle;
-    private LucideIcon iconMidiSignalDot;
-    private Label lblMidiMonitorValue;
-    private Label lblMidiTapTitle;
-    private MaterialButton btnMidiTap;
-    private MaterialButton btnMidiBlackout;
-    private Label lblMidiBpmValue;
-    private Label lblMidiTierValue;
-    private MaterialButton btnMidiResetBpm;
-    private long blackoutPressStartMs = 0L;
-    private boolean blackoutActivatedOnPress = false;
 
     // Presets Table & Controls
     private final ObservableList<ArtNetPreset> presetList = FXCollections.observableArrayList();
@@ -249,17 +234,11 @@ public class MainWindow extends StackPane {
         midiService.setBinding(config.getMidiBoundType(), config.getMidiBoundChannel(), config.getMidiBoundData1());
         midiService.setBlackoutBinding(config.getMidiBlackoutBoundType(), config.getMidiBlackoutBoundChannel(), config.getMidiBlackoutBoundData1());
         midiService.setOnBeatTrigger(() -> Platform.runLater(this::triggerManualBeat));
-        midiService.setOnBeatHoldChange(held -> {
-            audioService.getAnalyzer().getBeatDetector().setManualBeatHeld(held);
-            Platform.runLater(() -> onManualBeatHoldChanged(held));
-        });
-        midiService.setOnBlackoutTrigger(() -> Platform.runLater(this::onBlackoutPressed));
+        midiService.setOnBeatHoldChange(held -> audioService.getAnalyzer().getBeatDetector().setManualBeatHeld(held));
         midiService.setOnBlackoutHoldChange(held -> {
-            if (!held) {
-                Platform.runLater(this::onBlackoutReleased);
-            }
+            showEngine.setBlackout(held);
+            Platform.runLater(() -> onBlackoutHoldChanged(held));
         });
-        midiService.setOnMidiEvent(ev -> Platform.runLater(() -> onMidiEventReceived(ev)));
         midiService.setOnLearnComplete(() -> Platform.runLater(this::onMidiLearnCompleted));
         midiService.setOnBlackoutLearnComplete(() -> Platform.runLater(this::onMidiBlackoutLearnCompleted));
 
@@ -820,7 +799,6 @@ public class MainWindow extends StackPane {
             if (slBeatSensitivity != null) {
                 slBeatSensitivity.setDisable(mode == BeatDetector.DetectionMode.MANUAL);
             }
-            updateMidiBanner();
             autoSaveConfig();
         });
 
@@ -1474,51 +1452,17 @@ public class MainWindow extends StackPane {
     }
 
     private Node buildMidiView() {
-        VBox root = new VBox(10);
-        root.setPadding(new Insets(10));
+        VBox root = new VBox(12);
+        root.setPadding(new Insets(14));
 
-        // 1. Top Status Banner
-        HBox banner = new HBox(10);
-        banner.setAlignment(Pos.CENTER_LEFT);
-        banner.setPadding(new Insets(8, 12, 8, 12));
-        banner.setStyle("-fx-background-color: " + MaterialTheme.HEX_SURFACE_2DP +
-                        "; -fx-border-color: " + MaterialTheme.HEX_DIVIDER +
-                        "; -fx-border-width: 1px; -fx-background-radius: 4px; -fx-border-radius: 4px;");
+        GridPane grid = new GridPane();
+        grid.setHgap(16);
+        grid.setVgap(10);
 
-        iconMidiBanner = new LucideIcon("piano", 18, MaterialTheme.COLOR_PRIMARY);
-        lblMidiBanner = new Label();
-        lblMidiBanner.setFont(Font.font(MaterialTheme.FONT_FAMILY, FontWeight.BOLD, 12));
-        lblMidiBanner.setTextFill(MaterialTheme.COLOR_TEXT_HIGH);
-
-        Region bannerSpacer = new Region();
-        HBox.setHgrow(bannerSpacer, Priority.ALWAYS);
-
-        btnMidiActivateManual = new MaterialButton(I18n.get("midi.btn.activate_manual"), "zap",
-                MaterialTheme.COLOR_PRIMARY, MaterialTheme.COLOR_ON_PRIMARY, 11, 10, 4, 11, true, () -> {
-            if (cbDetectionMode != null) {
-                cbDetectionMode.setValue(BeatDetector.DetectionMode.MANUAL);
-            }
-        });
-
-        banner.getChildren().addAll(iconMidiBanner, lblMidiBanner, bannerSpacer, btnMidiActivateManual);
-
-        // 2. Zwei-Spalten-Hauptbereich
-        HBox mainRow = new HBox(12);
-        VBox.setVgrow(mainRow, Priority.ALWAYS);
-
-        // Linke Karte: MIDI-Gerät, Tasten-Zuweisung (Beat & Blackout) & Monitor
-        VBox leftCard = new VBox(8);
-        leftCard.setPadding(new Insets(10, 12, 10, 12));
-        leftCard.setStyle("-fx-background-color: " + MaterialTheme.HEX_SURFACE_2DP +
-                          "; -fx-border-color: " + MaterialTheme.HEX_DIVIDER +
-                          "; -fx-border-width: 1px; -fx-background-radius: 4px; -fx-border-radius: 4px;");
-        HBox.setHgrow(leftCard, Priority.ALWAYS);
-
-        // Sektion 1: MIDI-Eingangsgerät
-        VBox devBox = new VBox(3);
+        // 1. MIDI-Eingangsgerät
         lblMidiDeviceTitle = new Label(I18n.get("midi.device_title"));
         lblMidiDeviceTitle.setTextFill(MaterialTheme.COLOR_TEXT_MED);
-        lblMidiDeviceTitle.setFont(Font.font(MaterialTheme.FONT_FAMILY, FontWeight.BOLD, 10));
+        lblMidiDeviceTitle.setFont(Font.font("Segoe UI", FontWeight.BOLD, 10));
 
         HBox devRow = new HBox(8);
         devRow.setAlignment(Pos.CENTER_LEFT);
@@ -1543,13 +1487,11 @@ public class MainWindow extends StackPane {
         btnScanMidi = new MaterialButton(I18n.get("btn.scan"), "refresh-cw",
                 MaterialTheme.COLOR_SURFACE_4DP, MaterialTheme.COLOR_TEXT_HIGH, 11, 8, 4, 11, true, this::scanMidiDevices);
         devRow.getChildren().addAll(cbMidiDevice, btnScanMidi);
-        devBox.getChildren().addAll(lblMidiDeviceTitle, devRow);
 
-        // Sektion 2: Beat-Taste (MIDI Learn)
-        VBox bindBox = new VBox(3);
+        // 2. Beat-Taste (MIDI Learn)
         lblMidiBindingTitle = new Label(I18n.get("midi.binding_title"));
         lblMidiBindingTitle.setTextFill(MaterialTheme.COLOR_TEXT_MED);
-        lblMidiBindingTitle.setFont(Font.font(MaterialTheme.FONT_FAMILY, FontWeight.BOLD, 10));
+        lblMidiBindingTitle.setFont(Font.font("Segoe UI", FontWeight.BOLD, 10));
 
         HBox bindRow = new HBox(8);
         bindRow.setAlignment(Pos.CENTER_LEFT);
@@ -1576,13 +1518,11 @@ public class MainWindow extends StackPane {
         });
 
         bindRow.getChildren().addAll(lblMidiBindingBadge, btnMidiLearn, btnMidiAnyKey);
-        bindBox.getChildren().addAll(lblMidiBindingTitle, bindRow);
 
-        // Sektion 2b: Blackout-Taste (MIDI Learn)
-        VBox blackoutBindBox = new VBox(3);
+        // 3. Blackout-Taste (MIDI Learn, aktiv solange gehalten)
         lblMidiBlackoutBindingTitle = new Label(I18n.get("midi.blackout_binding_title"));
         lblMidiBlackoutBindingTitle.setTextFill(MaterialTheme.COLOR_TEXT_MED);
-        lblMidiBlackoutBindingTitle.setFont(Font.font(MaterialTheme.FONT_FAMILY, FontWeight.BOLD, 10));
+        lblMidiBlackoutBindingTitle.setFont(Font.font("Segoe UI", FontWeight.BOLD, 10));
 
         HBox blackoutBindRow = new HBox(8);
         blackoutBindRow.setAlignment(Pos.CENTER_LEFT);
@@ -1609,104 +1549,20 @@ public class MainWindow extends StackPane {
         });
 
         blackoutBindRow.getChildren().addAll(lblMidiBlackoutBindingBadge, btnMidiBlackoutLearn, btnMidiBlackoutClear);
-        blackoutBindBox.getChildren().addAll(lblMidiBlackoutBindingTitle, blackoutBindRow);
 
-        // Sektion 3: Live MIDI-Monitor
-        VBox monBox = new VBox(3);
-        lblMidiMonitorTitle = new Label(I18n.get("midi.monitor_title"));
-        lblMidiMonitorTitle.setTextFill(MaterialTheme.COLOR_TEXT_MED);
-        lblMidiMonitorTitle.setFont(Font.font(MaterialTheme.FONT_FAMILY, FontWeight.BOLD, 10));
+        grid.add(lblMidiDeviceTitle, 0, 0);
+        grid.add(devRow, 1, 0);
+        grid.add(lblMidiBindingTitle, 0, 1);
+        grid.add(bindRow, 1, 1);
+        grid.add(lblMidiBlackoutBindingTitle, 0, 2);
+        grid.add(blackoutBindRow, 1, 2);
 
-        HBox monRow = new HBox(8);
-        monRow.setAlignment(Pos.CENTER_LEFT);
-        monRow.setPadding(new Insets(5, 10, 5, 10));
-        monRow.setStyle("-fx-background-color: " + MaterialTheme.HEX_SURFACE_1DP +
-                        "; -fx-border-color: " + MaterialTheme.HEX_DIVIDER +
-                        "; -fx-border-width: 1px; -fx-background-radius: 4px; -fx-border-radius: 4px;");
+        ColumnConstraints cc0 = new ColumnConstraints(160);
+        ColumnConstraints cc1 = new ColumnConstraints(300, 400, Double.MAX_VALUE);
+        cc1.setHgrow(Priority.ALWAYS);
+        grid.getColumnConstraints().addAll(cc0, cc1);
 
-        iconMidiSignalDot = new LucideIcon("circle", 10, MaterialTheme.COLOR_TEXT_DISABLED);
-        lblMidiMonitorValue = new Label(I18n.get("midi.monitor_waiting"));
-        lblMidiMonitorValue.setFont(Font.font(MaterialTheme.FONT_FAMILY, 11));
-        lblMidiMonitorValue.setTextFill(MaterialTheme.COLOR_TEXT_MED);
-        monRow.getChildren().addAll(iconMidiSignalDot, lblMidiMonitorValue);
-        monBox.getChildren().addAll(lblMidiMonitorTitle, monRow);
-
-        leftCard.getChildren().addAll(devBox, bindBox, blackoutBindBox, monBox);
-
-        // Rechte Karte: Großer Beat-Tap-Trigger, Blackout & Live-BPM
-        VBox rightCard = new VBox(10);
-        rightCard.setPadding(new Insets(10, 12, 10, 12));
-        rightCard.setMinWidth(300);
-        rightCard.setPrefWidth(340);
-        rightCard.setStyle("-fx-background-color: " + MaterialTheme.HEX_SURFACE_2DP +
-                           "; -fx-border-color: " + MaterialTheme.HEX_DIVIDER +
-                           "; -fx-border-width: 1px; -fx-background-radius: 4px; -fx-border-radius: 4px;");
-
-        lblMidiTapTitle = new Label(I18n.get("midi.tap_title"));
-        lblMidiTapTitle.setTextFill(MaterialTheme.COLOR_TEXT_MED);
-        lblMidiTapTitle.setFont(Font.font(MaterialTheme.FONT_FAMILY, FontWeight.BOLD, 10));
-
-        HBox padRow = new HBox(10);
-        VBox.setVgrow(padRow, Priority.ALWAYS);
-
-        btnMidiTap = new MaterialButton(I18n.get("midi.btn.tap"), "zap",
-                MaterialTheme.COLOR_PRIMARY, MaterialTheme.COLOR_ON_PRIMARY, 16, 16, 12, 15, true, null);
-        btnMidiTap.setOnMousePressed(e -> {
-            triggerManualBeat();
-            audioService.getAnalyzer().getBeatDetector().setManualBeatHeld(true);
-            onManualBeatHoldChanged(true);
-        });
-        btnMidiTap.setOnMouseReleased(e -> {
-            audioService.getAnalyzer().getBeatDetector().setManualBeatHeld(false);
-            onManualBeatHoldChanged(false);
-        });
-        btnMidiTap.setMaxWidth(Double.MAX_VALUE);
-        btnMidiTap.setMaxHeight(Double.MAX_VALUE);
-        btnMidiTap.setMinHeight(64);
-        HBox.setHgrow(btnMidiTap, Priority.ALWAYS);
-
-        btnMidiBlackout = new MaterialButton(I18n.get("midi.btn.blackout"), "power",
-                MaterialTheme.COLOR_SURFACE_4DP, MaterialTheme.COLOR_ERROR, 15, 14, 12, 14, true, null);
-        btnMidiBlackout.setOnMousePressed(e -> onBlackoutPressed());
-        btnMidiBlackout.setOnMouseReleased(e -> onBlackoutReleased());
-        btnMidiBlackout.setMaxWidth(Double.MAX_VALUE);
-        btnMidiBlackout.setMaxHeight(Double.MAX_VALUE);
-        btnMidiBlackout.setMinHeight(64);
-        HBox.setHgrow(btnMidiBlackout, Priority.ALWAYS);
-        updateBlackoutButtonVisual();
-
-        padRow.getChildren().addAll(btnMidiTap, btnMidiBlackout);
-
-        HBox bpmFooter = new HBox(10);
-        bpmFooter.setAlignment(Pos.CENTER_LEFT);
-        bpmFooter.setPadding(new Insets(6, 10, 6, 10));
-        bpmFooter.setStyle("-fx-background-color: " + MaterialTheme.HEX_SURFACE_1DP +
-                           "; -fx-border-color: " + MaterialTheme.HEX_DIVIDER +
-                           "; -fx-border-width: 1px; -fx-background-radius: 4px; -fx-border-radius: 4px;");
-
-        lblMidiBpmValue = new Label("-- BPM");
-        lblMidiBpmValue.setStyle("-fx-text-fill: " + MaterialTheme.HEX_PRIMARY + "; -fx-font-weight: bold; -fx-font-size: 15px;");
-
-        lblMidiTierValue = new Label(showEngine.getCurrentSpeedTier().getDisplayName());
-        lblMidiTierValue.setStyle("-fx-text-fill: " + MaterialTheme.HEX_TEXT_MED + "; -fx-font-weight: bold; -fx-font-size: 12px;");
-
-        Region bpmSpacer = new Region();
-        HBox.setHgrow(bpmSpacer, Priority.ALWAYS);
-
-        btnMidiResetBpm = new MaterialButton(I18n.get("midi.btn.reset_bpm"), "rotate-ccw",
-                MaterialTheme.COLOR_SURFACE_4DP, MaterialTheme.COLOR_TEXT_HIGH, 11, 8, 4, 11, false, () -> {
-            audioService.getAnalyzer().getBeatDetector().resetManualTempo();
-            lblMidiBpmValue.setText("-- BPM");
-            lblMidiTierValue.setText(Sound2LightEngine.SpeedTier.IDLE.getDisplayName());
-        });
-
-        bpmFooter.getChildren().addAll(lblMidiBpmValue, lblMidiTierValue, bpmSpacer, btnMidiResetBpm);
-        rightCard.getChildren().addAll(lblMidiTapTitle, padRow, bpmFooter);
-
-        mainRow.getChildren().addAll(leftCard, rightCard);
-        root.getChildren().addAll(banner, mainRow);
-
-        updateMidiBanner();
+        root.getChildren().add(grid);
         return root;
     }
 
@@ -1759,67 +1615,9 @@ public class MainWindow extends StackPane {
         autoSaveConfig();
     }
 
-    private void onBlackoutPressed() {
-        if (!showEngine.isBlackout()) {
-            blackoutPressStartMs = System.currentTimeMillis();
-            blackoutActivatedOnPress = true;
-            setBlackoutState(true);
-        } else {
-            blackoutActivatedOnPress = false;
-            setBlackoutState(false);
-        }
-    }
-
-    private void onBlackoutReleased() {
-        if (blackoutActivatedOnPress) {
-            long heldMs = System.currentTimeMillis() - blackoutPressStartMs;
-            if (heldMs >= 250) {
-                setBlackoutState(false);
-            }
-            blackoutActivatedOnPress = false;
-        }
-    }
-
-    private void setBlackoutState(boolean active) {
-        showEngine.setBlackout(active);
-        updateBlackoutButtonVisual();
+    private void onBlackoutHoldChanged(boolean active) {
         if (statusLabel != null) {
             statusLabel.setText(active ? I18n.get("midi.status.blackout_on") : I18n.get("midi.status.blackout_off"));
-        }
-    }
-
-    private void updateBlackoutButtonVisual() {
-        if (btnMidiBlackout == null) return;
-        if (showEngine.isBlackout()) {
-            btnMidiBlackout.updateColors(Color.web("#FF1744"), Color.WHITE, "power", I18n.get("midi.btn.blackout"));
-        } else {
-            btnMidiBlackout.updateColors(MaterialTheme.COLOR_SURFACE_4DP, MaterialTheme.COLOR_ERROR, "power", I18n.get("midi.btn.blackout"));
-        }
-    }
-
-    private void onMidiEventReceived(MidiInputService.MidiEventInfo ev) {
-        if (lblMidiMonitorValue != null) {
-            lblMidiMonitorValue.setText(ev.formatDisplay());
-            lblMidiMonitorValue.setTextFill(ev.triggered() ? MaterialTheme.COLOR_PRIMARY : MaterialTheme.COLOR_TEXT_HIGH);
-        }
-        if (iconMidiSignalDot != null) {
-            iconMidiSignalDot.setIcon("circle", ev.triggered() ? MaterialTheme.COLOR_ACCENT_GREEN : Color.web("#00E5FF"));
-        }
-    }
-
-    private void onManualBeatHoldChanged(boolean held) {
-        if (btnMidiTap == null) return;
-        midiFlashReset.stop();
-        if (held) {
-            btnMidiTap.updateColors(MaterialTheme.COLOR_ACCENT_GREEN, Color.web("#000000"), "zap", I18n.get("midi.btn.tap"));
-            if (iconMidiSignalDot != null) {
-                iconMidiSignalDot.setIcon("circle", MaterialTheme.COLOR_ACCENT_GREEN);
-            }
-        } else {
-            btnMidiTap.updateColors(MaterialTheme.COLOR_PRIMARY, MaterialTheme.COLOR_ON_PRIMARY, "zap", I18n.get("midi.btn.tap"));
-            if (iconMidiSignalDot != null) {
-                iconMidiSignalDot.setIcon("circle", MaterialTheme.COLOR_TEXT_DISABLED);
-            }
         }
     }
 
@@ -1827,52 +1625,7 @@ public class MainWindow extends StackPane {
         if (cbDetectionMode != null && cbDetectionMode.getValue() != BeatDetector.DetectionMode.MANUAL) {
             cbDetectionMode.setValue(BeatDetector.DetectionMode.MANUAL);
         }
-        var bd = audioService.getAnalyzer().getBeatDetector();
-        bd.triggerManualBeat();
-
-        double bpm = bd.getEstimatedBpm();
-        var tier = Sound2LightEngine.SpeedTier.fromBpm(bpm);
-        if (lblMidiBpmValue != null) {
-            lblMidiBpmValue.setText(bpm >= 30.0 ? String.format("%.0f BPM", bpm) : "-- BPM");
-        }
-        if (lblMidiTierValue != null) {
-            lblMidiTierValue.setText(tier.getDisplayName());
-        }
-
-        if (btnMidiTap != null) {
-            btnMidiTap.updateColors(MaterialTheme.COLOR_ACCENT_GREEN, Color.web("#000000"), "zap", I18n.get("midi.btn.tap"));
-            if (!bd.isManualBeatHeld()) {
-                midiFlashReset.setOnFinished(e -> {
-                    if (!bd.isManualBeatHeld()) {
-                        btnMidiTap.updateColors(MaterialTheme.COLOR_PRIMARY, MaterialTheme.COLOR_ON_PRIMARY, "zap", I18n.get("midi.btn.tap"));
-                        if (iconMidiSignalDot != null) {
-                            iconMidiSignalDot.setIcon("circle", MaterialTheme.COLOR_TEXT_DISABLED);
-                        }
-                    }
-                });
-                midiFlashReset.playFromStart();
-            }
-        }
-    }
-
-    private void updateMidiBanner() {
-        if (lblMidiBanner == null) return;
-        var mode = cbDetectionMode != null ? cbDetectionMode.getValue() : audioService.getAnalyzer().getBeatDetector().getDetectionMode();
-        boolean isManual = (mode == BeatDetector.DetectionMode.MANUAL);
-        if (isManual) {
-            lblMidiBanner.setText(I18n.get("midi.banner.manual_active"));
-            lblMidiBanner.setTextFill(MaterialTheme.COLOR_PRIMARY);
-            if (iconMidiBanner != null) iconMidiBanner.setIcon("piano", MaterialTheme.COLOR_PRIMARY);
-        } else {
-            String modeName = mode != null ? mode.getDisplayName() : "";
-            lblMidiBanner.setText(String.format(I18n.get("midi.banner.auto_active"), modeName));
-            lblMidiBanner.setTextFill(MaterialTheme.COLOR_TEXT_MED);
-            if (iconMidiBanner != null) iconMidiBanner.setIcon("piano", MaterialTheme.COLOR_TEXT_MED);
-        }
-        if (btnMidiActivateManual != null) {
-            btnMidiActivateManual.setVisible(!isManual);
-            btnMidiActivateManual.setManaged(!isManual);
-        }
+        audioService.getAnalyzer().getBeatDetector().triggerManualBeat();
     }
 
     private void scanMidiDevices() {
@@ -2080,8 +1833,6 @@ public class MainWindow extends StackPane {
         if (tablePresets != null) tablePresets.refresh();
 
         // 8b. MIDI Tab
-        updateMidiBanner();
-        if (btnMidiActivateManual != null) btnMidiActivateManual.setText(I18n.get("midi.btn.activate_manual"));
         if (lblMidiDeviceTitle != null) lblMidiDeviceTitle.setText(I18n.get("midi.device_title"));
         if (btnScanMidi != null) btnScanMidi.setText(I18n.get("btn.scan"));
         if (lblMidiBindingTitle != null) lblMidiBindingTitle.setText(I18n.get("midi.binding_title"));
@@ -2091,15 +1842,6 @@ public class MainWindow extends StackPane {
         updateMidiLearnButtonState();
         if (btnMidiAnyKey != null) btnMidiAnyKey.setText(I18n.get("midi.btn.any_key"));
         if (btnMidiBlackoutClear != null) btnMidiBlackoutClear.setText(I18n.get("midi.btn.clear_key"));
-        if (lblMidiMonitorTitle != null) lblMidiMonitorTitle.setText(I18n.get("midi.monitor_title"));
-        if (lblMidiMonitorValue != null && !midiService.isOpen()) {
-            lblMidiMonitorValue.setText(I18n.get("midi.monitor_waiting"));
-        }
-        if (lblMidiTapTitle != null) lblMidiTapTitle.setText(I18n.get("midi.tap_title"));
-        if (btnMidiTap != null) btnMidiTap.setText(I18n.get("midi.btn.tap"));
-        updateBlackoutButtonVisual();
-        if (btnMidiResetBpm != null) btnMidiResetBpm.setText(I18n.get("midi.btn.reset_bpm"));
-        if (lblMidiTierValue != null) lblMidiTierValue.setText(showEngine.getCurrentSpeedTier().getDisplayName());
 
         // 9. Status Bar
         if (statusLabel != null) {
@@ -2143,13 +1885,6 @@ public class MainWindow extends StackPane {
                 case RAVE -> "#FF4081";
             };
             lblSpeedTier.setStyle("-fx-text-fill: " + tierHex + "; -fx-font-weight: bold; -fx-font-size: 13px;");
-            if (lblMidiBpmValue != null) {
-                lblMidiBpmValue.setText(bpm >= 30.0 ? String.format("%.0f BPM", bpm) : "-- BPM");
-            }
-            if (lblMidiTierValue != null) {
-                lblMidiTierValue.setText(tier.getDisplayName());
-                lblMidiTierValue.setStyle("-fx-text-fill: " + tierHex + "; -fx-font-weight: bold; -fx-font-size: 12px;");
-            }
 
             lblPps.setText(String.format("%.1f pkt/s", artNetSender.getPacketsPerSecond()));
             lblTotalPackets.setText(String.valueOf(artNetSender.getTotalPacketsSent()));
