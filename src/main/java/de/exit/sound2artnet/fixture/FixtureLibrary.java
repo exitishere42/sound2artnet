@@ -17,6 +17,8 @@ public final class FixtureLibrary {
         list.add(createGeneric14chWash());
         list.add(createGeneric4chRgbwPar());
         list.add(createGeneric7chRgbwPar());
+        list.add(createMinecraftTheatricalLaser());
+        list.add(createMinecraftTheatricalLaserMirror());
         return list;
     }
 
@@ -102,5 +104,39 @@ public final class FixtureLibrary {
         channels.add(new ChannelMapping(5, ChannelFunction.WHITE, 0));
         channels.add(new ChannelMapping(6, ChannelFunction.UNUSED, 0));
         return new FixtureProfile("par-7ch", "Generic 7-Kanal RGBW PAR", 7, channels);
+    }
+
+    public static FixtureProfile createMinecraftTheatricalLaser() {
+        List<ChannelMapping> channels = new ArrayList<>();
+        channels.add(new ChannelMapping(0, ChannelFunction.DIMMER, 255));
+        channels.add(new ChannelMapping(1, ChannelFunction.RED, 255));
+        channels.add(new ChannelMapping(2, ChannelFunction.GREEN, 0));
+        channels.add(new ChannelMapping(3, ChannelFunction.BLUE, 255));
+        channels.add(new ChannelMapping(4, ChannelFunction.RED, 0));
+        channels.add(new ChannelMapping(5, ChannelFunction.GREEN, 255));
+        channels.add(new ChannelMapping(6, ChannelFunction.BLUE, 255));
+        channels.add(new ChannelMapping(7, ChannelFunction.RED, 255));
+        channels.add(new ChannelMapping(8, ChannelFunction.GREEN, 255));
+        channels.add(new ChannelMapping(9, ChannelFunction.BLUE, 0));
+        channels.add(new ChannelMapping(10, ChannelFunction.LASER_PATTERN, 64));
+        channels.add(new ChannelMapping(11, ChannelFunction.LASER_SIZE, 180));
+        channels.add(new ChannelMapping(12, ChannelFunction.LASER_AMPLITUDE, 128));
+        channels.add(new ChannelMapping(13, ChannelFunction.LASER_SPEED, 100));
+        channels.add(new ChannelMapping(14, ChannelFunction.LASER_ROTATION, 128));
+        channels.add(new ChannelMapping(15, ChannelFunction.PAN, 128));
+        channels.add(new ChannelMapping(16, ChannelFunction.TILT, 128));
+        channels.add(new ChannelMapping(17, ChannelFunction.FOCUS, 180));
+        channels.add(new ChannelMapping(18, ChannelFunction.LASER_PERSISTENCE, 200));
+        return new FixtureProfile("mc-theatrical-laser-19ch", "Minecraft Theatrical Laser (19-Kanal)", 19, channels);
+    }
+
+    public static FixtureProfile createMinecraftTheatricalLaserMirror() {
+        List<ChannelMapping> channels = new ArrayList<>();
+        channels.add(new ChannelMapping(0, ChannelFunction.DIMMER, 255));
+        channels.add(new ChannelMapping(1, ChannelFunction.RED, 255));
+        channels.add(new ChannelMapping(2, ChannelFunction.GREEN, 255));
+        channels.add(new ChannelMapping(3, ChannelFunction.BLUE, 255));
+        channels.add(new ChannelMapping(4, ChannelFunction.FOCUS, 180));
+        return new FixtureProfile("mc-theatrical-laser-mirror-5ch", "Minecraft Theatrical Laser-Mirror (5-Kanal)", 5, channels);
     }
 }

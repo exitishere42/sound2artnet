@@ -26,6 +26,12 @@ public enum ChannelFunction {
     GOBO_WHEEL("Goborad", "Muster-/Goborad für Spot-Moving-Heads"),
     PRISM("Prisma", "Prisma-Effekt"),
     FOCUS("Fokus", "Elektronischer Fokus"),
+    LASER_PATTERN("Laser-Muster", "Muster-/Figurenauswahl für Laser"),
+    LASER_SIZE("Laser-Größe", "Größe und Auffächerung des Lasers"),
+    LASER_AMPLITUDE("Laser-Amplitude", "Auslenkung / Wellenamplitude des Lasers"),
+    LASER_SPEED("Laser-Speed", "Animationsgeschwindigkeit der Laser-Scanner"),
+    LASER_ROTATION("Laser-Rotation", "Rotationswinkel des Laser-Musters"),
+    LASER_PERSISTENCE("Laser-Persistenz", "Nachleucht- und Strahllänge des Lasers"),
     CONSTANT("Fester Wert", "Kanal mit fixiertem DMX-Wert"),
     UNUSED("Nicht belegt", "Kanal wird ignoriert");
 

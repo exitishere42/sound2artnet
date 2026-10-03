@@ -105,6 +105,11 @@ public class Sound2LightEngine {
     private boolean wasBeatHeld = false;
     private long lastTickTime = System.nanoTime();
 
+    // Laser Engine State (Muster, Auffächerung, Drehung)
+    private static final int[] LASER_PATTERNS = {32, 64, 96, 128, 160, 192, 224};
+    private int currentLaserPatternStep = 0;
+    private double laserRotation = 0.0;
+
     public Sound2LightEngine(AudioCaptureService audioCapture, ArtNetSender artNetSender) {
         this.audioCapture = audioCapture;
         this.artNetSender = artNetSender;
@@ -189,6 +194,19 @@ public class Sound2LightEngine {
         if (lightEnabled) {
             colorEngine.update(isBeat, isBeatHeld, treble, currentBpm, currentSpeedTier, strobeEnabled, deltaSeconds);
         }
+
+        // Laser Engine State (Muster-Wechsel auf Beat & kontinuierliche Strahl-Drehung)
+        if (isBeat) {
+            currentLaserPatternStep = (currentLaserPatternStep + 1) % LASER_PATTERNS.length;
+        }
+        double laserRotSpeed = switch (currentSpeedTier) {
+            case IDLE -> 0.15;
+            case SLOW -> 0.35;
+            case MEDIUM -> 0.70;
+            case FAST -> 1.25;
+            case RAVE -> 2.00;
+        };
+        laserRotation = (laserRotation + laserRotSpeed * movementGenerator.getCurrentSpeed() * (deltaSeconds * 40.0)) % 256.0;
 
         // 4. DMX512 Frames pro Universum generieren
         Set<Integer> activeUnis = getActiveUniverses();
@@ -276,6 +294,8 @@ public class Sound2LightEngine {
 
             double colorDimmerMod = hasDimmerChannel ? 1.0 : (masterDimmerVal / 255.0);
             int goboWheelCounter = 0;
+            int rgbHeadIndex = 0;
+            Color headColor = activeColor;
 
             for (ChannelMapping cm : profile.getChannels()) {
                 int targetDmx = startAddr - 1 + cm.getOffset();
@@ -292,9 +312,12 @@ public class Sound2LightEngine {
                     case PAN_TILT_SPEED -> val = cm.getDefaultValue();
                     case DIMMER -> val = effectiveLight ? fixtureDimmer : 0;
                     case STROBE -> val = blackout ? 0 : (strobeActive ? strobeDmxVal : cm.getDefaultValue());
-                    case RED -> val = effectiveLight ? (int) Math.round(activeColor.getRed() * 255 * rgbStrobeMod * colorDimmerMod) : 0;
-                    case GREEN -> val = effectiveLight ? (int) Math.round(activeColor.getGreen() * 255 * rgbStrobeMod * colorDimmerMod) : 0;
-                    case BLUE -> val = effectiveLight ? (int) Math.round(activeColor.getBlue() * 255 * rgbStrobeMod * colorDimmerMod) : 0;
+                    case RED -> {
+                        headColor = colorEngine.getColorForHead(rgbHeadIndex++);
+                        val = effectiveLight ? (int) Math.round(headColor.getRed() * 255 * rgbStrobeMod * colorDimmerMod) : 0;
+                    }
+                    case GREEN -> val = effectiveLight ? (int) Math.round(headColor.getGreen() * 255 * rgbStrobeMod * colorDimmerMod) : 0;
+                    case BLUE -> val = effectiveLight ? (int) Math.round(headColor.getBlue() * 255 * rgbStrobeMod * colorDimmerMod) : 0;
                     case CYAN -> val = effectiveLight ? (int) Math.round((1.0 - activeColor.getRed()) * 255) : 0;
                     case MAGENTA -> val = effectiveLight ? (int) Math.round((1.0 - activeColor.getGreen()) * 255) : 0;
                     case YELLOW -> val = effectiveLight ? (int) Math.round((1.0 - activeColor.getBlue()) * 255) : 0;
@@ -308,7 +331,43 @@ public class Sound2LightEngine {
                             val = cm.getDefaultValue();
                         }
                     }
-                    case PRISM, FOCUS -> val = cm.getDefaultValue();
+                    case PRISM -> val = cm.getDefaultValue();
+                    case FOCUS -> val = effectiveLight ? (cm.getDefaultValue() > 0 ? cm.getDefaultValue() : 180) : 0;
+                    case LASER_PATTERN -> val = effectiveLight ? LASER_PATTERNS[currentLaserPatternStep] : 0;
+                    case LASER_SIZE -> {
+                        if (!effectiveLight) {
+                            val = 0;
+                        } else {
+                            int base = cm.getDefaultValue() > 0 ? cm.getDefaultValue() : 140;
+                            int boost = (int) Math.round((rms * 65.0) + (beatDimmer * 50.0));
+                            val = Math.max(0, Math.min(255, base + boost));
+                        }
+                    }
+                    case LASER_AMPLITUDE -> {
+                        if (!effectiveLight) {
+                            val = 0;
+                        } else {
+                            int base = cm.getDefaultValue() > 0 ? cm.getDefaultValue() : 110;
+                            int boost = (int) Math.round(rms * 130.0);
+                            val = Math.max(0, Math.min(255, base + boost));
+                        }
+                    }
+                    case LASER_SPEED -> {
+                        if (!effectiveLight) {
+                            val = 0;
+                        } else {
+                            int base = switch (currentSpeedTier) {
+                                case IDLE -> 45;
+                                case SLOW -> 80;
+                                case MEDIUM -> 125;
+                                case FAST -> 180;
+                                case RAVE -> 240;
+                            };
+                            val = Math.max(0, Math.min(255, (int) Math.round(base * movementGenerator.getCurrentSpeed())));
+                        }
+                    }
+                    case LASER_ROTATION -> val = effectiveLight ? (int) Math.round(laserRotation) : 0;
+                    case LASER_PERSISTENCE -> val = effectiveLight ? (cm.getDefaultValue() > 0 ? cm.getDefaultValue() : 210) : 0;
                     case CONSTANT -> {
                         // Gobo-Rotationskanal direkt hinter dem rotierenden Goborad (z. B. Kanal 20 beim ROBE MegaPointe mit Default=128)
                         if (effectiveLight && goboEnabled && totalGoboWheels >= 1 &&

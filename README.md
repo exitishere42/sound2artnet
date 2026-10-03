@@ -98,7 +98,14 @@ Visually and structurally, **sound2artnet** features the exact same dark Materia
 - **Live Metrics**: Real-time readouts for audio RMS, peak, tempo (BPM), active speed tier, packets per second (including a live history chart), and total packets sent across all active target IPs and universes.
 - **Adjustable Module Layout (Dragbar-Only Resizing)**: Smooth vertical SplitPane divider with a centered Material Design grabber pill (`52 x 4 px`). To prevent accidental resize clicks across the full screen width, resizing is exclusively allowed directly on the dragbar pill.
 - **Multi-Profile & Venue Presets**: Dedicated `Profile` tab for saving and switching multiple venue configurations (Multiple Target IPs `127.0.0.1, 192.168.1.50`, Target Universes `0, 1`, FPS, Fixture Patches, and Engine Settings). Double-click or click `Laden` to activate instantly with live Art-Net target switching without restarting the stream.
-- **In-App Update & Global Settings Dialog**: Click on the title logo badge (`v1.10.0`) to inspect release notes, check for updates, or switch global settings (e.g., German/English language, autostart).
+- **Minecraft Theatrical Laser Engine & Multi-Beam Fixture Control**:
+  - Full native support for the Minecraft Theatrical Laser (19 DMX channels) and Laser Mirror (5 DMX channels).
+  - Multi-beam RGB harmonizer: Generates distinct harmonic palette colors across separate beam heads (`Beam 1`, `Beam 2`, `Beam 3`) that cycle smoothly with music beats.
+  - Dynamic Laser Patterns: Cycles through scanner figures (`Circle`, `Wave`, `Triangle`, `Square`, `Star`, `Spiral`, `Fan`) on strong beats.
+  - Energy-Driven Size & Amplitude: Expands aperture size and scan oscillation in sync with live audio volume/energy.
+  - Tempo-Synced Scan Speed & 360° Rotation: Syncs scan frequencies to BPM speed tiers and drives continuous beam rotation.
+  - Focus & Persistence Optimization: Guarantees razor-sharp beam rendering and beam sheet persistence without collapsing to a static line.
+- **In-App Update & Global Settings Dialog**: Click on the title logo badge (`v1.11.0`) to inspect release notes, check for updates, or switch global settings (e.g., German/English language, autostart).
 - **Automatic Persistence**: All settings, MIDI bindings, profiles, and patched fixtures are automatically saved to `config.json`.
 
 ---

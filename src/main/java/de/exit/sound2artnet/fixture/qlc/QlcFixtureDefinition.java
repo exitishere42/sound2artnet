@@ -52,6 +52,20 @@ public class QlcFixtureDefinition {
                        n.contains("background") && n.contains("dimmer") && !n.contains("fine") && defaultValue == 0) {
                 // Background Dimmer (z. B. ROBE PATT 2017 / pixelPATT) muss auf 255 stehen, damit Background-RGB sichtbar ist
                 this.defaultValue = 255;
+            } else if (this.resolvedFunction == ChannelFunction.LASER_SIZE && defaultValue == 0) {
+                this.defaultValue = 180;
+            } else if (this.resolvedFunction == ChannelFunction.LASER_PATTERN && defaultValue == 0) {
+                this.defaultValue = 64;
+            } else if (this.resolvedFunction == ChannelFunction.LASER_AMPLITUDE && defaultValue == 0) {
+                this.defaultValue = 128;
+            } else if (this.resolvedFunction == ChannelFunction.LASER_SPEED && defaultValue == 0) {
+                this.defaultValue = 100;
+            } else if (this.resolvedFunction == ChannelFunction.LASER_ROTATION && defaultValue == 0) {
+                this.defaultValue = 128;
+            } else if (this.resolvedFunction == ChannelFunction.LASER_PERSISTENCE && defaultValue == 0) {
+                this.defaultValue = 200;
+            } else if (this.resolvedFunction == ChannelFunction.FOCUS && defaultValue == 0 && n.equals("focus")) {
+                this.defaultValue = 180;
             } else {
                 this.defaultValue = defaultValue;
             }
@@ -78,6 +92,27 @@ public class QlcFixtureDefinition {
             // sound2artnet arbeitet mit 8-Bit Farbwerten; LSB/Fine-Kanäle müssen unverändert als CONSTANT gehalten werden!
             if (p.contains("fine") || n.contains("fine") || n.contains("fein") || byteIndex == 1) {
                 return ChannelFunction.CONSTANT;
+            }
+
+            // 2b. Laser-spezifische Kanäle (Pattern, Size, Amplitude, Speed, Rotation, Persistence)
+            // WICHTIG: Vor Pan/Tilt Speed und generellen Rotations-/Macro-Filtern prüfen!
+            if (n.equals("pattern") || (n.contains("pattern") && (n.contains("laser") || p.contains("laser")))) {
+                return ChannelFunction.LASER_PATTERN;
+            }
+            if (n.equals("size") || (n.contains("size") && (n.contains("laser") || p.contains("laser")))) {
+                return ChannelFunction.LASER_SIZE;
+            }
+            if (n.equals("amplitude") || (n.contains("amplitude") && (n.contains("laser") || p.contains("laser")))) {
+                return ChannelFunction.LASER_AMPLITUDE;
+            }
+            if (n.equals("speed") && !p.contains("speedpantilt") && !n.contains("pan") && !n.contains("tilt")) {
+                return ChannelFunction.LASER_SPEED;
+            }
+            if (n.equals("rotation") && (p.contains("beamfocus") || p.contains("laser") || n.contains("laser"))) {
+                return ChannelFunction.LASER_ROTATION;
+            }
+            if (n.equals("persistence") || n.contains("persistence") || n.contains("nachleucht")) {
+                return ChannelFunction.LASER_PERSISTENCE;
             }
 
             // 3. Speed & Time Kanäle (Pan/Tilt Speed vs. Effekt-/Farb-Zeiten)

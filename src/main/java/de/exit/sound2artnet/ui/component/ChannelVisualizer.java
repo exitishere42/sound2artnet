@@ -357,6 +357,12 @@ public class ChannelVisualizer extends VBox {
                             case GOBO_WHEEL -> "GOBO";
                             case PRISM -> "PRIS";
                             case FOCUS -> "FOC";
+                            case LASER_PATTERN -> "PAT";
+                            case LASER_SIZE -> "SIZE";
+                            case LASER_AMPLITUDE -> "AMP";
+                            case LASER_SPEED -> "L.SPD";
+                            case LASER_ROTATION -> "ROT";
+                            case LASER_PERSISTENCE -> "PERS";
                             default -> "";
                         };
                     }

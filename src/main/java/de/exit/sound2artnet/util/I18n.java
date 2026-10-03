@@ -562,6 +562,18 @@ public class I18n {
         EN.put("function.prism", "Prism");
         DE.put("function.focus", "Fokus");
         EN.put("function.focus", "Focus");
+        DE.put("function.laser_pattern", "Laser-Muster");
+        EN.put("function.laser_pattern", "Laser Pattern");
+        DE.put("function.laser_size", "Laser-Größe");
+        EN.put("function.laser_size", "Laser Size");
+        DE.put("function.laser_amplitude", "Laser-Amplitude");
+        EN.put("function.laser_amplitude", "Laser Amplitude");
+        DE.put("function.laser_speed", "Laser-Speed");
+        EN.put("function.laser_speed", "Laser Speed");
+        DE.put("function.laser_rotation", "Laser-Rotation");
+        EN.put("function.laser_rotation", "Laser Rotation");
+        DE.put("function.laser_persistence", "Laser-Persistenz");
+        EN.put("function.laser_persistence", "Laser Persistence");
         DE.put("function.constant", "Fester Wert");
         EN.put("function.constant", "Constant");
         DE.put("function.unused", "Nicht belegt");

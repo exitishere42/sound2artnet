@@ -205,6 +205,22 @@ public class ColorEngine {
         return currentColor;
     }
 
+    /**
+     * Liefert eine harmonische Farbe aus der aktiven Farbpalette für Multi-Head-/Multi-Beam-Fixtures.
+     * Head 0 = Hauptfarbe, Head 1..N = zyklisch versetzte Palettenfarben für spektakuläre Multi-Color-Fächer.
+     */
+    public synchronized Color getColorForHead(int headIndex) {
+        if (headIndex <= 0) {
+            return currentColor;
+        }
+        Color[] colors = currentPalette.getColors();
+        if (colors == null || colors.length == 0) {
+            return currentColor;
+        }
+        int idx = (currentColorIndex + headIndex) % colors.length;
+        return colors[idx];
+    }
+
     public synchronized boolean isStrobeActive() {
         return strobeBurstTimer > 0.0;
     }

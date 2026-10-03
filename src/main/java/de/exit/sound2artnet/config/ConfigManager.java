@@ -43,6 +43,16 @@ public final class ConfigManager {
                                 }
                             }
                         }
+                        upgradeLaserPatch(patch);
+                    }
+                    if (cfg.getPresets() != null) {
+                        for (ArtNetPreset preset : cfg.getPresets()) {
+                            if (preset.getFixtures() != null) {
+                                for (FixturePatch patch : preset.getFixtures()) {
+                                    upgradeLaserPatch(patch);
+                                }
+                            }
+                        }
                     }
                 }
                 return cfg;
@@ -81,5 +91,37 @@ public final class ConfigManager {
         list.add(mh1);
         list.add(mh2);
         return list;
+    }
+
+    private static void upgradeLaserPatch(FixturePatch patch) {
+        if (patch == null || patch.getProfile() == null || patch.getProfile().getChannels() == null) return;
+        boolean isMcLaser = (patch.getName() != null && patch.getName().toLowerCase().contains("laser")) ||
+                (patch.getProfile().getName() != null && patch.getProfile().getName().toLowerCase().contains("laser")) ||
+                (patch.getProfile().getId() != null && patch.getProfile().getId().toLowerCase().contains("laser"));
+        if (isMcLaser && patch.getProfile().getChannelCount() == 19) {
+            for (ChannelMapping cm : patch.getProfile().getChannels()) {
+                if (cm.getOffset() == 10 && (cm.getFunction() == ChannelFunction.CONSTANT || cm.getFunction() == ChannelFunction.UNUSED)) {
+                    cm.setFunction(ChannelFunction.LASER_PATTERN);
+                    if (cm.getDefaultValue() == 0) cm.setDefaultValue(64);
+                } else if (cm.getOffset() == 11 && (cm.getFunction() == ChannelFunction.CONSTANT || cm.getFunction() == ChannelFunction.UNUSED)) {
+                    cm.setFunction(ChannelFunction.LASER_SIZE);
+                    if (cm.getDefaultValue() == 0) cm.setDefaultValue(180);
+                } else if (cm.getOffset() == 12 && (cm.getFunction() == ChannelFunction.CONSTANT || cm.getFunction() == ChannelFunction.UNUSED)) {
+                    cm.setFunction(ChannelFunction.LASER_AMPLITUDE);
+                    if (cm.getDefaultValue() == 0) cm.setDefaultValue(128);
+                } else if (cm.getOffset() == 13 && (cm.getFunction() == ChannelFunction.CONSTANT || cm.getFunction() == ChannelFunction.UNUSED || cm.getFunction() == ChannelFunction.PAN_TILT_SPEED)) {
+                    cm.setFunction(ChannelFunction.LASER_SPEED);
+                    if (cm.getDefaultValue() == 0) cm.setDefaultValue(100);
+                } else if (cm.getOffset() == 14 && (cm.getFunction() == ChannelFunction.CONSTANT || cm.getFunction() == ChannelFunction.UNUSED)) {
+                    cm.setFunction(ChannelFunction.LASER_ROTATION);
+                    if (cm.getDefaultValue() == 0) cm.setDefaultValue(128);
+                } else if (cm.getOffset() == 17 && cm.getFunction() == ChannelFunction.FOCUS && cm.getDefaultValue() == 0) {
+                    cm.setDefaultValue(180);
+                } else if (cm.getOffset() == 18 && (cm.getFunction() == ChannelFunction.CONSTANT || cm.getFunction() == ChannelFunction.UNUSED)) {
+                    cm.setFunction(ChannelFunction.LASER_PERSISTENCE);
+                    if (cm.getDefaultValue() == 0) cm.setDefaultValue(200);
+                }
+            }
+        }
     }
 }
