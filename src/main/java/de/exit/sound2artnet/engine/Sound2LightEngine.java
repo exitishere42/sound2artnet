@@ -105,9 +105,12 @@ public class Sound2LightEngine {
     private boolean wasBeatHeld = false;
     private long lastTickTime = System.nanoTime();
 
-    // Laser Engine State (Muster, Auffächerung, Drehung)
+    // Laser Engine State (ruhige Muster-Wechsel alle 8/16 Beats, geglättete Hüllkurve)
     private static final int[] LASER_PATTERNS = {32, 64, 96, 128, 160, 192, 224};
     private int currentLaserPatternStep = 0;
+    private int laserBeatCounter = 0;
+    private double smoothedLaserSize = 160.0;
+    private double smoothedLaserAmp = 110.0;
     private double laserRotation = 0.0;
 
     public Sound2LightEngine(AudioCaptureService audioCapture, ArtNetSender artNetSender) {
@@ -195,18 +198,31 @@ public class Sound2LightEngine {
             colorEngine.update(isBeat, isBeatHeld, treble, currentBpm, currentSpeedTier, strobeEnabled, deltaSeconds);
         }
 
-        // Laser Engine State (Muster-Wechsel auf Beat & kontinuierliche Strahl-Drehung)
+        // Laser Engine State (Muster-Wechsel ruhig alle 8-16 Beats statt jedes einzelnen Kicks)
         if (isBeat) {
-            currentLaserPatternStep = (currentLaserPatternStep + 1) % LASER_PATTERNS.length;
+            laserBeatCounter++;
+            int beatsPerPattern = currentSpeedTier.isFastEffectTier() ? 8 : 16;
+            if (laserBeatCounter % beatsPerPattern == 0) {
+                currentLaserPatternStep = (currentLaserPatternStep + 1) % LASER_PATTERNS.length;
+            }
         }
+
+        // Glättung für Size und Amplitude (verhindert nervöses Zittern/Flackern der Scanner-Spiegel)
+        double targetSize = 150.0 + (rms * 45.0) + (beatDimmer * 30.0);
+        double targetAmp = 95.0 + (rms * 75.0);
+        double smoothFactor = Math.min(1.0, deltaSeconds * 6.0);
+        smoothedLaserSize += (targetSize - smoothedLaserSize) * smoothFactor;
+        smoothedLaserAmp += (targetAmp - smoothedLaserAmp) * smoothFactor;
+
+        // Sanfte, ruhige Strahl-Drehung
         double laserRotSpeed = switch (currentSpeedTier) {
-            case IDLE -> 0.15;
-            case SLOW -> 0.35;
-            case MEDIUM -> 0.70;
-            case FAST -> 1.25;
-            case RAVE -> 2.00;
+            case IDLE -> 0.08;
+            case SLOW -> 0.18;
+            case MEDIUM -> 0.35;
+            case FAST -> 0.65;
+            case RAVE -> 1.00;
         };
-        laserRotation = (laserRotation + laserRotSpeed * movementGenerator.getCurrentSpeed() * (deltaSeconds * 40.0)) % 256.0;
+        laserRotation = (laserRotation + laserRotSpeed * movementGenerator.getCurrentSpeed() * (deltaSeconds * 30.0)) % 256.0;
 
         // 4. DMX512 Frames pro Universum generieren
         Set<Integer> activeUnis = getActiveUniverses();
@@ -334,34 +350,18 @@ public class Sound2LightEngine {
                     case PRISM -> val = cm.getDefaultValue();
                     case FOCUS -> val = effectiveLight ? (cm.getDefaultValue() > 0 ? cm.getDefaultValue() : 180) : 0;
                     case LASER_PATTERN -> val = effectiveLight ? LASER_PATTERNS[currentLaserPatternStep] : 0;
-                    case LASER_SIZE -> {
-                        if (!effectiveLight) {
-                            val = 0;
-                        } else {
-                            int base = cm.getDefaultValue() > 0 ? cm.getDefaultValue() : 140;
-                            int boost = (int) Math.round((rms * 65.0) + (beatDimmer * 50.0));
-                            val = Math.max(0, Math.min(255, base + boost));
-                        }
-                    }
-                    case LASER_AMPLITUDE -> {
-                        if (!effectiveLight) {
-                            val = 0;
-                        } else {
-                            int base = cm.getDefaultValue() > 0 ? cm.getDefaultValue() : 110;
-                            int boost = (int) Math.round(rms * 130.0);
-                            val = Math.max(0, Math.min(255, base + boost));
-                        }
-                    }
+                    case LASER_SIZE -> val = effectiveLight ? (int) Math.round(Math.max(0, Math.min(255, smoothedLaserSize))) : 0;
+                    case LASER_AMPLITUDE -> val = effectiveLight ? (int) Math.round(Math.max(0, Math.min(255, smoothedLaserAmp))) : 0;
                     case LASER_SPEED -> {
                         if (!effectiveLight) {
                             val = 0;
                         } else {
                             int base = switch (currentSpeedTier) {
-                                case IDLE -> 45;
-                                case SLOW -> 80;
-                                case MEDIUM -> 125;
-                                case FAST -> 180;
-                                case RAVE -> 240;
+                                case IDLE -> 35;
+                                case SLOW -> 60;
+                                case MEDIUM -> 95;
+                                case FAST -> 135;
+                                case RAVE -> 175;
                             };
                             val = Math.max(0, Math.min(255, (int) Math.round(base * movementGenerator.getCurrentSpeed())));
                         }
