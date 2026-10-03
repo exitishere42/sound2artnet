@@ -95,6 +95,7 @@ public class Sound2LightEngine {
     private volatile boolean blackout = false;
     private double alwaysOnIntensity = 1.0;
     private double audioLevelMax = 1.0;
+    private double masterDimmer = 1.0; // 0.0 (voller Blackout) bis 1.0 (100% Licht)
     private volatile boolean lastTickBeat = false;
     private volatile double currentBpm = 0.0;
     private volatile SpeedTier currentSpeedTier = SpeedTier.IDLE;
@@ -231,7 +232,7 @@ public class Sound2LightEngine {
             framesByUni.put(u, new byte[512]);
         }
 
-        boolean effectiveLight = lightEnabled && !blackout;
+        boolean effectiveLight = lightEnabled && !blackout && masterDimmer > 0.001;
         Color activeColor = colorEngine.getCurrentColor();
         boolean manualStrobeActive = effectiveLight && manualStrobe;
         boolean autoStrobeActive = effectiveLight && strobeEnabled && colorEngine.isStrobeActive();
@@ -241,18 +242,19 @@ public class Sound2LightEngine {
 
         int masterDimmerVal = 0;
         if (effectiveLight) {
+            double rawVal = 0.0;
             switch (dimmerMode) {
-                case BEAT_PULSE -> masterDimmerVal = (int) Math.round(beatDimmer * 255);
-                case ALWAYS_ON -> masterDimmerVal = (int) Math.round(alwaysOnIntensity * 255);
+                case BEAT_PULSE -> rawVal = beatDimmer * 255.0;
+                case ALWAYS_ON -> rawVal = alwaysOnIntensity * 255.0;
                 case AUDIO_LEVEL -> {
                     double baseLevel = (isBeatHeld || (isManualMode && rms < 0.02))
                             ? beatDimmer
                             : Math.min(1.0, rms * 3.5);
-                    double val = baseLevel * audioLevelMax;
-                    masterDimmerVal = (int) Math.round(val * 255);
+                    rawVal = baseLevel * audioLevelMax * 255.0;
                 }
-                default -> masterDimmerVal = (int) Math.round(alwaysOnIntensity * 255);
+                default -> rawVal = alwaysOnIntensity * 255.0;
             }
+            masterDimmerVal = (int) Math.round(rawVal * masterDimmer);
         }
 
         // Jedes gepatchte Fixture belegen
@@ -531,6 +533,14 @@ public class Sound2LightEngine {
     public boolean toggleBlackout() {
         this.blackout = !this.blackout;
         return this.blackout;
+    }
+
+    public double getMasterDimmer() {
+        return masterDimmer;
+    }
+
+    public void setMasterDimmer(double masterDimmer) {
+        this.masterDimmer = Math.max(0.0, Math.min(1.0, masterDimmer));
     }
 
     public boolean isLastTickBeat() {

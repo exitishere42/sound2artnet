@@ -39,6 +39,7 @@ public class AppConfig {
     private String activePresetId = null;
     private double alwaysOnIntensity = 1.0;
     private double audioLevelMax = 1.0;
+    private double masterDimmer = 1.0;
     private String midiDevice = "";
     private String midiBoundType = "ANY";
     private int midiBoundChannel = -1;
@@ -265,6 +266,30 @@ public class AppConfig {
     public int getMidiStrobeBoundData1() { return midiStrobeBoundData1; }
     public void setMidiStrobeBoundData1(int midiStrobeBoundData1) {
         this.midiStrobeBoundData1 = midiStrobeBoundData1;
+    }
+
+    private String midiMasterDimmerBoundType = "NONE";
+    private int midiMasterDimmerBoundChannel = -1;
+    private int midiMasterDimmerBoundData1 = -1;
+
+    public String getMidiMasterDimmerBoundType() { return midiMasterDimmerBoundType != null ? midiMasterDimmerBoundType : "NONE"; }
+    public void setMidiMasterDimmerBoundType(String midiMasterDimmerBoundType) {
+        this.midiMasterDimmerBoundType = midiMasterDimmerBoundType != null ? midiMasterDimmerBoundType : "NONE";
+    }
+
+    public int getMidiMasterDimmerBoundChannel() { return midiMasterDimmerBoundChannel; }
+    public void setMidiMasterDimmerBoundChannel(int midiMasterDimmerBoundChannel) {
+        this.midiMasterDimmerBoundChannel = midiMasterDimmerBoundChannel;
+    }
+
+    public int getMidiMasterDimmerBoundData1() { return midiMasterDimmerBoundData1; }
+    public void setMidiMasterDimmerBoundData1(int midiMasterDimmerBoundData1) {
+        this.midiMasterDimmerBoundData1 = midiMasterDimmerBoundData1;
+    }
+
+    public double getMasterDimmer() { return masterDimmer; }
+    public void setMasterDimmer(double masterDimmer) {
+        this.masterDimmer = Math.max(0.0, Math.min(1.0, masterDimmer));
     }
 
     public boolean isAutostart() { return autostart; }

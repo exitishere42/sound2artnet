@@ -75,6 +75,8 @@ public class MainWindow extends StackPane {
     // Top Bar
     private LucideIcon chipIcon;
     private Label chipLabel;
+    private Slider slMasterDimmer;
+    private Label lblMasterDimmerVal;
     private MaterialButton btnTopStrobe;
     private HBox chipBlackout;
     private LucideIcon chipBlackoutIcon;
@@ -140,6 +142,10 @@ public class MainWindow extends StackPane {
     private Label lblMidiStrobeBindingBadge;
     private MaterialButton btnMidiStrobeLearn;
     private MaterialButton btnMidiStrobeClear;
+    private Label lblMidiMasterDimmerBindingTitle;
+    private Label lblMidiMasterDimmerBindingBadge;
+    private MaterialButton btnMidiMasterDimmerLearn;
+    private MaterialButton btnMidiMasterDimmerClear;
 
     // Presets Table & Controls
     private final ObservableList<ArtNetPreset> presetList = FXCollections.observableArrayList();
@@ -247,9 +253,12 @@ public class MainWindow extends StackPane {
         audioService.getAnalyzer().getBeatDetector().setDetectionMode(config.getDetectionMode());
         audioService.getAnalyzer().getBeatDetector().setSensitivity(config.getBeatSensitivity());
 
+        showEngine.setMasterDimmer(config.getMasterDimmer());
+
         midiService.setBinding(config.getMidiBoundType(), config.getMidiBoundChannel(), config.getMidiBoundData1());
         midiService.setBlackoutBinding(config.getMidiBlackoutBoundType(), config.getMidiBlackoutBoundChannel(), config.getMidiBlackoutBoundData1());
         midiService.setStrobeBinding(config.getMidiStrobeBoundType(), config.getMidiStrobeBoundChannel(), config.getMidiStrobeBoundData1());
+        midiService.setMasterDimmerBinding(config.getMidiMasterDimmerBoundType(), config.getMidiMasterDimmerBoundChannel(), config.getMidiMasterDimmerBoundData1());
         midiService.setOnBeatTrigger(() -> Platform.runLater(this::triggerManualBeat));
         midiService.setOnBeatHoldChange(held -> audioService.getAnalyzer().getBeatDetector().setManualBeatHeld(held));
         midiService.setOnBlackoutHoldChange(held -> {
@@ -260,9 +269,11 @@ public class MainWindow extends StackPane {
             showEngine.setManualStrobe(held);
             Platform.runLater(() -> updateStrobeUi(held));
         });
+        midiService.setOnMasterDimmerChange(dimVal -> Platform.runLater(() -> updateMasterDimmerFromMidi(dimVal)));
         midiService.setOnLearnComplete(() -> Platform.runLater(this::onMidiLearnCompleted));
         midiService.setOnBlackoutLearnComplete(() -> Platform.runLater(this::onMidiBlackoutLearnCompleted));
         midiService.setOnStrobeLearnComplete(() -> Platform.runLater(this::onMidiStrobeLearnCompleted));
+        midiService.setOnMasterDimmerLearnComplete(() -> Platform.runLater(this::onMidiMasterDimmerLearnCompleted));
 
         I18n.setLanguage(config.getLanguage());
         I18n.addListener(lang -> Platform.runLater(this::updateAllLocalizedTexts));
@@ -499,6 +510,38 @@ public class MainWindow extends StackPane {
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
+        // Master-Dimmer Slider (Proportionaler Dimmer / Blackout-Fader 0% - 100%)
+        HBox dimmerBox = new HBox(6);
+        dimmerBox.setAlignment(Pos.CENTER_LEFT);
+        dimmerBox.setPadding(new Insets(2, 6, 2, 6));
+        dimmerBox.setStyle("-fx-background-color: " + MaterialTheme.HEX_SURFACE_2DP + 
+                           "; -fx-border-color: " + MaterialTheme.HEX_DIVIDER + 
+                           "; -fx-border-width: 1px; -fx-background-radius: 6px; -fx-border-radius: 6px;");
+
+        LucideIcon dimmerIcon = new LucideIcon("sun", 12, MaterialTheme.COLOR_PRIMARY);
+        slMasterDimmer = new Slider(0.0, 1.0, config.getMasterDimmer());
+        slMasterDimmer.setPrefWidth(90);
+        slMasterDimmer.setMaxWidth(110);
+        slMasterDimmer.setCursor(Cursor.HAND);
+        slMasterDimmer.setStyle("-fx-control-inner-background: " + MaterialTheme.HEX_SURFACE_4DP + ";");
+
+        int initialPct = (int) Math.round(config.getMasterDimmer() * 100.0);
+        lblMasterDimmerVal = new Label(initialPct + "%");
+        lblMasterDimmerVal.setPrefWidth(38);
+        lblMasterDimmerVal.setAlignment(Pos.CENTER_RIGHT);
+        lblMasterDimmerVal.setTextFill(MaterialTheme.COLOR_PRIMARY);
+        lblMasterDimmerVal.setFont(Font.font(MaterialTheme.FONT_FAMILY, FontWeight.BOLD, 10));
+
+        slMasterDimmer.valueProperty().addListener((obs, oldVal, newVal) -> {
+            double val = newVal.doubleValue();
+            showEngine.setMasterDimmer(val);
+            lblMasterDimmerVal.setText(Math.round(val * 100.0) + "%");
+            autoSaveConfig();
+        });
+
+        MaterialTooltip.install(dimmerBox, () -> I18n.get("topbar.master_dimmer"), () -> I18n.get("tooltip.master_dimmer"));
+        dimmerBox.getChildren().addAll(dimmerIcon, slMasterDimmer, lblMasterDimmerVal);
+
         // Strobo-Knopf (gedrückt halten oder klicken für manuellen Strobo-Blitz)
         btnTopStrobe = new MaterialButton(I18n.get("btn.strobe"), "zap",
                 MaterialTheme.COLOR_SURFACE_4DP, Color.web("#FFD600"), 11, 10, 4, 11, true, null);
@@ -536,7 +579,7 @@ public class MainWindow extends StackPane {
         chipLabel.setFont(Font.font(MaterialTheme.FONT_FAMILY, FontWeight.BOLD, 11));
         chip.getChildren().addAll(chipIcon, chipLabel);
 
-        bar.getChildren().addAll(logoBox, spacer, btnTopStrobe, chipBlackout, chip);
+        bar.getChildren().addAll(logoBox, spacer, dimmerBox, btnTopStrobe, chipBlackout, chip);
         contentBox.getChildren().add(bar);
     }
 
@@ -1757,6 +1800,37 @@ public class MainWindow extends StackPane {
 
         strobeBindRow.getChildren().addAll(lblMidiStrobeBindingBadge, btnMidiStrobeLearn, btnMidiStrobeClear);
 
+        // 5. Master-Dimmer Drehregler / Fader (MIDI Learn)
+        lblMidiMasterDimmerBindingTitle = new Label(I18n.get("midi.master_dimmer_binding_title"));
+        lblMidiMasterDimmerBindingTitle.setTextFill(MaterialTheme.COLOR_TEXT_MED);
+        lblMidiMasterDimmerBindingTitle.setFont(Font.font("Segoe UI", FontWeight.BOLD, 10));
+
+        HBox dimmerBindRow = new HBox(8);
+        dimmerBindRow.setAlignment(Pos.CENTER_LEFT);
+
+        lblMidiMasterDimmerBindingBadge = new Label(midiService.formatMasterDimmerBindingText());
+        lblMidiMasterDimmerBindingBadge.setFont(Font.font(MaterialTheme.FONT_FAMILY, FontWeight.BOLD, 11));
+        lblMidiMasterDimmerBindingBadge.setTextFill(MaterialTheme.COLOR_PRIMARY);
+        lblMidiMasterDimmerBindingBadge.setPadding(new Insets(4, 10, 4, 10));
+        lblMidiMasterDimmerBindingBadge.setMaxWidth(Double.MAX_VALUE);
+        HBox.setHgrow(lblMidiMasterDimmerBindingBadge, Priority.ALWAYS);
+        lblMidiMasterDimmerBindingBadge.setStyle("-fx-background-color: " + MaterialTheme.HEX_SURFACE_1DP +
+                                             "; -fx-border-color: " + MaterialTheme.HEX_DIVIDER +
+                                             "; -fx-border-width: 1px; -fx-background-radius: 4px; -fx-border-radius: 4px;");
+
+        btnMidiMasterDimmerLearn = new MaterialButton(I18n.get("midi.btn.learn"), "radio",
+                MaterialTheme.COLOR_PRIMARY, MaterialTheme.COLOR_ON_PRIMARY, 11, 8, 4, 11, true, this::toggleMidiMasterDimmerLearn);
+
+        btnMidiMasterDimmerClear = new MaterialButton(I18n.get("midi.btn.clear_key"), "x",
+                MaterialTheme.COLOR_SURFACE_4DP, MaterialTheme.COLOR_TEXT_HIGH, 11, 8, 4, 11, false, () -> {
+            midiService.clearMasterDimmerBinding();
+            updateMidiLearnButtonState();
+            lblMidiMasterDimmerBindingBadge.setText(midiService.formatMasterDimmerBindingText());
+            autoSaveConfig();
+        });
+
+        dimmerBindRow.getChildren().addAll(lblMidiMasterDimmerBindingBadge, btnMidiMasterDimmerLearn, btnMidiMasterDimmerClear);
+
         grid.add(lblMidiDeviceTitle, 0, 0);
         grid.add(devRow, 1, 0);
         grid.add(lblMidiBindingTitle, 0, 1);
@@ -1765,6 +1839,8 @@ public class MainWindow extends StackPane {
         grid.add(blackoutBindRow, 1, 2);
         grid.add(lblMidiStrobeBindingTitle, 0, 3);
         grid.add(strobeBindRow, 1, 3);
+        grid.add(lblMidiMasterDimmerBindingTitle, 0, 4);
+        grid.add(dimmerBindRow, 1, 4);
 
         ColumnConstraints cc0 = new ColumnConstraints(160);
         ColumnConstraints cc1 = new ColumnConstraints(300, 400, Double.MAX_VALUE);
@@ -1790,6 +1866,11 @@ public class MainWindow extends StackPane {
         updateMidiLearnButtonState();
     }
 
+    private void toggleMidiMasterDimmerLearn() {
+        midiService.setLearningMasterDimmer(!midiService.isLearningMasterDimmer());
+        updateMidiLearnButtonState();
+    }
+
     private void updateMidiLearnButtonState() {
         if (btnMidiLearn != null) {
             if (midiService.isLearning()) {
@@ -1812,6 +1893,24 @@ public class MainWindow extends StackPane {
                 btnMidiStrobeLearn.updateColors(Color.web("#FFD600"), Color.web("#000000"), "radio", I18n.get("midi.btn.learn"));
             }
         }
+        if (btnMidiMasterDimmerLearn != null) {
+            if (midiService.isLearningMasterDimmer()) {
+                btnMidiMasterDimmerLearn.updateColors(Color.web("#FFB74D"), Color.web("#000000"), "radio", I18n.get("midi.btn.learning_knob"));
+            } else {
+                btnMidiMasterDimmerLearn.updateColors(MaterialTheme.COLOR_PRIMARY, MaterialTheme.COLOR_ON_PRIMARY, "radio", I18n.get("midi.btn.learn"));
+            }
+        }
+    }
+
+    private void updateMasterDimmerFromMidi(double dimVal) {
+        showEngine.setMasterDimmer(dimVal);
+        if (slMasterDimmer != null) {
+            slMasterDimmer.setValue(dimVal);
+        }
+        if (lblMasterDimmerVal != null) {
+            lblMasterDimmerVal.setText(Math.round(dimVal * 100.0) + "%");
+        }
+        autoSaveConfig();
     }
 
     private void onMidiLearnCompleted() {
@@ -1843,6 +1942,17 @@ public class MainWindow extends StackPane {
         }
         if (statusLabel != null) {
             statusLabel.setText(String.format(I18n.get("midi.status.strobe_learned"), midiService.formatStrobeBindingText()));
+        }
+        autoSaveConfig();
+    }
+
+    private void onMidiMasterDimmerLearnCompleted() {
+        updateMidiLearnButtonState();
+        if (lblMidiMasterDimmerBindingBadge != null) {
+            lblMidiMasterDimmerBindingBadge.setText(midiService.formatMasterDimmerBindingText());
+        }
+        if (statusLabel != null) {
+            statusLabel.setText(String.format(I18n.get("midi.status.master_dimmer_learned"), midiService.formatMasterDimmerBindingText()));
         }
         autoSaveConfig();
     }
@@ -2116,10 +2226,13 @@ public class MainWindow extends StackPane {
         if (lblMidiBlackoutBindingBadge != null) lblMidiBlackoutBindingBadge.setText(midiService.formatBlackoutBindingText());
         if (lblMidiStrobeBindingTitle != null) lblMidiStrobeBindingTitle.setText(I18n.get("midi.strobe_binding_title"));
         if (lblMidiStrobeBindingBadge != null) lblMidiStrobeBindingBadge.setText(midiService.formatStrobeBindingText());
+        if (lblMidiMasterDimmerBindingTitle != null) lblMidiMasterDimmerBindingTitle.setText(I18n.get("midi.master_dimmer_binding_title"));
+        if (lblMidiMasterDimmerBindingBadge != null) lblMidiMasterDimmerBindingBadge.setText(midiService.formatMasterDimmerBindingText());
         updateMidiLearnButtonState();
         if (btnMidiAnyKey != null) btnMidiAnyKey.setText(I18n.get("midi.btn.any_key"));
         if (btnMidiBlackoutClear != null) btnMidiBlackoutClear.setText(I18n.get("midi.btn.clear_key"));
         if (btnMidiStrobeClear != null) btnMidiStrobeClear.setText(I18n.get("midi.btn.clear_key"));
+        if (btnMidiMasterDimmerClear != null) btnMidiMasterDimmerClear.setText(I18n.get("midi.btn.clear_key"));
 
         // 9. Status Bar
         if (statusLabel != null) {
@@ -2656,6 +2769,11 @@ public class MainWindow extends StackPane {
         if (cbGoboMode != null) {
             config.setGoboMode(cbGoboMode.getValue());
         }
+        if (slMasterDimmer != null) {
+            config.setMasterDimmer(slMasterDimmer.getValue());
+        } else {
+            config.setMasterDimmer(showEngine.getMasterDimmer());
+        }
         config.setMidiBoundType(midiService.getBoundType());
         config.setMidiBoundChannel(midiService.getBoundChannel());
         config.setMidiBoundData1(midiService.getBoundData1());
@@ -2665,6 +2783,9 @@ public class MainWindow extends StackPane {
         config.setMidiStrobeBoundType(midiService.getStrobeBoundType());
         config.setMidiStrobeBoundChannel(midiService.getStrobeBoundChannel());
         config.setMidiStrobeBoundData1(midiService.getStrobeBoundData1());
+        config.setMidiMasterDimmerBoundType(midiService.getMasterDimmerBoundType());
+        config.setMidiMasterDimmerBoundChannel(midiService.getMasterDimmerBoundChannel());
+        config.setMidiMasterDimmerBoundData1(midiService.getMasterDimmerBoundData1());
         config.setFixtures(new ArrayList<>(patchList));
         config.setPresets(new ArrayList<>(presetList));
         ConfigManager.saveConfig(config);

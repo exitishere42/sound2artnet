@@ -312,6 +312,12 @@ public class I18n {
         EN.put("midi.blackout_binding_title", "BLACKOUT KEY");
         DE.put("midi.strobe_binding_title", "STROBO-TASTE");
         EN.put("midi.strobe_binding_title", "STROBE KEY");
+        DE.put("midi.master_dimmer_binding_title", "MASTER-DIMMER-DREHREGLER");
+        EN.put("midi.master_dimmer_binding_title", "MASTER DIMMER CONTROL KNOB");
+        DE.put("topbar.master_dimmer", "Master Dimmer");
+        EN.put("topbar.master_dimmer", "Master Dimmer");
+        DE.put("tooltip.master_dimmer", "Master Dimmer / Blackout-Fader (0% - 100%)");
+        EN.put("tooltip.master_dimmer", "Master Dimmer / Blackout Fader (0% - 100%)");
         DE.put("midi.binding.any", "Alle Tasten");
         EN.put("midi.binding.any", "Any Key");
         DE.put("midi.binding.none", "Nicht belegt");
@@ -320,6 +326,8 @@ public class I18n {
         EN.put("midi.btn.learn", "MIDI Learn");
         DE.put("midi.btn.learning", "Taste drücken...");
         EN.put("midi.btn.learning", "Press key...");
+        DE.put("midi.btn.learning_knob", "Regler drehen...");
+        EN.put("midi.btn.learning_knob", "Turn knob...");
         DE.put("midi.btn.any_key", "Alle Tasten");
         EN.put("midi.btn.any_key", "Any Key");
         DE.put("midi.btn.clear_key", "Löschen");
@@ -350,6 +358,8 @@ public class I18n {
         EN.put("midi.status.blackout_learned", "Blackout key learned: %s");
         DE.put("midi.status.strobe_learned", "Strobo-Taste angelernt: %s");
         EN.put("midi.status.strobe_learned", "Strobe key learned: %s");
+        DE.put("midi.status.master_dimmer_learned", "Master-Dimmer-Regler angelernt: %s");
+        EN.put("midi.status.master_dimmer_learned", "Master dimmer knob learned: %s");
         DE.put("midi.status.blackout_on", "BLACKOUT AKTIV — Alle Lichter dunkelgeschaltet");
         EN.put("midi.status.blackout_on", "BLACKOUT ACTIVE — All lights blacked out");
         DE.put("midi.status.blackout_off", "Blackout aufgehoben");

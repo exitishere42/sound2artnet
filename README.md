@@ -105,7 +105,7 @@ Visually and structurally, **sound2artnet** features the exact same dark Materia
   - Energy-Driven Size & Amplitude: Expands aperture size and scan oscillation in sync with live audio volume/energy.
   - Tempo-Synced Scan Speed & 360° Rotation: Syncs scan frequencies to BPM speed tiers and drives continuous beam rotation.
   - Focus & Persistence Optimization: Guarantees razor-sharp beam rendering and beam sheet persistence without collapsing to a static line.
-- **In-App Update & Global Settings Dialog**: Click on the title logo badge (`v1.11.1`) to inspect release notes, check for updates, or switch global settings (e.g., German/English language, autostart).
+- **In-App Update & Global Settings Dialog**: Click on the title logo badge (`v1.12.0`) to inspect release notes, check for updates, or switch global settings (e.g., German/English language, autostart).
 - **Automatic Persistence**: All settings, MIDI bindings, profiles, and patched fixtures are automatically saved to `config.json`.
 
 ---

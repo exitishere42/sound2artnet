@@ -76,9 +76,15 @@ public class MidiInputService {
     private volatile int strobeBoundChannel = -1;     // -1 oder 0..15
     private volatile int strobeBoundData1 = -1;       // -1 oder 0..127
 
+    // Filter / Binding für Master Dimmer Knob / Slider (-1 / "NONE" = Nicht zugewiesen, normalerweise "CC")
+    private volatile String masterDimmerBoundType = "NONE"; // "NONE", "CC", "NOTE"
+    private volatile int masterDimmerBoundChannel = -1;     // -1 oder 0..15
+    private volatile int masterDimmerBoundData1 = -1;       // -1 oder 0..127 (CC Number)
+
     private volatile boolean learning = false;
     private volatile boolean learningBlackout = false;
     private volatile boolean learningStrobe = false;
+    private volatile boolean learningMasterDimmer = false;
     private final boolean[] ccHighState = new boolean[128];
     private final boolean[] heldNotes = new boolean[16 * 128];
     private final boolean[] heldCcs = new boolean[16 * 128];
@@ -92,10 +98,12 @@ public class MidiInputService {
     private Consumer<Boolean> onBlackoutHoldChange;
     private Runnable onStrobeTrigger;
     private Consumer<Boolean> onStrobeHoldChange;
+    private Consumer<Double> onMasterDimmerChange;
     private Consumer<MidiEventInfo> onMidiEvent;
     private Runnable onLearnComplete;
     private Runnable onBlackoutLearnComplete;
     private Runnable onStrobeLearnComplete;
+    private Runnable onMasterDimmerLearnComplete;
 
     private static boolean isLinux() {
         return System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("linux");
@@ -605,6 +613,31 @@ public class MidiInputService {
         return strobeBoundData1;
     }
 
+    public void setMasterDimmerBinding(String type, int channel, int data1) {
+        this.masterDimmerBoundType = (type != null && !type.isBlank()) ? type : "NONE";
+        this.masterDimmerBoundChannel = channel;
+        this.masterDimmerBoundData1 = data1;
+    }
+
+    public void clearMasterDimmerBinding() {
+        this.masterDimmerBoundType = "NONE";
+        this.masterDimmerBoundChannel = -1;
+        this.masterDimmerBoundData1 = -1;
+        this.learningMasterDimmer = false;
+    }
+
+    public String getMasterDimmerBoundType() {
+        return masterDimmerBoundType;
+    }
+
+    public int getMasterDimmerBoundChannel() {
+        return masterDimmerBoundChannel;
+    }
+
+    public int getMasterDimmerBoundData1() {
+        return masterDimmerBoundData1;
+    }
+
     public boolean isLearning() {
         return learning;
     }
@@ -614,6 +647,7 @@ public class MidiInputService {
         if (learning) {
             this.learningBlackout = false;
             this.learningStrobe = false;
+            this.learningMasterDimmer = false;
         }
     }
 
@@ -626,6 +660,7 @@ public class MidiInputService {
         if (learningBlackout) {
             this.learning = false;
             this.learningStrobe = false;
+            this.learningMasterDimmer = false;
         }
     }
 
@@ -638,6 +673,20 @@ public class MidiInputService {
         if (learningStrobe) {
             this.learning = false;
             this.learningBlackout = false;
+            this.learningMasterDimmer = false;
+        }
+    }
+
+    public boolean isLearningMasterDimmer() {
+        return learningMasterDimmer;
+    }
+
+    public void setLearningMasterDimmer(boolean learningMasterDimmer) {
+        this.learningMasterDimmer = learningMasterDimmer;
+        if (learningMasterDimmer) {
+            this.learning = false;
+            this.learningBlackout = false;
+            this.learningStrobe = false;
         }
     }
 
@@ -677,6 +726,10 @@ public class MidiInputService {
         this.onStrobeHoldChange = onStrobeHoldChange;
     }
 
+    public void setOnMasterDimmerChange(Consumer<Double> onMasterDimmerChange) {
+        this.onMasterDimmerChange = onMasterDimmerChange;
+    }
+
     public void setOnMidiEvent(Consumer<MidiEventInfo> onMidiEvent) {
         this.onMidiEvent = onMidiEvent;
     }
@@ -691,6 +744,10 @@ public class MidiInputService {
 
     public void setOnStrobeLearnComplete(Runnable onStrobeLearnComplete) {
         this.onStrobeLearnComplete = onStrobeLearnComplete;
+    }
+
+    public void setOnMasterDimmerLearnComplete(Runnable onMasterDimmerLearnComplete) {
+        this.onMasterDimmerLearnComplete = onMasterDimmerLearnComplete;
     }
 
     public String formatBindingText() {
@@ -726,6 +783,17 @@ public class MidiInputService {
         return String.format("Note %d (%s)  ·  %s", strobeBoundData1, formatNoteName(strobeBoundData1), chStr);
     }
 
+    public String formatMasterDimmerBindingText() {
+        if (masterDimmerBoundData1 < 0 || masterDimmerBoundType == null || "NONE".equalsIgnoreCase(masterDimmerBoundType)) {
+            return I18n.get("midi.binding.none");
+        }
+        String chStr = (masterDimmerBoundChannel >= 0) ? ("Ch " + (masterDimmerBoundChannel + 1)) : "All Ch";
+        if ("CC".equalsIgnoreCase(masterDimmerBoundType)) {
+            return String.format("CC %d  ·  %s", masterDimmerBoundData1, chStr);
+        }
+        return String.format("Note %d (%s)  ·  %s", masterDimmerBoundData1, formatNoteName(masterDimmerBoundData1), chStr);
+    }
+
     public static String formatNoteName(int noteNumber) {
         if (noteNumber < 0 || noteNumber > 127) {
             return "?";
@@ -746,7 +814,7 @@ public class MidiInputService {
         int idx = ch * 128 + d1;
 
         if (command == ShortMessage.NOTE_ON && d2 > 0) {
-            boolean wasLearning = learningBlackout || learningStrobe;
+            boolean wasLearning = learningBlackout || learningStrobe || learningMasterDimmer;
             if (!wasLearning) {
                 heldNotes[idx] = true;
             }
@@ -756,6 +824,35 @@ public class MidiInputService {
             heldNotes[idx] = false;
             updateBeatHeldState();
         } else if (command == ShortMessage.CONTROL_CHANGE) {
+            if (learningMasterDimmer) {
+                this.masterDimmerBoundType = "CC";
+                this.masterDimmerBoundChannel = ch;
+                this.masterDimmerBoundData1 = d1;
+                this.learningMasterDimmer = false;
+                if (onMasterDimmerLearnComplete != null) {
+                    onMasterDimmerLearnComplete.run();
+                }
+                double dimVal = Math.max(0.0, Math.min(1.0, d2 / 127.0));
+                if (onMasterDimmerChange != null) {
+                    onMasterDimmerChange.accept(dimVal);
+                }
+                if (onMidiEvent != null) {
+                    onMidiEvent.accept(new MidiEventInfo("CC", ch, d1, d2, true));
+                }
+                return;
+            }
+
+            if (matchesMasterDimmerBinding("CC", ch, d1)) {
+                double dimVal = Math.max(0.0, Math.min(1.0, d2 / 127.0));
+                if (onMasterDimmerChange != null) {
+                    onMasterDimmerChange.accept(dimVal);
+                }
+                if (onMidiEvent != null) {
+                    onMidiEvent.accept(new MidiEventInfo("CC", ch, d1, d2, true));
+                }
+                return;
+            }
+
             if (d2 >= 64) {
                 boolean wasLearning = learningBlackout || learningStrobe;
                 if (!wasLearning) {
@@ -874,6 +971,35 @@ public class MidiInputService {
             return;
         }
 
+        if (learningMasterDimmer) {
+            this.masterDimmerBoundType = type;
+            this.masterDimmerBoundChannel = channel;
+            this.masterDimmerBoundData1 = data1;
+            this.learningMasterDimmer = false;
+            if (onMasterDimmerLearnComplete != null) {
+                onMasterDimmerLearnComplete.run();
+            }
+            double dimVal = Math.max(0.0, Math.min(1.0, data2 / 127.0));
+            if (onMasterDimmerChange != null) {
+                onMasterDimmerChange.accept(dimVal);
+            }
+            if (onMidiEvent != null) {
+                onMidiEvent.accept(new MidiEventInfo(type, channel, data1, data2, true));
+            }
+            return;
+        }
+
+        if (matchesMasterDimmerBinding(type, channel, data1)) {
+            double dimVal = Math.max(0.0, Math.min(1.0, data2 / 127.0));
+            if (onMasterDimmerChange != null) {
+                onMasterDimmerChange.accept(dimVal);
+            }
+            if (onMidiEvent != null) {
+                onMidiEvent.accept(new MidiEventInfo(type, channel, data1, data2, true));
+            }
+            return;
+        }
+
         if (learning) {
             this.boundType = type;
             this.boundChannel = channel;
@@ -939,8 +1065,21 @@ public class MidiInputService {
         return strobeBoundData1 == data1;
     }
 
+    private boolean matchesMasterDimmerBinding(String type, int channel, int data1) {
+        if (masterDimmerBoundData1 < 0 || masterDimmerBoundType == null || "NONE".equalsIgnoreCase(masterDimmerBoundType)) {
+            return false;
+        }
+        if (!masterDimmerBoundType.equalsIgnoreCase(type)) {
+            return false;
+        }
+        if (masterDimmerBoundChannel >= 0 && masterDimmerBoundChannel != channel) {
+            return false;
+        }
+        return masterDimmerBoundData1 == data1;
+    }
+
     private boolean matchesBinding(String type, int channel, int data1) {
-        if (matchesBlackoutBinding(type, channel, data1) || matchesStrobeBinding(type, channel, data1)) {
+        if (matchesBlackoutBinding(type, channel, data1) || matchesStrobeBinding(type, channel, data1) || matchesMasterDimmerBinding(type, channel, data1)) {
             return false;
         }
         if (boundData1 < 0 || "ANY".equalsIgnoreCase(boundType)) {

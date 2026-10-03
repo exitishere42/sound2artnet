@@ -214,5 +214,47 @@ public class MidiAndManualBeatTest {
         midi.handleShortMessage(ShortMessage.NOTE_OFF, 0, 42, 0);
         assertFalse(engine.isManualStrobe(), "Nach Loslassen muss Manual Strobe deaktiviert sein");
     }
+
+    @Test
+    public void testMasterDimmerMidiCcAndEngineDimming() {
+        var engine = new de.exit.sound2artnet.engine.Sound2LightEngine(
+                new de.exit.sound2artnet.audio.AudioCaptureService(),
+                new de.exit.sound2artnet.artnet.ArtNetSender()
+        );
+        var profile = de.exit.sound2artnet.fixture.FixtureLibrary.getDefaultProfiles().get(0);
+        var patch = new de.exit.sound2artnet.fixture.FixturePatch("MH 1", 1, profile);
+        engine.setPatchedFixtures(java.util.List.of(patch));
+
+        MidiInputService midi = new MidiInputService();
+        midi.setOnMasterDimmerChange(engine::setMasterDimmer);
+
+        // Standardmäßig Dimmer auf 1.0 (100%)
+        assertEquals(1.0, engine.getMasterDimmer(), 0.001);
+
+        // Master Dimmer Knob anlernen: CC 7 auf Channel 0
+        midi.setLearningMasterDimmer(true);
+        assertTrue(midi.isLearningMasterDimmer());
+
+        // Drehung des Knobs auf Mittelwert (64 -> ca. 0.504)
+        midi.handleShortMessage(ShortMessage.CONTROL_CHANGE, 0, 7, 64);
+        assertFalse(midi.isLearningMasterDimmer(), "Nach CC-Nachricht muss Learning beendet sein");
+        assertEquals("CC", midi.getMasterDimmerBoundType());
+        assertEquals(0, midi.getMasterDimmerBoundChannel());
+        assertEquals(7, midi.getMasterDimmerBoundData1());
+        assertEquals(64.0 / 127.0, engine.getMasterDimmer(), 0.01);
+
+        // Weiterer CC-Drehregler-Wert (z. B. 0 = Full Blackout)
+        midi.handleShortMessage(ShortMessage.CONTROL_CHANGE, 0, 7, 0);
+        assertEquals(0.0, engine.getMasterDimmer(), 0.001);
+
+        // Frame generieren bei Master Dimmer = 0
+        engine.tick();
+        byte[] frame = engine.getCurrentDmxFrame();
+        assertEquals(0, frame[6] & 0xFF, "Dimmer-Kanal muss bei Master Dimmer = 0 vollständig 0 (Blackout) sein");
+
+        // Regler auf voll aufdrehen (127 = 1.0)
+        midi.handleShortMessage(ShortMessage.CONTROL_CHANGE, 0, 7, 127);
+        assertEquals(1.0, engine.getMasterDimmer(), 0.001);
+    }
 }
 
