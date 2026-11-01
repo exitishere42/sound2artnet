@@ -37,6 +37,7 @@ import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.CheckBoxTableCell;
+import javafx.scene.input.KeyCode;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
@@ -870,8 +871,36 @@ public class MainWindow extends StackPane {
         root.setPadding(new Insets(10));
 
         tablePatches = new TableView<>(patchList);
+        tablePatches.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
         tablePatches.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         VBox.setVgrow(tablePatches, Priority.ALWAYS);
+
+        tablePatches.setRowFactory(tv -> {
+            TableRow<FixturePatch> row = new TableRow<>();
+            row.setOnMouseClicked(event -> {
+                if (event.getClickCount() == 2 && (!row.isEmpty())) {
+                    openEditFixtureDialog();
+                }
+            });
+            return row;
+        });
+
+        tablePatches.setOnKeyPressed(e -> {
+            if (e.getCode() == KeyCode.DELETE) {
+                deleteSelectedFixture();
+            } else if (e.getCode() == KeyCode.SPACE) {
+                var selected = tablePatches.getSelectionModel().getSelectedItems();
+                if (!selected.isEmpty()) {
+                    boolean anyDisabled = selected.stream().anyMatch(f -> !f.isEnabled());
+                    for (FixturePatch patch : selected) {
+                        patch.setEnabled(anyDisabled);
+                    }
+                    tablePatches.refresh();
+                    showEngine.setPatchedFixtures(new ArrayList<>(patchList));
+                    saveStateToConfig();
+                }
+            }
+        });
 
         colActive = new TableColumn<>(I18n.get("patch.col.active"));
         colActive.setCellValueFactory(data -> new SimpleBooleanProperty(data.getValue().isEnabled()));
@@ -2415,9 +2444,10 @@ public class MainWindow extends StackPane {
     }
 
     private void deleteSelectedFixture() {
-        FixturePatch sel = tablePatches.getSelectionModel().getSelectedItem();
-        if (sel != null) {
-            patchList.remove(sel);
+        var selected = new ArrayList<>(tablePatches.getSelectionModel().getSelectedItems());
+        if (!selected.isEmpty()) {
+            patchList.removeAll(selected);
+            tablePatches.getSelectionModel().clearSelection();
             showEngine.setPatchedFixtures(new ArrayList<>(patchList));
             saveStateToConfig();
         }
