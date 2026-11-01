@@ -4,6 +4,8 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import de.exit.sound2artnet.audio.BeatDetector;
+import de.exit.sound2artnet.engine.Sound2LightEngine;
 
 import java.util.UUID;
 
@@ -28,6 +30,10 @@ public class FixturePatch {
     private double phaseOffset = 0.0; // Phasenversatz für Wellenfahrten (0.0 bis 2.0 PI)
     private boolean enabled = true;
 
+    // Individuelle Fixture-Erkennung und Dimmer-Modus (null = Global / Standard)
+    private BeatDetector.DetectionMode detectionMode = null;
+    private Sound2LightEngine.DimmerMode dimmerMode = null;
+
     public FixturePatch() {
         this.id = UUID.randomUUID().toString();
     }
@@ -46,7 +52,9 @@ public class FixturePatch {
             @JsonProperty("tiltMin") int tiltMin,
             @JsonProperty("tiltMax") int tiltMax,
             @JsonProperty("phaseOffset") double phaseOffset,
-            @JsonProperty("enabled") boolean enabled) {
+            @JsonProperty("enabled") boolean enabled,
+            @JsonProperty("detectionMode") BeatDetector.DetectionMode detectionMode,
+            @JsonProperty("dimmerMode") Sound2LightEngine.DimmerMode dimmerMode) {
         this.id = id != null ? id : UUID.randomUUID().toString();
         this.name = name != null ? name : "Fixture";
         this.universe = universe != null ? Math.max(0, Math.min(15, universe)) : 0;
@@ -60,6 +68,16 @@ public class FixturePatch {
         this.tiltMax = Math.max(0, Math.min(255, tiltMax));
         this.phaseOffset = phaseOffset;
         this.enabled = enabled;
+        this.detectionMode = detectionMode;
+        this.dimmerMode = dimmerMode;
+    }
+
+    public FixturePatch(
+            String id, String name, Integer universe, int startAddress,
+            FixtureProfile profile, boolean invertPan, boolean invertTilt,
+            int panMin, int panMax, int tiltMin, int tiltMax,
+            double phaseOffset, boolean enabled) {
+        this(id, name, universe, startAddress, profile, invertPan, invertTilt, panMin, panMax, tiltMin, tiltMax, phaseOffset, enabled, null, null);
     }
 
     public FixturePatch(
@@ -181,13 +199,19 @@ public class FixturePatch {
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
 
+    public BeatDetector.DetectionMode getDetectionMode() { return detectionMode; }
+    public void setDetectionMode(BeatDetector.DetectionMode detectionMode) { this.detectionMode = detectionMode; }
+
+    public Sound2LightEngine.DimmerMode getDimmerMode() { return dimmerMode; }
+    public void setDimmerMode(Sound2LightEngine.DimmerMode dimmerMode) { this.dimmerMode = dimmerMode; }
+
     public FixturePatch copy() {
         return new FixturePatch(
                 this.id,
                 this.name,
                 this.universe,
                 this.startAddress,
-                this.profile,
+                this.profile != null ? this.profile.copy() : null,
                 this.invertPan,
                 this.invertTilt,
                 this.panMin,
@@ -195,7 +219,9 @@ public class FixturePatch {
                 this.tiltMin,
                 this.tiltMax,
                 this.phaseOffset,
-                this.enabled
+                this.enabled,
+                this.detectionMode,
+                this.dimmerMode
         );
     }
 

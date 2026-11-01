@@ -88,6 +88,15 @@ public class BeatDetector {
     private volatile boolean manualBeatHeld = false;
     private volatile double beatIntensity = 0.0;
 
+    // Modus-spezifische Beat-Status (für individuelle Fixture-Erkennung)
+    private volatile boolean isLevelBeat = false;
+    private volatile boolean pendingLevelBeat = false;
+    private volatile double levelBeatIntensity = 0.0;
+
+    private volatile boolean isFftBeat = false;
+    private volatile boolean pendingFftBeat = false;
+    private volatile double fftBeatIntensity = 0.0;
+
     public BeatDetector() {
         this(AudioSpectrumAnalyzer.FFT_SIZE, 44100.0f);
     }
@@ -202,7 +211,11 @@ public class BeatDetector {
         double silenceGate = SILENCE_RMS_GATE / Math.sqrt(this.sensitivity);
         if (rmsLevel < silenceGate) {
             this.isBeat = false;
+            this.isLevelBeat = false;
+            this.isFftBeat = false;
             this.beatIntensity = Math.max(0.0, this.beatIntensity - 0.15);
+            this.levelBeatIntensity = Math.max(0.0, this.levelBeatIntensity - 0.15);
+            this.fftBeatIntensity = Math.max(0.0, this.fftBeatIntensity - 0.15);
             this.subBassBeatLatch = false;
             this.bassBeatLatch = false;
             this.lowMidBeatLatch = false;
@@ -220,14 +233,20 @@ public class BeatDetector {
             return;
         }
 
-        if (detectionMode == DetectionMode.LEVEL_DETECT) {
-            // Phasen-invarianter Peak-Level (85% Energie-Äquivalent sqrt(2)*RMS + 15% Transienten-Spitze):
-            // Verhindert, dass sich Kick und Gesang/Synths durch Phasenauslöschung gegenseitig auslöschen
-            // oder Schwebungen (Beating) mehrerer Offbeat-Töne Fehl-Beats auslösen.
-            double effectivePeak = (rmsLevel * Math.sqrt(2.0) * 0.85) + (peakLevel * 0.15);
-            detectByPeakLevelHysteresis(effectivePeak, nowMs);
-        } else {
-            detectByFftBandHysteresis(samples, nowMs);
+        // Führe immer beide Erkennungen aus, damit Fixtures mit unterschiedlichen Erkennungsmodi
+        // (z. B. Laser auf Beat-Detect und Moving Heads auf Level-Detect) parallel versorgt werden:
+        double effectivePeak = (rmsLevel * Math.sqrt(2.0) * 0.85) + (peakLevel * 0.15);
+        detectByPeakLevelHysteresis(effectivePeak, nowMs);
+        detectByFftBandHysteresis(samples, nowMs);
+
+        if (detectionMode == DetectionMode.MANUAL) {
+            this.isBeat = this.manualBeatHeld;
+            if (this.manualBeatHeld) {
+                this.pendingBeat = true;
+                this.beatIntensity = 1.0;
+            } else {
+                this.beatIntensity = Math.max(0.0, this.beatIntensity - 0.12);
+            }
         }
     }
 
@@ -454,13 +473,22 @@ public class BeatDetector {
         prevPeakLevel = peakLevel;
 
         if (triggered) {
-            this.isBeat = true;
-            this.pendingBeat = true;
-            this.beatIntensity = 1.0;
-            registerBeatTimestamp(nowMs);
+            this.isLevelBeat = true;
+            this.pendingLevelBeat = true;
+            this.levelBeatIntensity = 1.0;
+            if (detectionMode == DetectionMode.LEVEL_DETECT) {
+                this.isBeat = true;
+                this.pendingBeat = true;
+                this.beatIntensity = 1.0;
+                registerBeatTimestamp(nowMs);
+            }
         } else {
-            this.isBeat = false;
-            this.beatIntensity = Math.max(0.0, this.beatIntensity - 0.12);
+            this.isLevelBeat = false;
+            this.levelBeatIntensity = Math.max(0.0, this.levelBeatIntensity - 0.12);
+            if (detectionMode == DetectionMode.LEVEL_DETECT) {
+                this.isBeat = false;
+                this.beatIntensity = Math.max(0.0, this.beatIntensity - 0.12);
+            }
         }
     }
 
@@ -558,13 +586,22 @@ public class BeatDetector {
         prevBass = bass;
 
         if (triggered) {
-            this.isBeat = true;
-            this.pendingBeat = true;
-            this.beatIntensity = 1.0;
-            registerBeatTimestamp(nowMs);
+            this.isFftBeat = true;
+            this.pendingFftBeat = true;
+            this.fftBeatIntensity = 1.0;
+            if (detectionMode == DetectionMode.BEAT_DETECT) {
+                this.isBeat = true;
+                this.pendingBeat = true;
+                this.beatIntensity = 1.0;
+                registerBeatTimestamp(nowMs);
+            }
         } else {
-            this.isBeat = false;
-            this.beatIntensity = Math.max(0.0, this.beatIntensity - 0.12);
+            this.isFftBeat = false;
+            this.fftBeatIntensity = Math.max(0.0, this.fftBeatIntensity - 0.12);
+            if (detectionMode == DetectionMode.BEAT_DETECT) {
+                this.isBeat = false;
+                this.beatIntensity = Math.max(0.0, this.beatIntensity - 0.12);
+            }
         }
     }
 
@@ -646,6 +683,17 @@ public class BeatDetector {
         return isBeat;
     }
 
+    public boolean isBeat(DetectionMode mode) {
+        if (mode == null || mode == this.detectionMode) {
+            return isBeat;
+        }
+        return switch (mode) {
+            case LEVEL_DETECT -> isLevelBeat;
+            case BEAT_DETECT -> isFftBeat;
+            case MANUAL -> manualBeatHeld;
+        };
+    }
+
     /**
      * Quittiert und liefert zurück, ob seit dem letzten Engine-Tick (40 FPS) in einem der
      * schnelleren Audio-Hops (~94 FPS) ein Beat ausgelöst wurde.
@@ -657,6 +705,32 @@ public class BeatDetector {
             this.isBeat = false;
         }
         return beat;
+    }
+
+    /**
+     * Quittiert und liefert zurück, ob für den spezifischen Erkennungs-Modus seit dem letzten
+     * Engine-Tick ein Beat ausgelöst wurde (für individuelle Fixture-Erkennung).
+     */
+    public synchronized boolean consumeBeat(DetectionMode mode) {
+        if (mode == null || mode == this.detectionMode) {
+            return consumeBeat();
+        }
+        return switch (mode) {
+            case LEVEL_DETECT -> {
+                boolean beat = this.pendingLevelBeat || this.isLevelBeat;
+                this.pendingLevelBeat = false;
+                yield beat;
+            }
+            case BEAT_DETECT -> {
+                boolean beat = this.pendingFftBeat || this.isFftBeat;
+                this.pendingFftBeat = false;
+                yield beat;
+            }
+            case MANUAL -> {
+                boolean beat = this.manualBeatHeld;
+                yield beat;
+            }
+        };
     }
 
     // Kompatibilitäts-Aliase: Im reinen Beat-Modus ist jeder Beat der Takt

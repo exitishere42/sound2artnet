@@ -174,6 +174,8 @@ public class MainWindow extends StackPane {
     private TableColumn<FixturePatch, String> colDmx;
     private TableColumn<FixturePatch, String> colLimits;
     private TableColumn<FixturePatch, String> colPhase;
+    private TableColumn<FixturePatch, String> colDetect;
+    private TableColumn<FixturePatch, String> colDimmer;
     private MaterialButton btnAdd;
     private MaterialButton btnEdit;
     private MaterialButton btnDelete;
@@ -918,7 +920,23 @@ public class MainWindow extends StackPane {
         colPhase.setMaxWidth(100);
         colPhase.setStyle("-fx-alignment: CENTER;");
 
-        tablePatches.getColumns().addAll(colActive, colName, colProfile, colUniverse, colDmx, colLimits, colPhase);
+        colDetect = new TableColumn<>(I18n.get("patch.col.detect"));
+        colDetect.setCellValueFactory(data -> {
+            var m = data.getValue().getDetectionMode();
+            return new SimpleStringProperty(m != null ? m.getDisplayName() : I18n.get("patch.mode.default"));
+        });
+        colDetect.setMaxWidth(110);
+        colDetect.setStyle("-fx-alignment: CENTER;");
+
+        colDimmer = new TableColumn<>(I18n.get("patch.col.dimmer"));
+        colDimmer.setCellValueFactory(data -> {
+            var m = data.getValue().getDimmerMode();
+            return new SimpleStringProperty(m != null ? m.getDisplayName() : I18n.get("patch.mode.default"));
+        });
+        colDimmer.setMaxWidth(110);
+        colDimmer.setStyle("-fx-alignment: CENTER;");
+
+        tablePatches.getColumns().addAll(colActive, colName, colProfile, colUniverse, colDmx, colLimits, colPhase, colDetect, colDimmer);
 
         // Action Buttons Row
         HBox btnRow = new HBox(8);
@@ -2139,6 +2157,8 @@ public class MainWindow extends StackPane {
         if (colDmx != null) colDmx.setText(I18n.get("patch.col.dmx"));
         if (colLimits != null) colLimits.setText(I18n.get("patch.col.limits"));
         if (colPhase != null) colPhase.setText(I18n.get("patch.col.phase"));
+        if (colDetect != null) colDetect.setText(I18n.get("patch.col.detect"));
+        if (colDimmer != null) colDimmer.setText(I18n.get("patch.col.dimmer"));
 
         if (btnAdd != null) btnAdd.setText(I18n.get("btn.new_fixture"));
         if (btnEdit != null) btnEdit.setText(I18n.get("btn.edit"));

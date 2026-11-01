@@ -101,8 +101,12 @@ public class Sound2LightEngine {
     private volatile SpeedTier currentSpeedTier = SpeedTier.IDLE;
     private Double manualBpmOverride = null;
     private Boolean manualBeatOverride = null;
+    private Boolean manualFftBeatOverride = null;
+    private Boolean manualLevelBeatOverride = null;
     private Double manualRmsOverride = null;
     private double beatDimmer = 0.0;
+    private double beatDimmerFft = 0.0;
+    private double beatDimmerLevel = 0.0;
     private boolean wasBeatHeld = false;
     private long lastTickTime = System.nanoTime();
 
@@ -135,6 +139,8 @@ public class Sound2LightEngine {
         double bass = 0.0;
         double treble = 0.0;
         boolean isBeat = false;
+        boolean isFftBeat = false;
+        boolean isLevelBeat = false;
         boolean isBeatHeld = false;
         double detectedBpm = 0.0;
         boolean isManualMode = false;
@@ -150,9 +156,13 @@ public class Sound2LightEngine {
                 bass = (bands[0] + bands[1]) * 0.5;
                 treble = (bands[5] + bands[6] + bands[7]) / 3.0;
                 isBeat = bd.consumeBeat();
+                isFftBeat = bd.consumeBeat(de.exit.sound2artnet.audio.BeatDetector.DetectionMode.BEAT_DETECT);
+                isLevelBeat = bd.consumeBeat(de.exit.sound2artnet.audio.BeatDetector.DetectionMode.LEVEL_DETECT);
                 detectedBpm = bd.getEstimatedBpm();
             } else if (isManualMode) {
                 isBeat = bd.consumeBeat();
+                isFftBeat = isBeat;
+                isLevelBeat = isBeat;
                 detectedBpm = bd.getEstimatedBpm();
             }
         }
@@ -162,7 +172,19 @@ public class Sound2LightEngine {
         }
         if (manualBeatOverride != null) {
             isBeat = manualBeatOverride;
+            if (manualBeatOverride) {
+                isFftBeat = true;
+                isLevelBeat = true;
+            }
             manualBeatOverride = null;
+        }
+        if (manualFftBeatOverride != null) {
+            isFftBeat = manualFftBeatOverride;
+            manualFftBeatOverride = null;
+        }
+        if (manualLevelBeatOverride != null) {
+            isLevelBeat = manualLevelBeatOverride;
+            manualLevelBeatOverride = null;
         }
         if (manualRmsOverride != null) {
             rms = manualRmsOverride;
@@ -172,7 +194,14 @@ public class Sound2LightEngine {
         this.currentBpm = detectedBpm;
         this.currentSpeedTier = SpeedTier.fromBpm(detectedBpm);
 
-        // 2. Dimmer Beat Flash aktualisieren (hält exakt solange die MIDI-/Beat-Taste gedrückt bleibt)
+        // 2. Dimmer Beat Flash aktualisieren (global & pro Erkennungs-Modus)
+        double dimmerDecay = switch (currentSpeedTier) {
+            case IDLE, SLOW -> 2.6;
+            case MEDIUM -> 3.8;
+            case FAST -> 5.0;
+            case RAVE -> 6.2;
+        };
+
         if (isBeat || isBeatHeld) {
             beatDimmer = 1.0;
         } else if (wasBeatHeld) {
@@ -180,13 +209,19 @@ public class Sound2LightEngine {
             beatDimmer = 0.0;
             colorEngine.stopStrobeBurst();
         } else {
-            double dimmerDecay = switch (currentSpeedTier) {
-                case IDLE, SLOW -> 2.6;
-                case MEDIUM -> 3.8;
-                case FAST -> 5.0;
-                case RAVE -> 6.2;
-            };
             beatDimmer = Math.max(0.0, beatDimmer - (deltaSeconds * dimmerDecay));
+        }
+
+        if (isFftBeat || isBeatHeld) {
+            beatDimmerFft = 1.0;
+        } else {
+            beatDimmerFft = Math.max(0.0, beatDimmerFft - (deltaSeconds * dimmerDecay));
+        }
+
+        if (isLevelBeat || isBeatHeld) {
+            beatDimmerLevel = 1.0;
+        } else {
+            beatDimmerLevel = Math.max(0.0, beatDimmerLevel - (deltaSeconds * dimmerDecay));
         }
         wasBeatHeld = isBeatHeld;
 
@@ -295,7 +330,35 @@ public class Sound2LightEngine {
             int tiltDmx = patch.computeTiltDmx(normPos[1]);
             int tiltFineDmx = patch.computeTiltFineDmx(normPos[1]);
 
-            int fixtureDimmer = masterDimmerVal;
+            // Fixture-spezifische Erkennung & Dimmer-Modus auflösen
+            var bd = (audioCapture != null) ? audioCapture.getAnalyzer().getBeatDetector() : null;
+            var globalDet = (bd != null) ? bd.getDetectionMode() : de.exit.sound2artnet.audio.BeatDetector.DetectionMode.LEVEL_DETECT;
+            var effDet = patch.getDetectionMode() != null ? patch.getDetectionMode() : globalDet;
+            var effDim = patch.getDimmerMode() != null ? patch.getDimmerMode() : this.dimmerMode;
+
+            double fixtureBeatDimmer = switch (effDet) {
+                case BEAT_DETECT -> beatDimmerFft;
+                case LEVEL_DETECT -> beatDimmerLevel;
+                case MANUAL -> (isBeatHeld ? 1.0 : beatDimmer);
+            };
+
+            int currentFixtureDimmerVal = 0;
+            if (effectiveLight) {
+                double rawVal = switch (effDim) {
+                    case BEAT_PULSE -> fixtureBeatDimmer * 255.0;
+                    case ALWAYS_ON -> alwaysOnIntensity * 255.0;
+                    case AUDIO_LEVEL -> {
+                        double baseLevel = (isBeatHeld || (isManualMode && rms < 0.02))
+                                ? fixtureBeatDimmer
+                                : Math.min(1.0, rms * 3.5);
+                        yield baseLevel * audioLevelMax * 255.0;
+                    }
+                    default -> alwaysOnIntensity * 255.0;
+                };
+                currentFixtureDimmerVal = (int) Math.round(rawVal * masterDimmer);
+            }
+
+            int fixtureDimmer = currentFixtureDimmerVal;
             double rgbStrobeMod = 1.0;
             if (strobeActive) {
                 if (hasStrobeChannel) {
@@ -310,7 +373,7 @@ public class Sound2LightEngine {
                 }
             }
 
-            double colorDimmerMod = hasDimmerChannel ? 1.0 : (masterDimmerVal / 255.0);
+            double colorDimmerMod = hasDimmerChannel ? 1.0 : (currentFixtureDimmerVal / 255.0);
             int goboWheelCounter = 0;
             int rgbHeadIndex = 0;
             Color headColor = activeColor;
@@ -352,7 +415,10 @@ public class Sound2LightEngine {
                     case PRISM -> val = cm.getDefaultValue();
                     case FOCUS -> val = effectiveLight ? (cm.getDefaultValue() > 0 ? cm.getDefaultValue() : 180) : 0;
                     case LASER_PATTERN -> val = effectiveLight ? LASER_PATTERNS[currentLaserPatternStep] : 0;
-                    case LASER_SIZE -> val = effectiveLight ? (int) Math.round(Math.max(0, Math.min(255, smoothedLaserSize))) : 0;
+                    case LASER_SIZE -> {
+                        double fixtureLaserSize = 150.0 + (rms * 45.0) + (fixtureBeatDimmer * 30.0);
+                        val = effectiveLight ? (int) Math.round(Math.max(0, Math.min(255, fixtureLaserSize))) : 0;
+                    }
                     case LASER_AMPLITUDE -> val = effectiveLight ? (int) Math.round(Math.max(0, Math.min(255, smoothedLaserAmp))) : 0;
                     case LASER_SPEED -> {
                         if (!effectiveLight) {
@@ -558,6 +624,16 @@ public class Sound2LightEngine {
     public void setSimulatedBpmAndBeat(Double bpm, Boolean beat) {
         this.manualBpmOverride = bpm;
         this.manualBeatOverride = beat;
+    }
+
+    public void setSimulatedBeat(de.exit.sound2artnet.audio.BeatDetector.DetectionMode mode, boolean beat) {
+        if (mode == de.exit.sound2artnet.audio.BeatDetector.DetectionMode.BEAT_DETECT) {
+            this.manualFftBeatOverride = beat;
+        } else if (mode == de.exit.sound2artnet.audio.BeatDetector.DetectionMode.LEVEL_DETECT) {
+            this.manualLevelBeatOverride = beat;
+        } else {
+            this.manualBeatOverride = beat;
+        }
     }
 
     public void setSimulatedRms(Double rms) {

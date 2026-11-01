@@ -1,5 +1,7 @@
 package de.exit.sound2artnet.ui.component;
 
+import de.exit.sound2artnet.audio.BeatDetector;
+import de.exit.sound2artnet.engine.Sound2LightEngine;
 import de.exit.sound2artnet.fixture.ChannelFunction;
 import de.exit.sound2artnet.fixture.ChannelMapping;
 import de.exit.sound2artnet.fixture.FixtureLibrary;
@@ -23,6 +25,7 @@ import javafx.scene.text.FontWeight;
 import javafx.stage.FileChooser;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
+import javafx.util.StringConverter;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -42,6 +45,8 @@ public class FixtureEditorDialog extends Stage {
     private Spinner<Integer> spUniverse;
     private Spinner<Integer> spStartAddr;
     private ComboBox<FixtureProfile> cbPresets;
+    private ComboBox<BeatDetector.DetectionMode> cbDetectionMode;
+    private ComboBox<Sound2LightEngine.DimmerMode> cbDimmerMode;
     private CheckBox chkInvertPan;
     private CheckBox chkInvertTilt;
     private Slider slPanMin;
@@ -83,12 +88,13 @@ public class FixtureEditorDialog extends Stage {
         buildHeader(root);
         buildPresetBar(root);
         buildChannelTable(root);
+        buildModesSection(root);
         buildLimitsSection(root);
         buildButtonBar(root);
 
         loadPatchData();
 
-        Scene scene = new Scene(root, 650, 680);
+        Scene scene = new Scene(root, 650, 740);
         try {
             scene.getStylesheets().add(getClass().getResource("/styles/material-dark.css").toExternalForm());
         } catch (Exception ignored) {}
@@ -313,6 +319,77 @@ public class FixtureEditorDialog extends Stage {
         root.getChildren().add(box);
     }
 
+    private void buildModesSection(VBox root) {
+        VBox box = new VBox(8);
+        box.setPadding(new Insets(10));
+        box.setStyle("-fx-background-color: " + MaterialTheme.HEX_SURFACE_1DP + "; -fx-background-radius: 4px; -fx-border-color: " + MaterialTheme.HEX_DIVIDER + "; -fx-border-radius: 4px;");
+
+        Label lbl = new Label(I18n.get("editor.modes_header"));
+        lbl.setTextFill(MaterialTheme.COLOR_PRIMARY);
+        lbl.setFont(Font.font("Segoe UI", FontWeight.BOLD, 10));
+
+        HBox row = new HBox(16);
+        row.setAlignment(Pos.CENTER_LEFT);
+
+        // 1. Detection Mode
+        VBox boxDet = new VBox(4);
+        HBox.setHgrow(boxDet, Priority.ALWAYS);
+        Label lblDet = new Label(I18n.get("editor.detect_mode"));
+        lblDet.setTextFill(MaterialTheme.COLOR_TEXT_MED);
+        lblDet.setFont(Font.font("Segoe UI", 11));
+
+        cbDetectionMode = new ComboBox<>();
+        cbDetectionMode.getItems().add(null);
+        cbDetectionMode.getItems().addAll(BeatDetector.DetectionMode.values());
+        cbDetectionMode.setCellFactory(lv -> new ListCell<>() {
+            @Override
+            protected void updateItem(BeatDetector.DetectionMode item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty ? "" : (item == null ? I18n.get("patch.mode.default") : item.getDisplayName()));
+            }
+        });
+        cbDetectionMode.setButtonCell(new ListCell<>() {
+            @Override
+            protected void updateItem(BeatDetector.DetectionMode item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty ? "" : (item == null ? I18n.get("patch.mode.default") : item.getDisplayName()));
+            }
+        });
+        cbDetectionMode.setMaxWidth(Double.MAX_VALUE);
+        boxDet.getChildren().addAll(lblDet, cbDetectionMode);
+
+        // 2. Dimmer Mode
+        VBox boxDim = new VBox(4);
+        HBox.setHgrow(boxDim, Priority.ALWAYS);
+        Label lblDim = new Label(I18n.get("editor.dimmer_mode"));
+        lblDim.setTextFill(MaterialTheme.COLOR_TEXT_MED);
+        lblDim.setFont(Font.font("Segoe UI", 11));
+
+        cbDimmerMode = new ComboBox<>();
+        cbDimmerMode.getItems().add(null);
+        cbDimmerMode.getItems().addAll(Sound2LightEngine.DimmerMode.values());
+        cbDimmerMode.setCellFactory(lv -> new ListCell<>() {
+            @Override
+            protected void updateItem(Sound2LightEngine.DimmerMode item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty ? "" : (item == null ? I18n.get("patch.mode.default") : item.getDisplayName()));
+            }
+        });
+        cbDimmerMode.setButtonCell(new ListCell<>() {
+            @Override
+            protected void updateItem(Sound2LightEngine.DimmerMode item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty ? "" : (item == null ? I18n.get("patch.mode.default") : item.getDisplayName()));
+            }
+        });
+        cbDimmerMode.setMaxWidth(Double.MAX_VALUE);
+        boxDim.getChildren().addAll(lblDim, cbDimmerMode);
+
+        row.getChildren().addAll(boxDet, boxDim);
+        box.getChildren().addAll(lbl, row);
+        root.getChildren().add(box);
+    }
+
     private void buildLimitsSection(VBox root) {
         VBox box = new VBox(8);
         box.setPadding(new Insets(10));
@@ -387,6 +464,8 @@ public class FixtureEditorDialog extends Stage {
     private void loadPatchData() {
         txtName.setText(patch.getName());
         spStartAddr.getValueFactory().setValue(patch.getStartAddress());
+        cbDetectionMode.setValue(patch.getDetectionMode());
+        cbDimmerMode.setValue(patch.getDimmerMode());
         chkInvertPan.setSelected(patch.isInvertPan());
         chkInvertTilt.setSelected(patch.isInvertTilt());
         slPanMin.setValue(patch.getPanMin());
@@ -453,6 +532,8 @@ public class FixtureEditorDialog extends Stage {
             target.setTiltMin((int) Math.round(slTiltMin.getValue()));
             target.setTiltMax((int) Math.round(slTiltMax.getValue()));
             target.setPhaseOffset(slPhase.getValue() * Math.PI / 180.0);
+            target.setDetectionMode(cbDetectionMode.getValue());
+            target.setDimmerMode(cbDimmerMode.getValue());
             target.setProfile(prof.copy());
 
             if (onSave != null) {

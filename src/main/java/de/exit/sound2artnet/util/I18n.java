@@ -243,6 +243,12 @@ public class I18n {
         EN.put("patch.col.limits", "Pan/Tilt Invert & Limits");
         DE.put("patch.col.phase", "Phasenversatz");
         EN.put("patch.col.phase", "Phase Offset");
+        DE.put("patch.col.detect", "Erkennung");
+        EN.put("patch.col.detect", "Detection");
+        DE.put("patch.col.dimmer", "Dimmer");
+        EN.put("patch.col.dimmer", "Dimmer");
+        DE.put("patch.mode.default", "Standard");
+        EN.put("patch.mode.default", "Default");
         DE.put("patch.limits.default", "Standard");
         EN.put("patch.limits.default", "Default");
 
@@ -474,6 +480,12 @@ public class I18n {
         EN.put("editor.col_function", "Function");
         DE.put("editor.col_default", "Standard-Wert");
         EN.put("editor.col_default", "Default Value");
+        DE.put("editor.modes_header", "ERKENNUNG & DIMMER-MODUS");
+        EN.put("editor.modes_header", "DETECTION & DIMMER MODE");
+        DE.put("editor.detect_mode", "Erkennungs-Modus:");
+        EN.put("editor.detect_mode", "Detection Mode:");
+        DE.put("editor.dimmer_mode", "Dimmer-Modus:");
+        EN.put("editor.dimmer_mode", "Dimmer Mode:");
         DE.put("editor.limits_header", "MOVING HEAD SCHUTZGRENZEN & BEWEGUNGSPARAMETER");
         EN.put("editor.limits_header", "MOVING HEAD LIMITS & MOTION PARAMETERS");
         DE.put("editor.invert_pan", "Pan invertieren");
