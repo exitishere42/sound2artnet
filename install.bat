@@ -4,7 +4,7 @@ chcp 65001 >nul 2>&1
 
 set "REPO=exitishere42/sound2artnet"
 set "INSTALL_DIR=%USERPROFILE%\sound2artnet"
-set "JAR_NAME=sound2artnet-1.13.1-all.jar"
+set "JAR_NAME=sound2artnet-1.13.2-all.jar"
 set "RELEASE_URL=https://github.com/%REPO%/releases/latest/download"
 set "RAW_URL=https://raw.githubusercontent.com/%REPO%/main"
 
@@ -18,18 +18,17 @@ echo ==================================================================
 :: ------------------------------------------------------------------------------
 set "JAVA_OK=0"
 where java >nul 2>&1
-if %ERRORLEVEL% EQU 0 (
-    for /f "tokens=*" %%v in ('powershell -NoProfile -Command "$v = (java -version 2>&1 | Select-Object -First 1); if ($v -match '\"(\d+)') { [int]$Matches[1] } else { 0 }"') do (
-        if %%v GEQ 21 set "JAVA_OK=1"
-    )
-)
+if errorlevel 1 goto :check_java_done
+powershell -NoProfile -Command "$v = (java -version 2>&1 | Out-String); if ($v -match '\"(\d+)' -and [int]$Matches[1] -ge 21) { exit 0 } else { exit 1 }" >nul 2>&1
+if not errorlevel 1 set "JAVA_OK=1"
+:check_java_done
 
 if "%JAVA_OK%"=="1" (
     echo [OK] Java 21+ ist bereits installiert - ueberspringe Java-Installation.
 ) else (
     echo [*] Java 21+ nicht gefunden. Installiere neuestes OpenJDK 21 LTS...
     where winget >nul 2>&1
-    if %ERRORLEVEL% EQU 0 (
+    if not errorlevel 1 (
         winget install --id EclipseAdoptium.Temurin.21.JRE -e --accept-source-agreements --accept-package-agreements
     ) else (
         echo [*] Lade OpenJDK 21 MSI direkt von Adoptium herunter...
@@ -87,6 +86,6 @@ powershell -NoProfile -Command ^
 echo ==================================================================
 echo   [OK] Installation erfolgreich abgeschlossen!
 echo   Ordner:      %INSTALL_DIR%
-echo   Startmenue:  sound2artnet (mit Logo direkt im Startmenue & Desktop)
+echo   Startmenue:  sound2artnet (mit Logo im Startmenue und auf dem Desktop)
 echo ==================================================================
 pause
