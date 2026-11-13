@@ -90,6 +90,7 @@ public class Sound2LightEngine {
     private boolean movementEnabled = true;
     private boolean lightEnabled = true;
     private boolean strobeEnabled = true;
+    private boolean idleAnimationEnabled = true;
     private volatile boolean manualStrobe = false;
     private boolean goboEnabled = false;
     private volatile boolean blackout = false;
@@ -252,7 +253,7 @@ public class Sound2LightEngine {
 
         // Sanfte, ruhige Strahl-Drehung
         double laserRotSpeed = switch (currentSpeedTier) {
-            case IDLE -> 0.08;
+            case IDLE -> idleAnimationEnabled ? 0.08 : 0.0;
             case SLOW -> 0.18;
             case MEDIUM -> 0.35;
             case FAST -> 0.65;
@@ -654,5 +655,15 @@ public class Sound2LightEngine {
 
     public void setAudioLevelMax(double audioLevelMax) {
         this.audioLevelMax = Math.max(0.0, Math.min(1.0, audioLevelMax));
+    }
+
+    public boolean isIdleAnimationEnabled() {
+        return idleAnimationEnabled;
+    }
+
+    public void setIdleAnimationEnabled(boolean idleAnimationEnabled) {
+        this.idleAnimationEnabled = idleAnimationEnabled;
+        this.movementGenerator.setIdleAnimationEnabled(idleAnimationEnabled);
+        this.colorEngine.setIdleAnimationEnabled(idleAnimationEnabled);
     }
 }

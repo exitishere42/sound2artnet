@@ -188,6 +188,7 @@ public class MainWindow extends StackPane {
     private CheckBox chkLightEnabled;
     private CheckBox chkStrobeEnabled;
     private CheckBox chkGoboEnabled;
+    private CheckBox chkIdleAnimation;
     private Label lblDetectMode;
     private ComboBox<BeatDetector.DetectionMode> cbDetectionMode;
     private Label lblBeatSens;
@@ -243,6 +244,7 @@ public class MainWindow extends StackPane {
         showEngine.setLightEnabled(config.isLightEnabled());
         showEngine.setStrobeEnabled(config.isStrobeEnabled());
         showEngine.setGoboEnabled(config.isGoboEnabled());
+        showEngine.setIdleAnimationEnabled(config.isIdleAnimationEnabled());
         showEngine.setMovementPattern(config.getMovementPattern());
         showEngine.setDimmerMode(config.getDimmerMode());
         showEngine.setAlwaysOnIntensity(config.getAlwaysOnIntensity());
@@ -1018,7 +1020,13 @@ public class MainWindow extends StackPane {
         chkGoboEnabled = new CheckBox(I18n.get("engine.gobo"));
         chkGoboEnabled.setSelected(showEngine.isGoboEnabled());
         chkGoboEnabled.setTextFill(MaterialTheme.COLOR_TEXT_HIGH);
-        activeBox.getChildren().addAll(chkMovementEnabled, chkLightEnabled, chkStrobeEnabled, chkGoboEnabled);
+
+        chkIdleAnimation = new CheckBox(I18n.get("engine.idle_animation"));
+        chkIdleAnimation.setSelected(showEngine.isIdleAnimationEnabled());
+        chkIdleAnimation.setTextFill(MaterialTheme.COLOR_TEXT_HIGH);
+        MaterialTooltip.install(chkIdleAnimation, () -> I18n.get("engine.idle_animation"), () -> I18n.get("tooltip.idle_animation"));
+
+        activeBox.getChildren().addAll(chkMovementEnabled, chkLightEnabled, chkStrobeEnabled, chkGoboEnabled, chkIdleAnimation);
 
         // 1. Erkennungs-Modus (Level-Detect / Beat-Detect / Manuell)
         lblDetectMode = new Label(I18n.get("engine.detection_mode"));
@@ -1217,6 +1225,7 @@ public class MainWindow extends StackPane {
             cbPattern.setDisable(!mov);
             slSpeed.setDisable(!mov);
             slAmplitude.setDisable(!mov);
+            chkIdleAnimation.setDisable(!mov);
             cbDimmerMode.setDisable(!lgt);
             slAlwaysOnIntensity.setDisable(!lgt);
             slAudioLevelMax.setDisable(!lgt);
@@ -1245,6 +1254,10 @@ public class MainWindow extends StackPane {
         chkGoboEnabled.setOnAction(e -> {
             showEngine.setGoboEnabled(chkGoboEnabled.isSelected());
             updateDisabledStates.run();
+            autoSaveConfig();
+        });
+        chkIdleAnimation.setOnAction(e -> {
+            showEngine.setIdleAnimationEnabled(chkIdleAnimation.isSelected());
             autoSaveConfig();
         });
 
@@ -1483,6 +1496,10 @@ public class MainWindow extends StackPane {
             chkGoboEnabled.setSelected(preset.isGoboEnabled());
             showEngine.setGoboEnabled(preset.isGoboEnabled());
         }
+        if (chkIdleAnimation != null) {
+            chkIdleAnimation.setSelected(preset.isIdleAnimationEnabled());
+            showEngine.setIdleAnimationEnabled(preset.isIdleAnimationEnabled());
+        }
 
         if (isRunning) {
             try {
@@ -1526,6 +1543,7 @@ public class MainWindow extends StackPane {
         sel.setLightEnabled(chkLightEnabled != null && chkLightEnabled.isSelected());
         sel.setStrobeEnabled(chkStrobeEnabled != null && chkStrobeEnabled.isSelected());
         sel.setGoboEnabled(chkGoboEnabled != null && chkGoboEnabled.isSelected());
+        sel.setIdleAnimationEnabled(chkIdleAnimation != null && chkIdleAnimation.isSelected());
         sel.touch();
 
         config.setActivePresetId(sel.getId());
@@ -1627,6 +1645,7 @@ public class MainWindow extends StackPane {
             );
 
             presetList.add(newPreset);
+            newPreset.setIdleAnimationEnabled(chkIdleAnimation != null && chkIdleAnimation.isSelected());
             config.setActivePresetId(newPreset.getId());
             saveStateToConfig();
 
@@ -2202,6 +2221,7 @@ public class MainWindow extends StackPane {
         if (chkLightEnabled != null) chkLightEnabled.setText(I18n.get("engine.light"));
         if (chkStrobeEnabled != null) chkStrobeEnabled.setText(I18n.get("engine.strobe"));
         if (chkGoboEnabled != null) chkGoboEnabled.setText(I18n.get("engine.gobo"));
+        if (chkIdleAnimation != null) chkIdleAnimation.setText(I18n.get("engine.idle_animation"));
 
         if (lblDetectMode != null) lblDetectMode.setText(I18n.get("engine.detection_mode"));
         if (lblBeatSens != null) lblBeatSens.setText(I18n.get("engine.beat_sensitivity"));
@@ -2804,6 +2824,9 @@ public class MainWindow extends StackPane {
         }
         if (chkGoboEnabled != null) {
             config.setGoboEnabled(chkGoboEnabled.isSelected());
+        }
+        if (chkIdleAnimation != null) {
+            config.setIdleAnimationEnabled(chkIdleAnimation.isSelected());
         }
         config.setMovementPattern(cbPattern.getValue());
         config.setMovementSpeed(slSpeed.getValue());

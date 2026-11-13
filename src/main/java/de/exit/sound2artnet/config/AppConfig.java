@@ -28,6 +28,7 @@ public class AppConfig {
     private boolean lightEnabled = true;
     private boolean strobeEnabled = true;
     private boolean goboEnabled = false;
+    private boolean idleAnimationEnabled = true;
     private MovementPattern movementPattern = MovementPattern.AUTO_BPM;
     private double movementSpeed = 1.0;
     private double movementSize = 0.8;
@@ -142,6 +143,9 @@ public class AppConfig {
     public boolean isGoboEnabled() { return goboEnabled; }
     public void setGoboEnabled(boolean goboEnabled) { this.goboEnabled = goboEnabled; }
 
+    public boolean isIdleAnimationEnabled() { return idleAnimationEnabled; }
+    public void setIdleAnimationEnabled(boolean idleAnimationEnabled) { this.idleAnimationEnabled = idleAnimationEnabled; }
+
     public MovementPattern getMovementPattern() { return movementPattern; }
     public void setMovementPattern(MovementPattern movementPattern) { this.movementPattern = movementPattern; }
 
@@ -215,6 +219,7 @@ public class AppConfig {
                     this.lightEnabled,
                     this.strobeEnabled,
                     this.goboEnabled,
+                    this.idleAnimationEnabled,
                     null
             );
             presets.add(standard);

@@ -21,6 +21,7 @@ public class MovementGenerator {
     private double currentSpeed = 1.0;
     private double baseAmplitude = 0.8;
     private double audioReactivity = 0.5;
+    private boolean idleAnimationEnabled = true;
 
     private int bounceIndex = 0;
     private int beatCount = 0;
@@ -124,7 +125,9 @@ public class MovementGenerator {
 
         // 4. Dynamischer Phasenfortschritt passend zur BPM mit weicher Richtungsumkehr
         double beatBoost = this.currentTier.isFastEffectTier() ? (beatPulse * 0.38) : (beatPulse * 0.15);
-        double effectiveSpeed = currentSpeed * tempoFactor * (1.0 + (audioEnergy * audioReactivity * 0.55) + beatBoost);
+        double effectiveSpeed = (!idleAnimationEnabled && this.currentTier == Sound2LightEngine.SpeedTier.IDLE)
+                ? 0.0
+                : currentSpeed * tempoFactor * (1.0 + (audioEnergy * audioReactivity * 0.55) + beatBoost);
 
         double targetDirection = ((beatCount / 16) % 2 == 0) ? 1.0 : -1.0;
         smoothedDirection += (targetDirection - smoothedDirection) * Math.min(1.0, this.lastDeltaSeconds * 3.0);
@@ -174,34 +177,43 @@ public class MovementGenerator {
      * inklusive weichem 1.2s-Crossfade bei Effektwechseln.
      */
     public synchronized double[] computePosition(FixturePatch patch, MovementPattern pattern, double audioEnergy) {
-        MovementPattern targetPattern = resolveActivePattern(pattern);
-        if (activeResolvedPattern == null) {
-            activeResolvedPattern = targetPattern;
-            previousResolvedPattern = targetPattern;
-            patternTransitionProgress = 1.0;
-        } else if (targetPattern != activeResolvedPattern) {
-            previousResolvedPattern = activeResolvedPattern;
-            activeResolvedPattern = targetPattern;
-            patternTransitionProgress = 0.0;
-        }
+        double rawPan;
+        double rawTilt;
 
-        double phaseOffset = (patch != null) ? patch.getPhaseOffset() : 0.0;
-        double p = phase + phaseOffset;
+        if (!idleAnimationEnabled && currentTier == Sound2LightEngine.SpeedTier.IDLE) {
+            // Wenn Idle-Animation deaktiviert ist und Stille/Ruhe anliegt, sanft in Grundstellung (Mitte) verharren
+            rawPan = 0.5;
+            rawTilt = 0.5;
+        } else {
+            MovementPattern targetPattern = resolveActivePattern(pattern);
+            if (activeResolvedPattern == null) {
+                activeResolvedPattern = targetPattern;
+                previousResolvedPattern = targetPattern;
+                patternTransitionProgress = 1.0;
+            } else if (targetPattern != activeResolvedPattern) {
+                previousResolvedPattern = activeResolvedPattern;
+                activeResolvedPattern = targetPattern;
+                patternTransitionProgress = 0.0;
+            }
 
-        double tierAmpBoost = currentTier.isFastEffectTier() ? (beatPulse * 0.16) : (beatPulse * 0.06);
-        double amp = Math.min(1.0, baseAmplitude * (0.65 + (audioEnergy * audioReactivity * 0.6) + tierAmpBoost));
+            double phaseOffset = (patch != null) ? patch.getPhaseOffset() : 0.0;
+            double p = phase + phaseOffset;
 
-        double[] currentPos = computeSinglePatternPosition(activeResolvedPattern, p, phaseOffset, amp);
+            double tierAmpBoost = currentTier.isFastEffectTier() ? (beatPulse * 0.16) : (beatPulse * 0.06);
+            double amp = Math.min(1.0, baseAmplitude * (0.65 + (audioEnergy * audioReactivity * 0.6) + tierAmpBoost));
 
-        double rawPan = currentPos[0];
-        double rawTilt = currentPos[1];
+            double[] currentPos = computeSinglePatternPosition(activeResolvedPattern, p, phaseOffset, amp);
 
-        // Weicher Crossfade (1.2s S-Kurve) zwischen vorherigem und neuem Effekt
-        if (patternTransitionProgress < 1.0 && previousResolvedPattern != null && previousResolvedPattern != activeResolvedPattern) {
-            double[] prevPos = computeSinglePatternPosition(previousResolvedPattern, p, phaseOffset, amp);
-            double blend = smoothstep(patternTransitionProgress);
-            rawPan = prevPos[0] * (1.0 - blend) + currentPos[0] * blend;
-            rawTilt = prevPos[1] * (1.0 - blend) + currentPos[1] * blend;
+            rawPan = currentPos[0];
+            rawTilt = currentPos[1];
+
+            // Weicher Crossfade (1.2s S-Kurve) zwischen vorherigem und neuem Effekt
+            if (patternTransitionProgress < 1.0 && previousResolvedPattern != null && previousResolvedPattern != activeResolvedPattern) {
+                double[] prevPos = computeSinglePatternPosition(previousResolvedPattern, p, phaseOffset, amp);
+                double blend = smoothstep(patternTransitionProgress);
+                rawPan = prevPos[0] * (1.0 - blend) + currentPos[0] * blend;
+                rawTilt = prevPos[1] * (1.0 - blend) + currentPos[1] * blend;
+            }
         }
 
         // Schnelle Folge-Glättung pro Fixture (verhindert 1-Frame-Spitzen, hält aber 100 % das 170-BPM-Tempo)
@@ -321,5 +333,13 @@ public class MovementGenerator {
 
     public void setAudioReactivity(double audioReactivity) {
         this.audioReactivity = Math.max(0.0, Math.min(1.0, audioReactivity));
+    }
+
+    public boolean isIdleAnimationEnabled() {
+        return idleAnimationEnabled;
+    }
+
+    public void setIdleAnimationEnabled(boolean idleAnimationEnabled) {
+        this.idleAnimationEnabled = idleAnimationEnabled;
     }
 }

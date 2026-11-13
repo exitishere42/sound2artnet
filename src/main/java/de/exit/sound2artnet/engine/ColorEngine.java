@@ -97,6 +97,7 @@ public class ColorEngine {
 
     private Palette currentPalette = Palette.CLUB_NEON;
     private GoboMode goboMode = GoboMode.AUTO_BEAT;
+    private boolean idleAnimationEnabled = true;
     private int currentColorIndex = 0;
     private Color currentColor = Palette.CLUB_NEON.colors[0];
     private Color targetColor = Palette.CLUB_NEON.colors[0];
@@ -152,7 +153,7 @@ public class ColorEngine {
 
         // 2. Überblend-Geschwindigkeit passend zur BPM-Stufe
         double fadeRate = switch (tier) {
-            case IDLE -> 2.0;
+            case IDLE -> idleAnimationEnabled ? 2.0 : 0.0;
             case SLOW -> 3.2;     // Weiche, langsame Übergänge bei ~90 BPM
             case MEDIUM -> 7.5;   // Ausgewogene Übergänge
             case FAST -> 14.0;    // Schnelle, flüssige Wechsel bei ~120 BPM
@@ -335,5 +336,13 @@ public class ColorEngine {
         if (r > 0.45 && g < 0.35 && b > 0.4) return 140; // Magenta / Violett
         if (r < 0.35 && g > 0.45 && b > 0.6) return 170; // Cyan / Electric Blue
         return 0; // Offen / Weiß
+    }
+
+    public boolean isIdleAnimationEnabled() {
+        return idleAnimationEnabled;
+    }
+
+    public void setIdleAnimationEnabled(boolean idleAnimationEnabled) {
+        this.idleAnimationEnabled = idleAnimationEnabled;
     }
 }

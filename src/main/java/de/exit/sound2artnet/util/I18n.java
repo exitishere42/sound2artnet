@@ -272,6 +272,10 @@ public class I18n {
         EN.put("engine.strobe", "Strobe");
         DE.put("engine.gobo", "Gobo");
         EN.put("engine.gobo", "Gobo");
+        DE.put("engine.idle_animation", "Idle-Animation");
+        EN.put("engine.idle_animation", "Idle Animation");
+        DE.put("tooltip.idle_animation", "Bewegt Fixtures auch bei Stille/Ruhe sanft weiter. Wenn deaktiviert, stoppen die Moving Heads bei Musikpause in Ruhelage.");
+        EN.put("tooltip.idle_animation", "Gently animates fixtures during silence/idle. When disabled, moving heads stop at neutral center during pauses.");
         DE.put("engine.detection_mode", "ERKENNUNGS-MODUS:");
         EN.put("engine.detection_mode", "DETECTION MODE:");
         DE.put("engine.beat_sensitivity", "BEAT-EMPFINDLICHKEIT:");
