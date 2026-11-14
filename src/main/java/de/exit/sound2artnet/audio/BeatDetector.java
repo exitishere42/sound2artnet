@@ -261,7 +261,11 @@ public class BeatDetector {
     public synchronized void triggerManualBeat(long nowMs) {
         this.isBeat = true;
         this.pendingBeat = true;
+        this.pendingLevelBeat = true;
+        this.pendingFftBeat = true;
         this.beatIntensity = 1.0;
+        this.levelBeatIntensity = 1.0;
+        this.fftBeatIntensity = 1.0;
 
         if (lastBeatTime >= 0) {
             double ioi = nowMs - lastBeatTime;
@@ -712,7 +716,7 @@ public class BeatDetector {
      * Engine-Tick ein Beat ausgelöst wurde (für individuelle Fixture-Erkennung).
      */
     public synchronized boolean consumeBeat(DetectionMode mode) {
-        if (mode == null || mode == this.detectionMode) {
+        if (mode == null) {
             return consumeBeat();
         }
         return switch (mode) {

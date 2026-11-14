@@ -106,7 +106,7 @@ Visually and structurally, **sound2artnet** features the exact same dark Materia
   - Tempo-Synced Scan Speed & 360° Rotation: Syncs scan frequencies to BPM speed tiers and drives continuous beam rotation.
   - Focus & Persistence Optimization: Guarantees razor-sharp beam rendering and beam sheet persistence without collapsing to a static line.
 - **Per-Fixture Individual Detection & Dimmer Modes**: Granular control per fixture patch. Configure individual detection sources (`Default`, `Level-Detect`, `Beat-Detect`, `Manual`) and dimmer behaviors (`Default`, `Audio Level`, `Beat Flash`, `Always On`) — allowing lasers to flash sharply on beat pulses while moving heads smoothly breathe with audio levels.
-- **In-App Update & Global Settings Dialog**: Click on the title logo badge (`v1.14.0`) to inspect release notes, check for updates, or switch global settings (e.g., German/English language, autostart).
+- **In-App Update & Global Settings Dialog**: Click on the title logo badge (`v1.14.1`) to inspect release notes, check for updates, or switch global settings (e.g., German/English language, autostart).
 - **Automatic Persistence**: All settings, MIDI bindings, profiles, and patched fixtures are automatically saved to `config.json`.
 
 ---

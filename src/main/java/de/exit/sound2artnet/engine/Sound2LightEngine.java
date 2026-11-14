@@ -337,11 +337,13 @@ public class Sound2LightEngine {
             var effDet = patch.getDetectionMode() != null ? patch.getDetectionMode() : globalDet;
             var effDim = patch.getDimmerMode() != null ? patch.getDimmerMode() : this.dimmerMode;
 
-            double fixtureBeatDimmer = switch (effDet) {
-                case BEAT_DETECT -> beatDimmerFft;
-                case LEVEL_DETECT -> beatDimmerLevel;
-                case MANUAL -> (isBeatHeld ? 1.0 : beatDimmer);
-            };
+            double fixtureBeatDimmer = (patch.getDetectionMode() == null)
+                    ? beatDimmer
+                    : switch (patch.getDetectionMode()) {
+                        case BEAT_DETECT -> beatDimmerFft;
+                        case LEVEL_DETECT -> beatDimmerLevel;
+                        case MANUAL -> (isBeatHeld ? 1.0 : beatDimmer);
+                    };
 
             int currentFixtureDimmerVal = 0;
             if (effectiveLight) {
