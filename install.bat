@@ -4,7 +4,7 @@ chcp 65001 >nul 2>&1
 
 set "REPO=exitishere42/sound2artnet"
 set "INSTALL_DIR=%USERPROFILE%\sound2artnet"
-set "JAR_NAME=sound2artnet-1.14.1-all.jar"
+set "JAR_NAME=sound2artnet-1.14.2-all.jar"
 set "RELEASE_URL=https://github.com/%REPO%/releases/latest/download"
 set "RAW_URL=https://raw.githubusercontent.com/%REPO%/main"
 
@@ -56,11 +56,14 @@ if not exist "%INSTALL_DIR%\%JAR_NAME%" (
     exit /b 1
 )
 
+:: Canonical version-unabhaengige JAR fuer permanente Verknuepfungen erstellen
+copy /y "%INSTALL_DIR%\%JAR_NAME%" "%INSTALL_DIR%\sound2artnet.jar" >nul 2>&1
+
 :: Startskript im Zielordner anlegen
 (
 echo @echo off
 echo cd /d "%%~dp0"
-echo start "" javaw -jar "%%~dp0%JAR_NAME%" %%*
+echo start "" javaw -jar "%%~dp0sound2artnet.jar" %%*
 ) > "%INSTALL_DIR%\run.bat"
 
 :: ------------------------------------------------------------------------------
@@ -76,7 +79,7 @@ powershell -NoProfile -Command ^
     "foreach ($lnkPath in @($smPath, $dtPath)) { " ^
     "  $s = $ws.CreateShortcut($lnkPath); " ^
     "  $s.TargetPath = $javaw; " ^
-    "  $s.Arguments = '-jar \"' + '%INSTALL_DIR%\%JAR_NAME%' + '\"'; " ^
+    "  $s.Arguments = '-jar \"' + '%INSTALL_DIR%\sound2artnet.jar' + '\"'; " ^
     "  $s.WorkingDirectory = '%INSTALL_DIR%'; " ^
     "  $s.IconLocation = '%INSTALL_DIR%\sound2artnet.ico,0'; " ^
     "  $s.Description = 'sound2artnet - Sound-to-Light & Moving Head Art-Net Controller'; " ^

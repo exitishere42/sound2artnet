@@ -26,7 +26,7 @@ import java.util.logging.Logger;
 public class UpdateService {
     private static final Logger LOGGER = Logger.getLogger(UpdateService.class.getName());
 
-    public static final String CURRENT_VERSION = "1.14.1";
+    public static final String CURRENT_VERSION = "1.14.2";
     public static final String GITHUB_REPO = "exitishere42/sound2artnet";
     public static final String API_URL = "https://api.github.com/repos/" + GITHUB_REPO + "/releases/latest";
     public static final String REPO_URL = "https://github.com/" + GITHUB_REPO;
@@ -214,6 +214,10 @@ public class UpdateService {
                     // Linux / macOS: Direktes Ersetzen möglich
                     statusCallback.accept("Wende Update an...");
                     Files.move(tempJar.toPath(), targetJar.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                    File canonicalJar = new File(installDir, "sound2artnet.jar");
+                    try {
+                        Files.copy(targetJar.toPath(), canonicalJar.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                    } catch (Exception ignored) {}
 
                     // run.sh aktualisieren, falls vorhanden
                     File runSh = new File(installDir, "run.sh");
@@ -221,14 +225,14 @@ public class UpdateService {
                         String runScriptContent = "#!/usr/bin/env bash\n" +
                                 "SCRIPT_DIR=\"$(cd \"$(dirname \"${BASH_SOURCE[0]}\")\" && pwd)\"\n" +
                                 "cd \"$SCRIPT_DIR\"\n" +
-                                "exec java -jar \"$SCRIPT_DIR/" + targetJar.getName() + "\" \"$@\"\n";
+                                "exec java -jar \"$SCRIPT_DIR/sound2artnet.jar\" \"$@\"\n";
                         Files.writeString(runSh.toPath(), runScriptContent);
                         runSh.setExecutable(true);
                         statusCallback.accept("Starte sound2artnet neu...");
                         new ProcessBuilder("bash", runSh.getAbsolutePath()).directory(installDir).start();
                     } else {
                         statusCallback.accept("Starte sound2artnet neu...");
-                        new ProcessBuilder("java", "-jar", targetJar.getAbsolutePath()).directory(installDir).start();
+                        new ProcessBuilder("java", "-jar", canonicalJar.getAbsolutePath()).directory(installDir).start();
                     }
                     System.exit(0);
                 } else {
@@ -240,22 +244,28 @@ public class UpdateService {
                             "chcp 65001 >nul 2>&1\r\n" +
                             "timeout /t 1 /nobreak >nul\r\n" +
                             ":wait\r\n" +
+                            "del \"%~dp0sound2artnet.jar\" >nul 2>&1\r\n" +
                             "del \"%~dp0sound2artnet-*-all.jar\" >nul 2>&1\r\n" +
+                            "if exist \"%~dp0sound2artnet.jar\" (\r\n" +
+                            "    timeout /t 1 /nobreak >nul\r\n" +
+                            "    goto wait\r\n" +
+                            ")\r\n" +
                             "if exist \"%~dp0" + runningJar + "\" (\r\n" +
                             "    timeout /t 1 /nobreak >nul\r\n" +
                             "    goto wait\r\n" +
                             ")\r\n" +
-                            "move /y \"%~dp0sound2artnet-update.jar\" \"%~dp0" + targetJar.getName() + "\" >nul 2>&1\r\n" +
-                            "if exist \"%~dp0run.bat\" (\r\n" +
-                            "    (\r\n" +
-                            "    echo @echo off\r\n" +
-                            "    echo cd /d \"%%~dp0\"\r\n" +
-                            "    echo start \"\" javaw -jar \"%%~dp0" + targetJar.getName() + "\" %%*\r\n" +
-                            "    ) > \"%~dp0run.bat\"\r\n" +
-                            "    start \"\" \"%~dp0run.bat\"\r\n" +
-                            ") else (\r\n" +
-                            "    start \"\" javaw -jar \"%~dp0" + targetJar.getName() + "\"\r\n" +
+                            "move /y \"%~dp0sound2artnet-update.jar\" \"%~dp0sound2artnet.jar\" >nul 2>&1\r\n" +
+                            "copy /y \"%~dp0sound2artnet.jar\" \"%~dp0" + targetJar.getName() + "\" >nul 2>&1\r\n" +
+                            "if not \"" + runningJar + "\"==\"sound2artnet.jar\" (\r\n" +
+                            "    copy /y \"%~dp0sound2artnet.jar\" \"%~dp0" + runningJar + "\" >nul 2>&1\r\n" +
                             ")\r\n" +
+                            "powershell -NoProfile -Command \"$ws = New-Object -ComObject WScript.Shell; $javaw = (Get-Command javaw -ErrorAction SilentlyContinue).Source; if (-not $javaw) { $javaw = 'javaw.exe' }; foreach ($p in @((Join-Path $env:APPDATA 'Microsoft\\Windows\\Start Menu\\Programs\\sound2artnet.lnk'), (Join-Path ([Environment]::GetFolderPath('Desktop')) 'sound2artnet.lnk'))) { if (Test-Path $p) { $s = $ws.CreateShortcut($p); $s.TargetPath = $javaw; $s.Arguments = '-jar \\\"%~dp0sound2artnet.jar\\\"'; $s.WorkingDirectory = '%~dp0'; $s.IconLocation = '%~dp0sound2artnet.ico,0'; $s.Save(); } }\" >nul 2>&1\r\n" +
+                            "(\r\n" +
+                            "echo @echo off\r\n" +
+                            "echo cd /d \"%%~dp0\"\r\n" +
+                            "echo start \"\" javaw -jar \"%%~dp0sound2artnet.jar\" %%*\r\n" +
+                            ") > \"%~dp0run.bat\"\r\n" +
+                            "start \"\" javaw -jar \"%~dp0sound2artnet.jar\"\r\n" +
                             "del \"%~f0\"\r\n";
 
                     Files.writeString(updateBat.toPath(), batContent);

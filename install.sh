@@ -10,7 +10,7 @@ set -e
 REPO="exitishere42/sound2artnet"
 INSTALL_DIR="${INSTALL_DIR:-$HOME/sound2artnet}"
 APP_NAME="sound2artnet"
-JAR_NAME="sound2artnet-1.14.1-all.jar"
+JAR_NAME="sound2artnet-1.14.2-all.jar"
 DETECTED_JAR=$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" 2>/dev/null | grep -o '"name": *"sound2artnet-[^"]*-all\.jar"' | head -n 1 | cut -d '"' -f 4 || true)
 if [ -n "$DETECTED_JAR" ]; then
     JAR_NAME="$DETECTED_JAR"
@@ -95,6 +95,8 @@ download_file "$RAW_BASE_URL/sound2artnet.svg" "$INSTALL_DIR/sound2artnet.svg"
 download_file "$RAW_BASE_URL/uninstall.sh" "$INSTALL_DIR/uninstall.sh" || true
 chmod +x "$INSTALL_DIR/uninstall.sh" 2>/dev/null || true
 
+cp -f "$INSTALL_DIR/$JAR_NAME" "$INSTALL_DIR/sound2artnet.jar" 2>/dev/null || true
+
 if [ -f "$INSTALL_DIR/$APPIMAGE_NAME" ]; then
     chmod +x "$INSTALL_DIR/$APPIMAGE_NAME"
 fi
@@ -104,7 +106,7 @@ cat > "$INSTALL_DIR/run.sh" << EOF
 #!/usr/bin/env bash
 SCRIPT_DIR="\$(cd "\$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
 cd "\$SCRIPT_DIR"
-exec java -jar "\$SCRIPT_DIR/$JAR_NAME" "\$@"
+exec java -jar "\$SCRIPT_DIR/sound2artnet.jar" "\$@"
 EOF
 chmod +x "$INSTALL_DIR/run.sh"
 
